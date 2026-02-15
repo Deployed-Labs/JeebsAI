@@ -1,0 +1,20 @@
+# Rust build and dependency files
+target/
+Cargo.lock
+
+# IDE/editor files
+*.swp
+*.swo
+*.vscode/
+.idea/
+.DS_Store
+
+# Logs and temp
+*.log
+.scratch/
+jeebs_db
+update.tar.gz
+
+# Web UI build artifacts
+webui/dist/
+webui/node_modules/
