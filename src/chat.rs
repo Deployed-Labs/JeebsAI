@@ -44,7 +44,7 @@ pub async fn jeebs_api(
     // Update last_seen
     let _ = sqlx::query("UPDATE user_sessions SET last_seen = ? WHERE username = ?").bind(Local::now().to_rfc3339()).bind(username.as_deref().unwrap_or("")).execute(db).await;
 
-    println!("[API] user_id={} username={:?} ip={:?} prompt="{}"", user_id, username, http_req.peer_addr(), prompt);
+    println!("[API] user_id={} username={:?} ip={:?} prompt=\"{}\"", user_id, username, http_req.peer_addr(), prompt);
     
     let response = Cortex::think(prompt, &data).await;
     HttpResponse::Ok().json(JeebsResponse { response })

@@ -41,7 +41,7 @@ impl Cortex {
         scored_plugins.sort_by(|a, b| b.1.cmp(&a.1));
 
         for (plugin, _score) in scored_plugins {
-            if let Some(resp) = plugin.handle(prompt.to_string(), db.clone()).await {
+            if let Some(resp) = plugin.handle(prompt, db.clone()).await {
                 if resp.starts_with("Error:") {
                     report_error_to_evolution(db, plugin.name(), &resp).await;
                     crate::logging::log(db, "ERROR", "PLUGIN", &format!("Plugin {} failed: {}", plugin.name(), resp)).await;
