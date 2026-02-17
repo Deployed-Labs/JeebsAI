@@ -1,0 +1,72 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Release (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            binary_path: target/x86_64-unknown-linux-gnu/release/jeebs
+            binary_name: jeebs
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary_path: target/x86_64-pc-windows-msvc/release/jeebs.exe
+            binary_name: jeebs.exe
+    permissions:
+      contents: write
+      pull-requests: read
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: ${{ matrix.target }}
+        profile: minimal
+        override: true
+
+    - name: Build Release Binary
+      run: cargo build --release --target ${{ matrix.target }}
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Upload to S3
+      run: aws s3 cp ${{ matrix.binary_path }} s3://${{ secrets.AWS_S3_BUCKET }}/releases/${{ github.ref_name }}/${{ matrix.binary_name }}
+      env:
+        AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+
+    - name: Build Changelog
+      id: changelog
+      if: matrix.os == 'ubuntu-latest'
+      uses: mikepenz/release-changelog-builder-action@v4
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      if: matrix.os == 'ubuntu-latest'
+      with:
+        body: ${{ steps.changelog.outputs.changelog }}
+        files: ${{ matrix.binary_path }}
+
+    - name: Upload Release Asset (Windows)
+      uses: softprops/action-gh-release@v1
+      if: matrix.os == 'windows-latest'
+      with:
+        files: ${{ matrix.binary_path }}

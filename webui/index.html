@@ -5,29 +5,50 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jeebs Club</title>
     <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; background: #181c24; color: #f3f3f3; margin: 0; }
-        .container { max-width: 600px; margin: 60px auto; background: #23283a; border-radius: 16px; box-shadow: 0 4px 32px #0008; padding: 32px; }
-        .status { margin-bottom: 12px; min-height: 24px; color: #7fffd4; text-align: center; font-size: 1.05em; }
-        .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid #7fffd4; border-radius: 50%; border-top: 3px solid #23283a; animation: spin 1s linear infinite; vertical-align: middle; margin-left: 8px; }
+        :root {
+            --bg-main: #181c24;
+            --bg-card: #23283a;
+            --text-main: #f3f3f3;
+            --accent: #7fffd4;
+            --msg-user: #7fffd4;
+            --msg-jeebs: #ffd700;
+            --input-bg: #23283a;
+        }
+        body.light-mode {
+            --bg-main: #f4f4f9;
+            --bg-card: #ffffff;
+            --text-main: #333;
+            --accent: #00796b;
+            --msg-user: #00796b;
+            --msg-jeebs: #f57c00;
+            --input-bg: #f0f0f0;
+        }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg-main); color: var(--text-main); margin: 0; transition: background 0.3s, color 0.3s; }
+        .container { max-width: 600px; margin: 60px auto; background: var(--bg-card); border-radius: 16px; box-shadow: 0 4px 32px #0008; padding: 32px; position: relative; }
+        .status { margin-bottom: 12px; min-height: 24px; color: var(--accent); text-align: center; font-size: 1.05em; }
+        .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid var(--accent); border-radius: 50%; border-top: 3px solid var(--bg-card); animation: spin 1s linear infinite; vertical-align: middle; margin-left: 8px; }
         @keyframes spin { 100% { transform: rotate(360deg); } }
         form { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
         form input, form button { margin-bottom: 4px; }
         #loginBox form, #loginBox > form { flex-direction: column; align-items: stretch; gap: 6px; }
         #loginBox input, #loginBox button { width: 100%; }
-        h1 { text-align: center; color: #7fffd4; }
-        #chat { min-height: 300px; margin-bottom: 24px; padding: 16px; background: #1a1e2a; border-radius: 8px; overflow-y: auto; }
+        h1 { text-align: center; color: var(--accent); }
+        #chat { min-height: 300px; margin-bottom: 24px; padding: 16px; background: rgba(0,0,0,0.1); border-radius: 8px; overflow-y: auto; }
         .msg { margin: 8px 0; }
-        .user { color: #7fffd4; }
-        .jeebs { color: #ffd700; }
+        .user { color: var(--msg-user); }
+        .jeebs { color: var(--msg-jeebs); }
         form { display: flex; gap: 8px; }
-        input[type=text] { flex: 1; padding: 12px; border-radius: 8px; border: none; font-size: 1rem; background: #23283a; color: #f3f3f3; }
-        button { padding: 12px 24px; border-radius: 8px; border: none; background: #7fffd4; color: #181c24; font-weight: bold; font-size: 1rem; cursor: pointer; transition: background 0.2s; }
-        button:hover { background: #5ee6c1; }
+        input { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid transparent; font-size: 1rem; background: var(--input-bg); color: var(--text-main); }
+        input:focus { outline: none; border-color: var(--accent); }
+        button { padding: 12px 24px; border-radius: 8px; border: none; background: var(--accent); color: var(--bg-main); font-weight: bold; font-size: 1rem; cursor: pointer; transition: background 0.2s; }
+        button:hover { opacity: 0.9; }
+        .theme-toggle { position: absolute; top: 20px; right: 20px; background: transparent; color: var(--text-main); padding: 5px; font-size: 1.2rem; }
         @media (max-width: 700px) { .container { margin: 16px; padding: 16px; } }
     </style>
 </head>
 <body>
     <div class="container">
+        <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
         <h1>Jeebs Club</h1>
         <div id="session"></div>
         <div class="status" id="statusMsg"></div>
@@ -50,13 +71,28 @@
         let isAdmin = false;
         const statusMsg = document.getElementById('statusMsg');
 
+        // Theme Init
+        if (localStorage.getItem('theme') === 'light') document.body.classList.add('light-mode');
+        function toggleTheme() {
+            document.body.classList.toggle('light-mode');
+            localStorage.setItem('theme', document.body.classList.contains('light-mode') ? 'light' : 'dark');
+        }
+
+        // View Switcher
+        window.showView = function(viewName) {
+            ['login', 'register', 'reset', 'verify'].forEach(v => {
+                const el = document.getElementById('view-' + v);
+                if (el) el.style.display = (v === viewName) ? 'block' : 'none';
+            });
+        };
+
         function showStatus(msg, isError = false) {
             statusMsg.textContent = msg;
-            statusMsg.style.color = isError ? '#ff6b6b' : '#7fffd4';
+            statusMsg.style.color = isError ? '#ff6b6b' : 'var(--accent)';
         }
         function showSpinner(msg) {
             statusMsg.innerHTML = msg + ' <span class="spinner"></span>';
-            statusMsg.style.color = '#7fffd4';
+            statusMsg.style.color = 'var(--accent)';
         }
 
         async function fetchSession() {
@@ -103,38 +139,73 @@
             adminTrainBox.innerHTML = '';
             if (!loggedIn) {
                 box.innerHTML = `
-                <form id="loginForm" style="margin-bottom:8px;">
-                    <input type="text" id="loginUser" placeholder="Username" required />
-                    <input type="password" id="loginPass" placeholder="Password" required />
-                    <button type="submit">Login</button>
-                </form>
-                <form id="registerForm">
-                    <input type="text" id="regUser" placeholder="New Username" required />
-                    <input type="password" id="regPass" placeholder="New Password" required />
-                    <input type="email" id="regEmail" placeholder="Email" required />
-                    <button type="submit">Register</button>
-                </form>
-                <form id="resetForm" style="margin-top:8px;">
-                    <input type="text" id="resetUser" placeholder="Username" required />
-                    <input type="email" id="resetEmail" placeholder="Email" required />
-                    <button type="submit">Request Password Reset</button>
-                </form>
-                <form id="verifyForm" style="margin-top:8px;">
-                    <input type="text" id="verifyUser" placeholder="Username" required />
-                    <input type="text" id="verifyToken" placeholder="Verification Token" required />
-                    <button type="submit">Verify Email</button>
-                </form>
+                <div id="view-login">
+                    <form id="loginForm" style="margin-bottom:8px;">
+                        <input type="text" id="loginUser" placeholder="Username" required />
+                        <input type="password" id="loginPass" placeholder="Password" required />
+                        <label style="display:flex; align-items:center; gap:5px; font-size:0.9em; margin-bottom:10px; color:var(--text-main);">
+                            <input type="checkbox" id="rememberMe" style="width:auto; margin:0;"> Remember Me
+                        </label>
+                        <button type="submit">Login</button>
+                    </form>
+                    <div style="text-align:center; font-size:0.9em; margin-top:10px;">
+                        <a href="#" onclick="showView('register'); return false;">Create Account</a>
+                        <span style="color:var(--text-muted)"> | </span>
+                        <a href="#" onclick="showView('reset'); return false;">Forgot Password?</a>
+                    </div>
+                    <div style="text-align:center; font-size:0.8em; margin-top:5px;">
+                        <a href="#" onclick="showView('verify'); return false;">Verify Email</a>
+                    </div>
+                </div>
+
+                <div id="view-register" style="display:none;">
+                    <h3 style="text-align:center; margin-top:0;">Register</h3>
+                    <form id="registerForm">
+                        <input type="text" id="regUser" placeholder="New Username" required />
+                        <input type="password" id="regPass" placeholder="New Password" required />
+                        <input type="email" id="regEmail" placeholder="Email" required />
+                        <button type="submit">Register</button>
+                    </form>
+                    <div style="text-align:center; margin-top:10px;">
+                        <a href="#" onclick="showView('login'); return false;">Back to Login</a>
+                    </div>
+                </div>
+
+                <div id="view-reset" style="display:none;">
+                    <h3 style="text-align:center; margin-top:0;">Reset Password</h3>
+                    <form id="resetForm">
+                        <input type="text" id="resetUser" placeholder="Username" required />
+                        <input type="email" id="resetEmail" placeholder="Email" required />
+                        <button type="submit">Request Reset Link</button>
+                    </form>
+                    <div style="text-align:center; margin-top:10px;">
+                        <a href="#" onclick="showView('login'); return false;">Back to Login</a>
+                    </div>
+                </div>
+
+                <div id="view-verify" style="display:none;">
+                    <h3 style="text-align:center; margin-top:0;">Verify Email</h3>
+                    <form id="verifyForm">
+                        <input type="text" id="verifyUser" placeholder="Username" required />
+                        <input type="text" id="verifyToken" placeholder="Verification Token" required />
+                        <button type="submit">Verify</button>
+                    </form>
+                    <div style="text-align:center; margin-top:10px;">
+                        <a href="#" onclick="showView('login'); return false;">Back to Login</a>
+                    </div>
+                </div>
                 `;
                 document.getElementById('loginForm').onsubmit = async (e) => {
                     e.preventDefault();
                     showSpinner('Logging in...');
                     const usernameVal = document.getElementById('loginUser').value;
                     const passwordVal = document.getElementById('loginPass').value;
+                    const rememberVal = document.getElementById('rememberMe').checked;
                     try {
                         const res = await fetch('/api/login', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ username: usernameVal, password: passwordVal })
+                            body: JSON.stringify({ username: usernameVal, password: passwordVal, remember_me: rememberVal })
                         });
                         if (res.ok) {
                             const data = await res.json();
@@ -216,7 +287,10 @@
                     }
                 };
             } else {
-                box.innerHTML = `<span>Logged in as <b>${username || 'user'}</b>${isAdmin ? ' (admin)' : ''}</span> <button id="logoutBtn">Logout</button>`;
+                box.innerHTML = `
+                    <span>Logged in as <b>${username || 'user'}</b>${isAdmin ? ' (admin)' : ''}</span> 
+                    <a href="/profile.html" style="margin:0 10px; color:var(--accent);">Profile</a>
+                    <button id="logoutBtn">Logout</button>`;
                 document.getElementById('logoutBtn').onclick = async () => {
                     await fetch('/api/logout', { method: 'POST' });
                     loggedIn = false;
@@ -227,8 +301,14 @@
                 // Admin UI
                 if (isAdmin) {
                     adminTrainBox.innerHTML = `
-                        <form id="adminTrainForm" style="margin-top:18px; background:#1a1e2a; padding:16px; border-radius:8px;">
-                            <label for="trainUrl" style="color:#7fffd4; font-weight:bold;">Train Jeebs from URL:</label>
+                        <div style="margin-bottom: 16px; text-align: center; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+                            <a href="/admin_dashboard.html" style="background: var(--bg-card); border: 1px solid var(--accent); color: var(--accent); padding: 8px 16px; text-decoration: none; border-radius: 6px; font-weight: bold; transition: all 0.2s;">Dashboard</a>
+                            <a href="/logs.html" style="background: var(--bg-card); border: 1px solid #ffd700; color: #ffd700; padding: 8px 16px; text-decoration: none; border-radius: 6px; font-weight: bold; transition: all 0.2s;">Logs</a>
+                            <a href="/evolution.html" style="background: var(--bg-card); border: 1px solid #ff6b6b; color: #ff6b6b; padding: 8px 16px; text-decoration: none; border-radius: 6px; font-weight: bold; transition: all 0.2s;">Evolution</a>
+                            <a href="/status.html" style="background: var(--bg-card); border: 1px solid #4fc3f7; color: #4fc3f7; padding: 8px 16px; text-decoration: none; border-radius: 6px; font-weight: bold; transition: all 0.2s;">Status</a>
+                        </div>
+                        <form id="adminTrainForm" style="margin-top:18px; background:rgba(0,0,0,0.1); padding:16px; border-radius:8px;">
+                            <label for="trainUrl" style="color:var(--accent); font-weight:bold;">Train Jeebs from URL:</label>
                             <input type="text" id="trainUrl" placeholder="https://example.com/article" required style="margin:8px 0;" />
                             <button type="submit">Train</button>
                         </form>
@@ -262,7 +342,7 @@
 
                     // Admin user management UI
                     const adminUserBox = document.getElementById('adminUserBox');
-                    adminUserBox.innerHTML = '<span style="color:#7fffd4; font-weight:bold;">User Management:</span> <span id="userStatus"></span><div id="userList"></div>';
+                    adminUserBox.innerHTML = '<span style="color:var(--accent); font-weight:bold;">User Management:</span> <span id="userStatus"></span><div id="userList"></div>';
                     const userStatus = document.getElementById('userStatus');
                     const userList = document.getElementById('userList');
                     async function loadUsers() {
@@ -272,12 +352,20 @@
                             if (res.ok) {
                                 const users = await res.json();
                                 userList.innerHTML = users.map(u => `
-                                    <div style="margin:8px 0; background:#23283a; padding:8px; border-radius:6px;">
-                                        <b>${u.username}</b> (${u.email})${u.is_admin ? ' <span style="color:#ffd700;">[admin]</span>' : ''}
+                                    <div style="margin:8px 0; background:var(--bg-card); padding:8px; border-radius:6px; display:flex; align-items:center; gap:10px;">
+                                        <div style="flex-grow:1;">
+                                            <b>${u.username}</b> (${u.email})
+                                            <span style="color:#aaa; font-size:0.9em;">Role: ${u.role}</span>
+                                        </div>
                                         ${u.username !== 'admin' ? `
-                                            <button data-user="${u.username}" class="deleteUserBtn">Delete</button>
-                                            <button data-user="${u.username}" class="resetPassBtn">Reset Password</button>
-                                        ` : ''}
+                                            <select class="roleSelect" data-user="${u.username}" style="padding:4px; border-radius:4px;">
+                                                <option value="user" ${u.role === 'user' ? 'selected' : ''}>User</option>
+                                                <option value="moderator" ${u.role === 'moderator' ? 'selected' : ''}>Moderator</option>
+                                                <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option>
+                                            </select>
+                                            <button data-user="${u.username}" class="resetPassBtn" style="padding:4px 8px; font-size:0.8em;">Reset Pass</button>
+                                            <button data-user="${u.username}" class="deleteUserBtn" style="padding:4px 8px; font-size:0.8em; background:#d9534f;">Delete</button>
+                                        ` : '<span style="color:#ffd700;">[Root]</span>'}
                                     </div>
                                 `).join('');
                                 userStatus.textContent = '';
@@ -310,6 +398,19 @@
                                         } else {
                                             userStatus.textContent = 'Reset failed.';
                                         }
+                                    };
+                                });
+                                userList.querySelectorAll('.roleSelect').forEach(sel => {
+                                    sel.onchange = async () => {
+                                        const newRole = sel.value;
+                                        userStatus.textContent = 'Updating role...';
+                                        const res = await fetch('/api/admin/user/role', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ username: sel.dataset.user, role: newRole })
+                                        });
+                                        if (res.ok) userStatus.textContent = 'Role updated.';
+                                        else userStatus.textContent = 'Update failed.';
                                     };
                                 });
                             } else {

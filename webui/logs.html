@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jeebs System Logs</title>
+    <style>
+        :root {
+            --bg-main: #181c24;
+            --bg-card: #23283a;
+            --bg-log: #0d1117;
+            --text-main: #f3f3f3;
+            --text-muted: #888;
+            --accent: #7fffd4;
+            --border: #333;
+            --highlight: #ffeb3b;
+            --highlight-text: #181c24;
+        }
+        body.light-mode {
+            --bg-main: #f4f4f9;
+            --bg-card: #ffffff;
+            --bg-log: #eef;
+            --text-main: #333;
+            --text-muted: #666;
+            --accent: #00796b;
+            --border: #ccc;
+        }
+        body { font-family: 'Consolas', 'Monaco', monospace; background: var(--bg-main); color: var(--text-main); padding: 20px; margin: 0; transition: background 0.3s, color 0.3s; }
+        h1 { color: var(--accent); text-align: center; }
+        .controls { margin-bottom: 15px; display: flex; gap: 10px; align-items: center; justify-content: center; background: var(--bg-card); padding: 10px; border-radius: 8px; flex-wrap: wrap; }
+        button { padding: 8px 16px; border-radius: 4px; border: none; background: var(--accent); color: var(--bg-main); font-weight: bold; cursor: pointer; }
+        button:hover { opacity: 0.9; }
+        #log-container { 
+            background: var(--bg-log); 
+            border: 1px solid var(--border); 
+            border-radius: 8px; 
+            padding: 15px; 
+            height: 75vh; 
+            overflow-y: auto; 
+            font-size: 0.9rem; 
+            line-height: 1.4;
+            white-space: pre-wrap;
+        }
+        .log-entry { padding: 2px 0; border-bottom: 1px solid var(--border); }
+        .error { color: #ff6b6b; }
+        .warn { color: #ffd700; }
+        .info { color: #a5d6a7; }
+        a { color: var(--accent); text-decoration: none; }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-content { background: var(--bg-card); padding: 20px; border-radius: 8px; width: 80%; max-width: 800px; border: 1px solid var(--accent); position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .modal-close { position: absolute; top: 10px; right: 10px; background: transparent; border: none; color: #ff6b6b; font-size: 1.5em; cursor: pointer; }
+        .modal-row { margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 5px; }
+        .modal-label { color: var(--accent); font-weight: bold; display: inline-block; width: 100px; }
+        .modal-value { color: var(--text-main); }
+        .log-entry { cursor: pointer; transition: background 0.1s; }
+        .log-entry:hover { background: rgba(255,255,255,0.05); }
+        .highlight { background-color: var(--highlight); color: var(--highlight-text); font-weight: bold; border-radius: 2px; padding: 0 2px; }
+        .paused { background-color: #ff9800; color: #181c24; }
+        input, select { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--accent); padding: 8px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>System Logs</h1>
+    <div class="controls">
+        <a href="/">Back to Home</a>
+        <button onclick="toggleTheme()">🌓 Theme</button>
+        <select id="categoryFilter" onchange="fetchLogs()">
+            <option value="All">All Categories</option>
+            <!-- Populated by JS -->
+        </select>
+        <select id="levelFilter" onchange="fetchLogs()">
+            <option value="All">All Levels</option>
+            <option value="INFO">INFO</option>
+            <option value="WARN">WARN</option>
+            <option value="ERROR">ERROR</option>
+        </select>
+        <input type="text" id="searchInput" placeholder="Search logs..." onkeydown="if(event.key==='Enter'){currentPage=1;fetchLogs()}">
+        <input type="text" id="highlightInput" placeholder="Highlight..." oninput="renderCurrentLogs()">
+        <input type="datetime-local" id="startDate">
+        <input type="datetime-local" id="endDate">
+        <button onclick="clearLogs()" style="background: #ff6b6b; color: white;">Clear All Logs</button>
+        <button onclick="exportLogs()">Export to CSV</button>
+        <button onclick="fetchLogs()">Refresh</button>
+        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;" title="Use WebSocket for real-time updates">
+            <input type="checkbox" id="liveStream"> Live Stream
+        </label>
+        <button id="pauseBtn" onclick="togglePause()" style="display:none;">Pause</button>
+    </div>
+    <div class="controls" style="margin-top: 0; padding-top: 5px; background: transparent; justify-content: flex-end;">
+        <button onclick="changePage(-1)" style="background: #444; color: #eee; font-size: 0.8em; padding: 5px 10px;">&laquo; Prev</button>
+        <span id="pageIndicator" style="margin: 0 10px; font-family: sans-serif;">Page 1</span>
+        <button onclick="changePage(1)" style="background: #444; color: #eee; font-size: 0.8em; padding: 5px 10px;">Next &raquo;</button>
+    </div>
+    <div id="log-container">Loading logs...</div>
+    
+    <div id="logModal" class="modal-overlay" onclick="if(event.target===this)closeModal()">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+            <button onclick="copyLogDetails()" style="position: absolute; top: 10px; right: 50px; background: #444; color: #fff; border: 1px solid #777; padding: 5px 10px; border-radius: 4px; cursor: pointer;">Copy</button>
+            <h2 style="margin-top:0; color:#7fffd4;">Log Details</h2>
+            <div class="modal-row"><span class="modal-label">ID:</span> <span id="m-id" class="modal-value"></span></div>
+            <div class="modal-row"><span class="modal-label">Timestamp:</span> <span id="m-time" class="modal-value"></span></div>
+            <div class="modal-row"><span class="modal-label">Level:</span> <span id="m-level" class="modal-value"></span></div>
+            <div class="modal-row"><span class="modal-label">Category:</span> <span id="m-cat" class="modal-value"></span></div>
+            <div class="modal-row" style="border-bottom:none;"><span class="modal-label">Message:</span></div>
+            <pre id="m-msg" style="background:#0d1117; padding:10px; border-radius:4px; white-space:pre-wrap; max-height:400px; overflow-y:auto; color: #eee; font-family: 'Consolas', monospace;"></pre>
+        </div>
+    </div>
+
+    <script>
+        const container = document.getElementById('log-container');
+        let currentPage = 1;
+        const limit = 50;
+        let currentLogs = [];
+        let ws = null;
+        let isPaused = false;
+
+        // Theme Init
+        if (localStorage.getItem('theme') === 'light') document.body.classList.add('light-mode');
+        function toggleTheme() {
+            document.body.classList.toggle('light-mode');
+            localStorage.setItem('theme', document.body.classList.contains('light-mode') ? 'light' : 'dark');
+        }
+
+        async function fetchCategories() {
+            try {
+                const res = await fetch('/api/admin/log_categories');
+                if (res.ok) {
+                    const cats = await res.json();
+                    const select = document.getElementById('categoryFilter');
+                    const current = select.value;
+                    select.innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join('');
+                    if (cats.includes(current)) select.value = current;
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function fetchLogs() {
+            try {
+                const cat = document.getElementById('categoryFilter').value;
+                const level = document.getElementById('levelFilter').value;
+                const search = document.getElementById('searchInput').value;
+                const start = document.getElementById('startDate').value;
+                const end = document.getElementById('endDate').value;
+                let url = `/api/admin/logs?page=${currentPage}&limit=${limit}`;
+                if (cat && cat !== 'All') url += `?category=${encodeURIComponent(cat)}`;
+                if (level && level !== 'All') url += `&level=${encodeURIComponent(level)}`;
+                if (cat && cat !== 'All') url += `&category=${encodeURIComponent(cat)}`;
+                if (search) url += `&search=${encodeURIComponent(search)}`;
+                if (start) url += `&start_date=${encodeURIComponent(start)}`;
+                if (end) url += `&end_date=${encodeURIComponent(end)}`;
+
+                const res = await fetch(url);
+                if (res.status === 401 || res.status === 403) {
+                    container.innerHTML = '<span class="error">Access Denied. Admin privileges required.</span>';
+                    return;
+                }
+                if (!res.ok) {
+                    container.innerHTML = '<span class="error">Failed to fetch logs.</span>';
+                    return;
+                }
+                const logs = await res.json();
+                currentLogs = logs;
+                
+                document.getElementById('pageIndicator').innerText = `Page ${currentPage}`;
+                
+                renderCurrentLogs();
+            } catch (e) {
+                container.innerHTML = '<span class="error">Connection error.</span>';
+            }
+        }
+
+        function renderLogsHtml(logs) {
+            return logs.map((line) => {
+                let className = 'info';
+                if (line.level === 'ERROR') className = 'error';
+                else if (line.level === 'WARN') className = 'warn';
+                return `<div class="log-entry ${className.toLowerCase()}" onclick="showLogDetails(${line.id})">${renderLogContent(line)}</div>`;
+            }).join('');
+        }
+
+        function renderLogContent(line) {
+            return `<span style="color:var(--text-muted)">[${line.timestamp}]</span> <strong style="color:var(--accent)">[${line.category}]</strong> ${formatLogMessage(line.message)}`;
+        }
+
+        function renderCurrentLogs() {
+            if (!currentLogs || currentLogs.length === 0) {
+                container.innerHTML = '<i>No logs available.</i>';
+                return;
+            }
+            
+            const wasAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 50;
+            
+            // Render in reverse order (Oldest -> Newest) so newest is at bottom
+            const logsToRender = currentLogs.slice().reverse();
+            container.innerHTML = renderLogsHtml(logsToRender);
+            
+            if (wasAtBottom) {
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+
+        function formatLogMessage(text) {
+            const term = document.getElementById('highlightInput').value;
+            if (!term) return escapeHtml(text);
+            
+            const regex = new RegExp(`(${escapeRegExp(term)})`, 'gi');
+            return text.split(regex).map(part => {
+                if (part.toLowerCase() === term.toLowerCase()) {
+                    return `<span class="highlight">${escapeHtml(part)}</span>`;
+                }
+                return escapeHtml(part);
+            }).join('');
+        }
+
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        function exportLogs() {
+            const cat = document.getElementById('categoryFilter').value;
+            const level = document.getElementById('levelFilter').value;
+            const search = document.getElementById('searchInput').value;
+            const start = document.getElementById('startDate').value;
+            const end = document.getElementById('endDate').value;
+            let url = '/api/admin/logs/export';
+            let params = [];
+            if (cat && cat !== 'All') {
+                params.push(`category=${encodeURIComponent(cat)}`);
+            }
+            if (level && level !== 'All') params.push(`level=${encodeURIComponent(level)}`);
+            if (search) params.push(`search=${encodeURIComponent(search)}`);
+            if (start) params.push(`start_date=${encodeURIComponent(start)}`);
+            if (end) params.push(`end_date=${encodeURIComponent(end)}`);
+            if (params.length > 0) url += '?' + params.join('&');
+            window.location.href = url;
+        }
+
+        function changePage(delta) {
+            const newPage = currentPage + delta;
+            if (newPage < 1) return;
+            currentPage = newPage;
+            fetchLogs();
+        }
+
+        async function clearLogs() {
+            if (!confirm("Are you sure you want to delete ALL logs? This cannot be undone.")) return;
+            await fetch('/api/admin/logs', { method: 'DELETE' });
+            currentPage = 1;
+            fetchLogs();
+        }
+        
+        function togglePause() {
+            isPaused = !isPaused;
+            const btn = document.getElementById('pauseBtn');
+            if (isPaused) {
+                btn.textContent = 'Resume';
+                btn.classList.add('paused');
+            } else {
+                btn.textContent = 'Pause';
+                btn.classList.remove('paused');
+                renderCurrentLogs(); // Catch up visually
+            }
+        }
+
+        function showLogDetails(id) {
+            const log = currentLogs.find(l => l.id == id);
+            if (!log) return;
+            document.getElementById('m-id').textContent = log.id;
+            document.getElementById('m-time').textContent = log.timestamp;
+            document.getElementById('m-level').textContent = log.level;
+            document.getElementById('m-cat').textContent = log.category;
+            document.getElementById('m-msg').textContent = log.message;
+            
+            const levelEl = document.getElementById('m-level');
+            if (log.level === 'ERROR') levelEl.style.color = '#ff6b6b';
+            else if (log.level === 'WARN') levelEl.style.color = '#ffd700';
+            else levelEl.style.color = '#a5d6a7';
+
+            document.getElementById('logModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('logModal').style.display = 'none';
+        }
+
+        function copyLogDetails() {
+            const id = document.getElementById('m-id').textContent;
+            const time = document.getElementById('m-time').textContent;
+            const level = document.getElementById('m-level').textContent;
+            const cat = document.getElementById('m-cat').textContent;
+            const msg = document.getElementById('m-msg').textContent;
+            
+            const text = `ID: ${id}\nTimestamp: ${time}\nLevel: ${level}\nCategory: ${cat}\nMessage: ${msg}`;
+            navigator.clipboard.writeText(text).then(() => {
+                // Optional: Visual feedback could be added here
+            });
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        document.getElementById('liveStream').onchange = (e) => {
+            if (e.target.checked) {
+                startWebSocket();
+                document.getElementById('pauseBtn').style.display = 'inline-block';
+            } else {
+                if (ws) ws.close();
+                document.getElementById('pauseBtn').style.display = 'none';
+            }
+        };
+
+        function startWebSocket() {
+            const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+            ws = new WebSocket(`${proto}://${window.location.host}/api/admin/logs/stream`);
+            
+            ws.onopen = () => {
+                console.log('Log stream connected');
+            };
+            
+            ws.onmessage = (event) => {
+                const log = JSON.parse(event.data);
+                
+                // Always update data model
+                currentLogs.unshift(log);
+                if (currentLogs.length > 1000) currentLogs.pop(); // Prevent memory leak
+                
+                if (!isPaused) {
+                    renderCurrentLogs();
+                }
+            };
+
+            ws.onclose = () => {
+                if (document.getElementById('liveStream').checked) {
+                    setTimeout(startWebSocket, 2000); // Reconnect
+                }
+            }
+        };
+        
+        document.getElementById('categoryFilter').onchange = () => {
+            currentPage = 1;
+            fetchLogs();
+        };
+
+        fetchCategories();
+        fetchLogs();
+    </script>
+</body>
+</html>

@@ -1,0 +1,2 @@
+CREATE TABLE IF NOT EXISTS jeebs_store (key TEXT PRIMARY KEY, value BLOB);
+CREATE TABLE IF NOT EXISTS brain_nodes (id TEXT PRIMARY KEY, label TEXT, summary TEXT, data BLOB);

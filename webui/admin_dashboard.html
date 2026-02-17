@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jeebs Admin Dashboard</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #181c24; color: #f3f3f3; margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: 40px auto; }
+        h1 { color: #7fffd4; text-align: center; margin-bottom: 40px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+        .card { background: #23283a; padding: 24px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); transition: transform 0.2s, background 0.2s; text-decoration: none; color: inherit; display: block; border: 1px solid #2a3044; }
+        .card:hover { transform: translateY(-5px); background: #2a3044; border-color: #7fffd4; }
+        .card h3 { margin-top: 0; color: #7fffd4; font-size: 1.2rem; }
+        .card p { color: #aaa; margin-bottom: 0; line-height: 1.5; }
+        .back-link { display: block; margin-top: 40px; text-align: center; color: #7fffd4; text-decoration: none; opacity: 0.8; }
+        .back-link:hover { text-decoration: underline; opacity: 1; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Admin Dashboard</h1>
+        
+        <div id="systemStatus" style="background: #23283a; padding: 16px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #7fffd4; text-align: center;">
+            <h3 style="margin-top: 0; color: #7fffd4;">System Status</h3>
+            <div id="statusContent">Loading...</div>
+        </div>
+
+        <div id="serverLogs" style="background: #23283a; padding: 16px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #7fffd4;">
+            <h3 style="margin-top: 0; color: #7fffd4; text-align: center;">Server Logs</h3>
+            <div id="logsContent" style="background: #181c24; padding: 10px; border-radius: 6px; height: 200px; overflow-y: auto; font-family: monospace; font-size: 0.9em; color: #ccc;">Loading logs...</div>
+        </div>
+
+        <div id="sessionsBox" style="background: #23283a; padding: 16px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #7fffd4;">
+            <h3 style="margin-top: 0; color: #7fffd4; text-align: center;">Active Sessions</h3>
+            <div id="sessionsContent" style="color: #ccc; font-size: 0.9em;">Loading sessions...</div>
+        </div>
+
+        <div id="crawlerBox" style="background: #23283a; padding: 16px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #7fffd4;">
+            <h3 style="margin-top: 0; color: #7fffd4; text-align: center;">Unleash Jeebs (Crawler)</h3>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <input type="text" id="crawlUrl" placeholder="Start URL (e.g. https://rust-lang.org)" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc; width: 60%;">
+                <input type="number" id="crawlDepth" placeholder="Depth (1-3)" min="1" max="3" value="1" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc; width: 80px;">
+                <button onclick="startCrawl()" style="padding: 8px 16px; background: #7fffd4; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; color: #181c24;">GO</button>
+            </div>
+            <div id="crawlStatus" style="text-align: center; margin-top: 10px; color: #aaa;"></div>
+        </div>
+
+        <div class="grid">
+            <a href="/" class="card">
+                <h3>Chat & User Management</h3>
+                <p>Return to the main interface to chat with Jeebs, manage users, and train on specific URLs.</p>
+            </a>
+            <a href="/search.html" class="card">
+                <h3>Brain Search</h3>
+                <p>Search through the knowledge graph nodes to see what Jeebs has learned.</p>
+            </a>
+            <a href="/visualize.html" class="card">
+                <h3>Brain Visualization</h3>
+                <p>View the interactive knowledge graph network to understand connections between data.</p>
+            </a>
+            <a href="/logic_visualize.html" class="card">
+                <h3>Logic Graph</h3>
+                <p>Visualize the logical facts and reasoning connections Jeebs has learned.</p>
+            </a>
+            <a href="/admin_blacklist.html" class="card">
+                <h3>IP Blacklist</h3>
+                <p>Manage blocked IP addresses to prevent abuse from specific sources.</p>
+            </a>
+            <a href="/admin_whitelist.html" class="card">
+                <h3>IP Whitelist</h3>
+                <p>Manage whitelisted IP addresses that are allowed to bypass rate limits.</p>
+            </a>
+            <a href="/api/admin/export" class="card" target="_blank">
+                <h3>Export Database</h3>
+                <p>Download a JSON backup of the entire database (Brain & Store).</p>
+            </a>
+            <div class="card" onclick="document.getElementById('importFile').click()" style="cursor: pointer;">
+                <h3>Import Database</h3>
+                <p>Restore data from a JSON backup file. Click to select file.</p>
+                <input type="file" id="importFile" style="display: none;" accept=".json" onchange="importDatabase(this)">
+            </div>
+        </div>
+
+        <a href="/" class="back-link">← Back to Home</a>
+    </div>
+
+    <script>
+        async function loadStatus() {
+            try {
+                const res = await fetch('/api/admin/status');
+                if (res.ok) {
+                    const data = await res.json();
+                    const used = (data.used_memory / 1024 / 1024).toFixed(2);
+                    const total = (data.total_memory / 1024 / 1024).toFixed(2);
+                    document.getElementById('statusContent').innerHTML = `
+                        <strong>Uptime:</strong> ${data.uptime_formatted} &nbsp;|&nbsp; 
+                        <strong>Memory:</strong> ${used} MB / ${total} MB
+                    `;
+                } else {
+                    document.getElementById('statusContent').innerText = 'Failed to load status.';
+                }
+            } catch {
+                document.getElementById('statusContent').innerText = 'Error loading status.';
+            }
+        }
+        loadStatus();
+        
+        async function loadLogs() {
+            try {
+                const res = await fetch('/api/admin/logs');
+                if (res.ok) {
+                    const logs = await res.json();
+                    const container = document.getElementById('logsContent');
+                    container.innerHTML = logs.map(l => `<div>${l}</div>`).join('');
+                    container.scrollTop = container.scrollHeight;
+                }
+            } catch {}
+        }
+        loadLogs();
+
+        async function loadSessions() {
+            try {
+                const res = await fetch('/api/admin/sessions');
+                if (res.ok) {
+                    const sessions = await res.json();
+                    const container = document.getElementById('sessionsContent');
+                    container.innerHTML = sessions.length ? sessions.map(s => `
+                        <div style="padding: 8px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;">
+                            <span><b>${s.username}</b> (${s.ip})</span>
+                            <div style="display:flex; gap:10px; align-items:center;">
+                                <span>${new Date(s.last_seen).toLocaleTimeString()}</span>
+                                <button onclick="terminateSession('${s.username}')" style="padding:4px 8px; background:#d9534f; border:none; border-radius:4px; color:white; cursor:pointer;">Terminate</button>
+                            </div>
+                        </div>
+                    `).join('') : 'No active sessions.';
+                }
+            } catch {}
+        }
+        loadSessions();
+
+        setInterval(() => { loadStatus(); loadLogs(); loadSessions(); }, 3000);
+
+        async function terminateSession(username) {
+            if (!confirm('Terminate session for ' + username + '?')) return;
+            const res = await fetch('/api/admin/session/' + username, { method: 'DELETE' });
+            if (res.ok) {
+                loadSessions();
+            } else {
+                alert('Failed to terminate session');
+            }
+        }
+
+        async function importDatabase(input) {
+            if (!input.files || !input.files[0]) return;
+            const file = input.files[0];
+            if (!confirm(`Are you sure you want to import ${file.name}? This will overwrite existing data.`)) {
+                input.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const json = JSON.parse(e.target.result);
+                    const res = await fetch('/api/admin/import', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(json)
+                    });
+                    if (res.ok) {
+                        alert('Database imported successfully!');
+                    } else {
+                        const data = await res.json();
+                        alert('Import failed: ' + (data.error || 'Unknown error'));
+                    }
+                } catch (err) {
+                    alert('Invalid JSON file or upload error: ' + err);
+                }
+                input.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        async function startCrawl() {
+            const url = document.getElementById('crawlUrl').value.trim();
+            const depth = parseInt(document.getElementById('crawlDepth').value);
+            if (!url) return;
+
+            document.getElementById('crawlStatus').innerText = 'Unleashing Jeebs...';
+            
+            const res = await fetch('/api/admin/crawl', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url, depth })
+            });
+            
+            const data = await res.json();
+            document.getElementById('crawlStatus').innerText = data.message || (data.error ? 'Error: ' + data.error : 'Failed');
+            if (data.ok) document.getElementById('crawlUrl').value = '';
+        }
+    </script>
+</body>
+</html>
