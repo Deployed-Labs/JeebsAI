@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jeebs Brain Visualization</title>
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; font-family: sans-serif; }
+        #mynetwork { width: 100vw; height: 100vh; background: #f4f4f4; }
+        #loading { position: absolute; top: 20px; left: 20px; background: white; padding: 10px; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+    </style>
+</head>
+<body>
+    <div id="loading">Loading Brain Graph...</div>
+    <div id="mynetwork"></div>
+
+    <script type="text/javascript">
+        async function loadGraph() {
+            try {
+                const res = await fetch('/api/brain/visualize');
+                const data = await res.json();
+                
+                const container = document.getElementById('mynetwork');
+                const nodes = new vis.DataSet(data.nodes);
+                const edges = new vis.DataSet(data.edges);
+                
+                const graphData = { nodes: nodes, edges: edges };
+                const options = {
+                    nodes: {
+                        shape: 'dot',
+                        size: 16,
+                        font: { size: 14, color: '#333' },
+                        borderWidth: 2,
+                        color: { background: '#97C2FC', border: '#2B7CE9' }
+                    },
+                    edges: {
+                        width: 1,
+                        color: { color: '#ccc', highlight: '#848484' },
+                        smooth: { type: 'continuous' }
+                    },
+                    physics: {
+                        stabilization: false,
+                        barnesHut: {
+                            gravitationalConstant: -8000,
+                            springConstant: 0.04,
+                            springLength: 95
+                        }
+                    }
+                };
+                
+                new vis.Network(container, graphData, options);
+                document.getElementById('loading').style.display = 'none';
+            } catch (e) {
+                document.getElementById('loading').innerText = 'Error loading graph: ' + e;
+            }
+        }
+        loadGraph();
+    </script>
+</body>
+</html>

@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS ip_whitelist (ip TEXT PRIMARY KEY);

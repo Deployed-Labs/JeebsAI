@@ -1,0 +1,74 @@
+# Rate Limiting Zones
+# 1. General API: 10 requests/second (good for normal usage)
+limit_req_zone $binary_remote_addr zone=api_limit:10m rate=10r/s;
+# 2. Login: 1 request/second (prevents brute force)
+limit_req_zone $binary_remote_addr zone=login_limit:10m rate=1r/s;
+
+server {
+    listen 80;
+    server_name your_domain.com;
+
+    # Redirect all HTTP traffic to HTTPS
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    server_name your_domain.com;
+
+    # SSL configuration (to be managed by Certbot)
+    # ssl_certificate /etc/letsencrypt/live/your_domain.com/fullchain.pem;
+    # ssl_certificate_key /etc/letsencrypt/live/your_domain.com/privkey.pem;
+    # include /etc/letsencrypt/options-ssl-nginx.conf;
+    # ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    # Custom error page for rate limiting
+    error_page 503 /ratelimit.html;
+    location = /ratelimit.html {
+        # This path should be accessible by the nginx user
+        root /var/www/html; 
+        internal;
+    }
+
+    # Strict rate limiting for login
+    location /api/login {
+        limit_req zone=login_limit burst=5 nodelay;
+        
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # General rate limiting for other API endpoints
+    location /api/ {
+        limit_req zone=api_limit burst=20 nodelay;
+
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # WebSocket support for logs/streams
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Required for WebSocket support
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}

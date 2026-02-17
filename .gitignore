@@ -1,20 +1,17 @@
-# Rust build and dependency files
-target/
-Cargo.lock
+# Rust build artifacts (can be very large)
+/target
 
-# IDE/editor files
-*.swp
-*.swo
-*.vscode/
-.idea/
-.DS_Store
+# Sled Database directory (contains user data)
+/jeebs_db
 
-# Logs and temp
-*.log
-.scratch/
-jeebs_db
+# Temporary update artifacts
 update.tar.gz
 
-# Web UI build artifacts
-webui/dist/
-webui/node_modules/
+# System files
+.DS_Store
+
+# Sensitive diagnostics file
+webui/## Chat Customization Diagnostics.md
+
+# Tooling state
+mcp-state.json

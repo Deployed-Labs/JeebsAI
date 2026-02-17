@@ -27,7 +27,7 @@ All major features are separated into modules and submodules for maintainability
 	 ```sh
 	 cargo run
 	 ```
-3. Access the web UI at [http://localhost:8080](http://localhost:8080)
+3. Access the web UI at [http://jeebs.club](http://jeebs.club)
 
 ## Development
 

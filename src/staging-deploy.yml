@@ -1,0 +1,122 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches:
+      - staging
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        components: clippy
+        override: true
+
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v2
+
+    - name: Lint with Clippy
+      run: cargo clippy --workspace -- -D warnings
+
+    - name: Build JeebsAI (Release)
+      run: cargo build --release
+
+    - name: Setup Test Database
+      run: |
+        sudo apt-get install -y sqlite3
+        sqlite3 jeebs.db "VACUUM;"
+
+    - name: Run tests
+      env:
+        DATABASE_URL: sqlite:jeebs.db
+      run: cargo test --workspace -- --nocapture
+
+    - name: Upload Binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: jeebs-release
+        path: target/release/jeebs
+
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    environment: staging
+    
+    env:
+      # IMPORTANT: This path MUST match the WorkingDirectory in your jeebs.service file.
+      # Using a standard path like /opt/jeebs is recommended.
+      REMOTE_APP_DIR: /opt/jeebs
+
+    steps:
+    - name: Download Binary
+      uses: actions/download-artifact@v4
+      with:
+        name: jeebs-release
+        path: target/release
+
+    - name: Stop Service
+      uses: appleboy/ssh-action@v0.1.5
+      with:
+        host: 192.227.193.148
+        username: ${{ secrets.STAGING_SSH_USERNAME }}
+        key: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+        script: sudo systemctl stop jeebs
+
+    - name: Backup Old Binary
+      uses: appleboy/ssh-action@v0.1.5
+      with:
+        host: 192.227.193.148
+        username: ${{ secrets.STAGING_SSH_USERNAME }}
+        key: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+        script: cp ${{ env.REMOTE_APP_DIR }}/target/release/jeebs ${{ env.REMOTE_APP_DIR }}/target/release/jeebs.bak || true
+
+    - name: Transfer Binary
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: 192.227.193.148
+        username: ${{ secrets.STAGING_SSH_USERNAME }}
+        key: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+        source: "target/release/jeebs"
+        target: "${{ env.REMOTE_APP_DIR }}/target/release"
+
+    - name: Start and Verify
+      uses: appleboy/ssh-action@v0.1.5
+      with:
+        host: 192.227.193.148
+        username: ${{ secrets.STAGING_SSH_USERNAME }}
+        key: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+        script: |
+          echo "Starting JeebsAI service..."
+          sudo systemctl start jeebs
+
+          echo "Waiting for service to stabilize..."
+          sleep 10
+
+          if ! systemctl is-active --quiet jeebs; then
+            echo "❌ Deployment failed! Service is not running. Rolling back..."
+            sudo systemctl stop jeebs
+            if [ -f ${{ env.REMOTE_APP_DIR }}/target/release/jeebs.bak ]; then
+              mv ${{ env.REMOTE_APP_DIR }}/target/release/jeebs.bak ${{ env.REMOTE_APP_DIR }}/target/release/jeebs
+              sudo systemctl start jeebs
+              echo "✅ Rollback complete. Previous version restored."
+            fi
+            exit 1
+          fi
+          echo "✅ Deployment successful!"
+
+    - name: Notify Discord
+      uses: sarisia/actions-status-discord@v1
+      if: always()
+      with:
+        webhook: ${{ secrets.DISCORD_WEBHOOK }}
+        status: ${{ job.status }}
+        title: "Staging Deployment"

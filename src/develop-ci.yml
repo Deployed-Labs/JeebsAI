@@ -1,0 +1,56 @@
+name: Develop CI
+
+on:
+  push:
+    branches:
+      - develop
+  pull_request:
+    branches:
+      - develop
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        components: clippy
+        override: true
+
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v2
+
+    - name: Lint with Clippy
+      run: cargo clippy --workspace -- -D warnings
+
+    - name: Build JeebsAI (Release)
+      run: cargo build --release
+
+    - name: Setup Test Database
+      run: |
+        sudo apt-get install -y sqlite3
+        sqlite3 jeebs.db "VACUUM;"
+
+    - name: Run tests
+      env:
+        DATABASE_URL: sqlite:jeebs.db
+      run: cargo test --workspace -- --nocapture
+
+    - name: Merge to Staging
+      if: success() && github.ref == 'refs/heads/develop'
+      run: |
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
+        git fetch origin staging
+        git checkout staging
+        git merge origin/develop
+        git push origin staging
