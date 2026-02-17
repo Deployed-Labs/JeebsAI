@@ -1,12 +1,14 @@
 use sqlx::{SqlitePool, Row};
 use crate::state::AppState;
 use crate::utils::{encode_all, decode_all};
-use actix_web::{web, post, get, HttpResponse, Responder, HttpRequest};
+use actix_web::{get, post, web, HttpRequest, HttpResponse, Responder};
 use actix_session::Session;
 use crate::plugins::Plugin;
 use serde_json::json;
 use serde::Deserialize;
 use chrono::Local;
+use once_cell::sync::Lazy;
+use std::collections::HashSet;
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use rand_core::OsRng;
 use actix_multipart::Multipart;
@@ -241,192 +243,6 @@ pub async fn logout(session: Session) -> impl Responder {
     session.purge();
     HttpResponse::Ok().json(json!({"ok": true}))
 }
-
-// The Central Nervous System of Jeebs
-pub struct Cortex;
-
-impl Cortex {
-    pub async fn think(prompt: &str, data: &web::Data<AppState>) -> String {
-        let db = &data.db;
-        let prompt_lower = prompt.to_lowercase();
-
-        crate::logging::log(db, "INFO", "CORTEX", &format!("Processing thought: {}", prompt)).await;
-
-        // --- Layer 0: Deja Vu (Cache Check) ---
-        if let Some(cached) = check_dejavu(prompt, db).await {
-            return cached;
-        }
-
-        // --- Layer 1: Reflexes (Fast, hardcoded responses) ---
-        if let Some(reflex) = check_reflexes(&prompt_lower) {
-            return reflex;
-        }
-
-        // --- Layer 2: Short-term Memory (Context) ---
-        if prompt_lower == "what did i just say" {
-            return retrieve_last_prompt(db).await;
-        }
-
-        // --- Layer 3: Intent Router (Scored Execution) ---
-        // Score plugins based on the prompt to prioritize the best match
-        let mut scored_plugins: Vec<_> = data.plugins.iter().map(|p| {
-            (p, score_intent(p.name(), &prompt_lower))
-        }).collect();
-
-        scored_plugins.sort_by(|a, b| b.1.cmp(&a.1));
-
-        for (plugin, _score) in scored_plugins {
-            if let Some(resp) = plugin.handle(prompt.to_string(), db.clone()).await {
-                if resp.starts_with("Error:") {
-                    report_error_to_evolution(db, plugin.name(), &resp).await;
-                    crate::logging::log(db, "ERROR", "PLUGIN", &format!("Plugin {} failed: {}", plugin.name(), resp)).await;
-                }
-
-                // Subconscious: We could spawn a background task here to analyze the interaction
-                let db_clone = db.clone();
-                let prompt_clone = prompt.to_string();
-                let resp_clone = resp.clone();
-                tokio::spawn(async move {
-                    subconscious_process(prompt_clone, resp_clone, db_clone).await;
-                });
-                save_memory(prompt, &resp, db).await;
-                return resp;
-            }
-        }
-
-        // --- Layer 4: Cognition (Deep Thinking / Fallback) ---
-        // Store the current thought for context
-        store_context(prompt, db).await;
-        
-        let response = custom_ai_logic(prompt);
-
-        let db_clone = db.clone();
-        let prompt_clone = prompt.to_string();
-        let resp_clone = response.clone();
-        tokio::spawn(async move {
-            subconscious_process(prompt_clone, resp_clone, db_clone).await;
-        });
-        save_memory(prompt, &response, db).await;
-
-        response
-    }
-}
-
-fn check_reflexes(prompt: &str) -> Option<String> {
-    if prompt.contains("hello") || prompt.contains("hi ") || prompt == "hi" {
-        return Some("Hello! I'm Jeebs. How can I help you today?".to_string());
-    }
-    None
-}
-
-async fn retrieve_last_prompt(db: &SqlitePool) -> String {
-    if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = 'last_prompt'").fetch_optional(db).await {
-        let val: Vec<u8> = row.get(0);
-        if let Ok(decompressed) = decode_all(&val) {
-            if let Ok(text) = String::from_utf8(decompressed) {
-                return format!("You just said: '{}'.", text);
-            }
-        }
-    }
-    "I don't have any previous input from you yet.".to_string()
-}
-
-async fn store_context(prompt: &str, db: &SqlitePool) {
-    if let Ok(encoded) = encode_all(prompt.as_bytes(), 1) {
-        let _ = sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)").bind("last_prompt").bind(encoded).execute(db).await;
-    }
-}
-
-fn custom_ai_logic(prompt: &str) -> String {
-    // This is where we would connect to an LLM or more complex internal logic
-    format!("I'm not sure how to respond to: '{}'.", prompt)
-}
-
-async fn subconscious_process(prompt: String, response: String, _db: SqlitePool) {
-    // This runs in the background after a response is sent.
-    // It can be used for sentiment analysis, self-correction, or memory consolidation.
-    println!("[Subconscious] Reflecting on: '{}' -> '{}'", prompt, response);
-}
-
-fn score_intent(plugin_name: &str, prompt: &str) -> i32 {
-    match plugin_name {
-        "Time" => if prompt.contains("time") || prompt.contains("clock") { 100 } else { 0 },
-        "Calc" => if prompt.contains("math") || prompt.contains("calc") || prompt.contains("+") { 100 } else { 0 },
-        "Weather" => if prompt.contains("weather") || prompt.contains("rain") { 100 } else { 0 },
-        "News" => if prompt.contains("news") || prompt.contains("headline") { 100 } else { 0 },
-        "System" => if prompt.contains("system") || prompt.contains("cpu") || prompt.contains("ram") { 100 } else { 0 },
-        _ => 1, // Default low priority
-    }
-}
-
-async fn check_dejavu(prompt: &str, db: &SqlitePool) -> Option<String> {
-    let key = blake3::hash(prompt.as_bytes()).to_hex().to_string();
-    if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?").bind(key).fetch_optional(db).await {
-        let val: Vec<u8> = row.get(0);
-        if let Ok(decompressed) = decode_all(&val) {
-            if let Ok(text) = String::from_utf8(decompressed) {
-                return Some(format!("[Deja Vu] {}", text));
-            }
-        }
-    }
-    None
-}
-
-async fn save_memory(prompt: &str, response: &str, db: &SqlitePool) {
-    let key = blake3::hash(prompt.as_bytes()).to_hex().to_string();
-    if let Ok(compressed) = encode_all(response.as_bytes(), 1) {
-        let _ = sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)")
-            .bind(key).bind(compressed).execute(db).await;
-    }
-}
-
-async fn report_error_to_evolution(db: &SqlitePool, plugin_name: &str, error: &str) {
-    let id = uuid::Uuid::new_v4().to_string();
-    let title = format!("Auto-Fix: {} Error", plugin_name);
-    let description = format!("The {} plugin reported an error: '{}'. I should investigate and fix this.", plugin_name, error);
-    
-    crate::logging::log(db, "WARN", "EVOLUTION", &format!("Reporting error for evolution: {}", title)).await;
-
-    // Create a proposal entry directly in the store
-    let update_json = json!({
-        "id": id,
-        "title": title,
-        "author": "Jeebs (Auto-Fix)",
-        "severity": "High",
-        "comments": [],
-        "description": description,
-        "changes": [], // No automated changes; manual intervention required.
-        "status": "pending",
-        "created_at": Local::now().to_rfc3339(),
-        "backup": null
-    });
-
-    let key = format!("evolution:update:{}", id);
-    if let Ok(json_bytes) = serde_json::to_vec(&update_json) {
-        if let Ok(val) = encode_all(&json_bytes, 1) {
-            let _ = sqlx::query("INSERT INTO jeebs_store (key, value) VALUES (?, ?)")
-                .bind(key).bind(val)
-                .execute(db).await;
-        }
-    }
-
-    // Create Notification for High Severity
-    if update_json["severity"] == "High" {
-        let notif_id = uuid::Uuid::new_v4().to_string();
-        let notif_json = json!({
-            "id": notif_id,
-            "message": format!("High Severity Update Proposed: {}", title),
-            "severity": "High",
-            "created_at": Local::now().to_rfc3339(),
-            "link": id
-        });
-        let notif_key = format!("notification:{}", notif_id);
-        if let Ok(val) = encode_all(&serde_json::to_vec(&notif_json).unwrap(), 1) {
-            let _ = sqlx::query("INSERT INTO jeebs_store (key, value) VALUES (?, ?)")
-                .bind(notif_key).bind(val)
-                .execute(db).await;
-        }
-    }
 
 #[derive(Deserialize)]
 pub struct RequestResetRequest {

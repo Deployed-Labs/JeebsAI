@@ -18,7 +18,7 @@ pub async fn import_database(
     req: web::Json<ImportRequest>,
     session: Session,
 ) -> impl Responder {
-    let is_admin = session.get::<bool>("is_admin").unwrap_or(Some(false)).unwrap_or(false);
+    let is_admin = session.get::<bool>("is_admin").ok().flatten().unwrap_or(false);
     if !is_admin {
         return HttpResponse::Unauthorized().json(serde_json::json!({"error": "Admin only"}));
     }
@@ -50,15 +50,16 @@ pub async fn import_database(
     // Import Brain
     if let Some(brain) = &req.brain {
         for node in brain {
-             let val = serde_json::to_vec(node).unwrap();
-             if let Ok(compressed) = encode_all(&val, 1) {
-                let _ = sqlx::query("INSERT OR REPLACE INTO brain_nodes (id, label, summary, data, created_at) VALUES (?, ?, ?, ?, ?)")
-                    .bind(&node.id)
-                    .bind(&node.label)
-                    .bind(&node.summary)
-                    .bind(&compressed)
-                    .bind(&node.created_at)
-                    .execute(db).await;
+             if let Ok(val) = serde_json::to_vec(node) {
+                 if let Ok(compressed) = encode_all(&val, 1) {
+                    let _ = sqlx::query("INSERT OR REPLACE INTO brain_nodes (id, label, summary, data, created_at) VALUES (?, ?, ?, ?, ?)")
+                        .bind(&node.id)
+                        .bind(&node.label)
+                        .bind(&node.summary)
+                        .bind(&compressed)
+                        .bind(&node.created_at)
+                        .execute(db).await;
+                 }
              }
         }
     }

@@ -7,7 +7,7 @@ use crate::utils::decode_all;
 
 #[get("/api/admin/export")]
 pub async fn export_database(data: web::Data<AppState>, session: Session) -> impl Responder {
-    let is_admin = session.get::<bool>("is_admin").unwrap_or(Some(false)).unwrap_or(false);
+    let is_admin = session.get::<bool>("is_admin").ok().flatten().unwrap_or(false);
     if !is_admin {
         return HttpResponse::Unauthorized().json(json!({"error": "Admin only"}));
     }

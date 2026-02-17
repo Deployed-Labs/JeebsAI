@@ -1,10 +1,11 @@
-use sqlx::{SqlitePool, Row};
+use sqlx::{FromRow, Row, SqlitePool};
 use meval;
 use chrono;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use actix_web::{get, post, web, Responder, HttpResponse};
 use actix_session::Session;
+use log;
 use reqwest;
 use scraper::{Html, Selector};
 use crate::state::AppState;
@@ -22,7 +23,7 @@ pub struct BrainNode {
     pub created_at: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, FromRow)]
 pub struct KnowledgeTriple {
     pub subject: String,
     pub predicate: String,
@@ -33,15 +34,20 @@ pub struct KnowledgeTriple {
 // --- Restored Functions ---
 
 pub async fn store_brain_node(db: &SqlitePool, node: &BrainNode) {
-    let val = serde_json::to_vec(node).unwrap();
-    let compressed = encode_all(&val[..], 1).unwrap();
-    sqlx::query("INSERT OR REPLACE INTO brain_nodes (id, label, summary, data, created_at) VALUES (?, ?, ?, ?, ?)")
-        .bind(&node.id)
-        .bind(&node.label)
-        .bind(&node.summary)
-        .bind(&compressed)
-        .bind(&node.created_at)
-        .execute(db).await.unwrap();
+    if let Ok(val) = serde_json::to_vec(node) {
+        if let Ok(compressed) = encode_all(&val[..], 1) {
+            if let Err(e) = sqlx::query("INSERT OR REPLACE INTO brain_nodes (id, label, summary, data, created_at) VALUES (?, ?, ?, ?, ?)")
+                .bind(&node.id)
+                .bind(&node.label)
+                .bind(&node.summary)
+                .bind(&compressed)
+                .bind(&node.created_at)
+                .execute(db).await 
+            {
+                log::error!("Failed to store brain node {}: {}", node.id, e);
+            }
+        }
+    }
 }
 
 pub async fn get_brain_node(db: &SqlitePool, id: &str) -> Option<BrainNode> {
@@ -53,22 +59,49 @@ pub async fn get_brain_node(db: &SqlitePool, id: &str) -> Option<BrainNode> {
 }
 
 pub async fn store_triple(db: &SqlitePool, triple: &KnowledgeTriple) {
-    sqlx::query("INSERT OR REPLACE INTO knowledge_triples (subject, predicate, object, confidence) VALUES (?, ?, ?, ?)")
+    if let Err(e) = sqlx::query("INSERT OR REPLACE INTO knowledge_triples (subject, predicate, object, confidence) VALUES (?, ?, ?, ?)")
         .bind(&triple.subject)
         .bind(&triple.predicate)
         .bind(&triple.object)
         .bind(triple.confidence)
-        .execute(db).await.unwrap();
+        .execute(db).await {
+        log::error!("Failed to store triple {} {} {}: {}", triple.subject, triple.predicate, triple.object, e);
+    }
 }
 
-pub async fn get_triples_for_subject(db: &SqlitePool, subject: &str) -> Vec<KnowledgeTriple> {
-    let rows = sqlx::query("SELECT subject, predicate, object, confidence FROM knowledge_triples WHERE subject = ?")
-        .bind(subject)
-        .fetch_all(db).await.unwrap_or_default();
-    
-    rows.iter().map(|row| KnowledgeTriple {
-        subject: row.get(0), predicate: row.get(1), object: row.get(2), confidence: row.get(3)
-    }).collect()
+pub async fn get_triples_for_subject(db: &SqlitePool, subject: &str) -> sqlx::Result<Vec<KnowledgeTriple>> {
+    sqlx::query_as(
+        "SELECT subject, predicate, object, confidence FROM knowledge_triples WHERE subject = ?",
+    )
+    .bind(subject)
+    .fetch_all(db)
+    .await
+}
+
+pub async fn search_knowledge(db: &SqlitePool, query: &str) -> sqlx::Result<Vec<BrainNode>> {
+    let term = format!("%{}%", query);
+    let rows = sqlx::query("SELECT data FROM brain_nodes WHERE label LIKE ? OR summary LIKE ? LIMIT 3")
+        .bind(&term)
+        .bind(&term)
+        .fetch_all(db).await?;
+
+    let nodes = rows.iter().filter_map(|row| {
+        let val: Vec<u8> = row.get(0);
+        match decode_all(&val) {
+            Ok(bytes) => match serde_json::from_slice(&bytes) {
+                Ok(node) => Some(node),
+                Err(e) => {
+                    log::error!("Failed to deserialize BrainNode: {}", e);
+                    None
+                }
+            },
+            Err(e) => {
+                log::error!("Failed to decompress BrainNode data: {}", e);
+                None
+            }
+        }
+    }).collect();
+    Ok(nodes)
 }
 
 #[derive(Deserialize)]
@@ -82,7 +115,7 @@ pub async fn admin_train(
     req: web::Json<TrainRequest>,
     session: Session,
 ) -> impl Responder {
-    let is_admin = session.get::<bool>("is_admin").unwrap_or(Some(false)).unwrap_or(false);
+    let is_admin = session.get::<bool>("is_admin").ok().flatten().unwrap_or(false);
     if !is_admin {
         return HttpResponse::Unauthorized().json(serde_json::json!({"error": "Admin only"}));
     }
@@ -100,7 +133,11 @@ pub async fn admin_train(
     };
 
     let doc = Html::parse_document(&body);
-    let title = doc.select(&Selector::parse("title").unwrap()).next().map(|e| e.text().collect::<String>()).unwrap_or_else(|| url.to_string());
+    let title_selector = match Selector::parse("title") {
+        Ok(s) => s,
+        Err(e) => return HttpResponse::InternalServerError().json(serde_json::json!({"error": format!("Selector error: {}", e)})),
+    };
+    let title = doc.select(&title_selector).next().map(|e| e.text().collect::<String>()).unwrap_or_else(|| url.to_string());
     let mut text = String::new();
     if let Ok(selector) = Selector::parse("p") {
         for el in doc.select(&selector) {
@@ -136,7 +173,7 @@ pub async fn admin_crawl(
     req: web::Json<CrawlRequest>,
     session: Session,
 ) -> impl Responder {
-    let is_admin = session.get::<bool>("is_admin").unwrap_or(Some(false)).unwrap_or(false);
+    let is_admin = session.get::<bool>("is_admin").ok().flatten().unwrap_or(false);
     if !is_admin {
         return HttpResponse::Unauthorized().json(serde_json::json!({"error": "Admin only"}));
     }
@@ -171,7 +208,11 @@ pub async fn admin_crawl(
                 if let Ok(body) = res.text().await {
                     let doc = Html::parse_document(&body);
                     
-                    let title = doc.select(&Selector::parse("title").unwrap()).next().map(|e| e.text().collect::<String>()).unwrap_or_else(|| url.clone());
+                    let title = if let Ok(sel) = Selector::parse("title") {
+                        doc.select(&sel).next().map(|e| e.text().collect::<String>()).unwrap_or_else(|| url.clone())
+                    } else {
+                        url.clone()
+                    };
                     let mut text = String::new();
                     if let Ok(selector) = Selector::parse("p") {
                         for el in doc.select(&selector) {
@@ -234,10 +275,13 @@ pub async fn search_brain(
 ) -> impl Responder {
     let db = &data.db;
     let term = format!("%{}%", req.query);
-    let rows = sqlx::query("SELECT data FROM brain_nodes WHERE label LIKE ? OR summary LIKE ? LIMIT 20")
+    let rows = match sqlx::query("SELECT data FROM brain_nodes WHERE label LIKE ? OR summary LIKE ? LIMIT 20")
         .bind(&term)
         .bind(&term)
-        .fetch_all(db).await.unwrap();
+        .fetch_all(db).await {
+            Ok(r) => r,
+            Err(e) => return HttpResponse::InternalServerError().json(serde_json::json!({"error": e.to_string()})),
+        };
 
     let nodes: Vec<BrainNode> = rows.iter().filter_map(|row| {
         let val: Vec<u8> = row.get(0);
@@ -252,13 +296,16 @@ pub async fn reindex_brain(
     data: web::Data<AppState>,
     session: Session,
 ) -> impl Responder {
-    let is_admin = session.get::<bool>("is_admin").unwrap_or(Some(false)).unwrap_or(false);
+    let is_admin = session.get::<bool>("is_admin").ok().flatten().unwrap_or(false);
     if !is_admin {
         return HttpResponse::Unauthorized().json(serde_json::json!({"error": "Admin only"}));
     }
 
     let db = &data.db;
-    let rows = sqlx::query("SELECT value FROM jeebs_store WHERE key LIKE 'brain:node:%'").fetch_all(db).await.unwrap();
+    let rows = match sqlx::query("SELECT value FROM jeebs_store WHERE key LIKE 'brain:node:%'").fetch_all(db).await {
+        Ok(r) => r,
+        Err(e) => return HttpResponse::InternalServerError().json(serde_json::json!({"error": e.to_string()})),
+    };
     
     let mut count = 0;
     for row in rows {
@@ -290,7 +337,10 @@ struct GraphEdge {
 #[get("/api/brain/visualize")]
 pub async fn visualize_brain(data: web::Data<AppState>) -> impl Responder {
     let db = &data.db;
-    let rows = sqlx::query("SELECT data FROM brain_nodes").fetch_all(db).await.unwrap();
+    let rows = match sqlx::query("SELECT data FROM brain_nodes").fetch_all(db).await {
+        Ok(r) => r,
+        Err(e) => return HttpResponse::InternalServerError().json(serde_json::json!({"error": e.to_string()})),
+    };
 
     let nodes: Vec<BrainNode> = rows.iter().filter_map(|row| {
         let val: Vec<u8> = row.get(0);
@@ -373,5 +423,100 @@ pub async fn seed_knowledge(db: &SqlitePool) {
             }
             println!("Jeebs has learned basic facts.");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sqlx::sqlite::SqlitePoolOptions;
+
+    async fn setup_db() -> SqlitePool {
+        let db = SqlitePoolOptions::new()
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+
+        sqlx::query("CREATE TABLE brain_nodes (id TEXT PRIMARY KEY, label TEXT, summary TEXT, data BLOB, created_at TEXT)")
+            .execute(&db)
+            .await
+            .unwrap();
+
+        sqlx::query("CREATE TABLE knowledge_triples (subject TEXT, predicate TEXT, object TEXT, confidence REAL, PRIMARY KEY (subject, predicate, object))")
+            .execute(&db)
+            .await
+            .unwrap();
+
+        db
+    }
+
+    #[tokio::test]
+    async fn test_store_and_retrieve_brain_node() {
+        let db = setup_db().await;
+        let node = BrainNode {
+            id: "test-node".to_string(),
+            label: "Test Node".to_string(),
+            summary: "A summary of the test node.".to_string(),
+            sources: vec!["http://example.com".to_string()],
+            edges: HashSet::new(),
+            last_trained: "2023-01-01T00:00:00Z".to_string(),
+            created_at: Some("2023-01-01T00:00:00Z".to_string()),
+        };
+
+        store_brain_node(&db, &node).await;
+
+        let retrieved = get_brain_node(&db, "test-node").await;
+        assert!(retrieved.is_some());
+        let r = retrieved.unwrap();
+        assert_eq!(r.label, "Test Node");
+        assert_eq!(r.summary, "A summary of the test node.");
+    }
+
+    #[tokio::test]
+    async fn test_store_and_search_knowledge() {
+        let db = setup_db().await;
+        let node = BrainNode {
+            id: "rust-lang".to_string(),
+            label: "Rust Language".to_string(),
+            summary: "Rust is a systems programming language.".to_string(),
+            sources: vec![],
+            edges: HashSet::new(),
+            last_trained: "2023-01-01T00:00:00Z".to_string(),
+            created_at: None,
+        };
+        store_brain_node(&db, &node).await;
+
+        let results = search_knowledge(&db, "Rust").await.expect("Search failed");
+        assert!(!results.is_empty());
+        assert_eq!(results[0].label, "Rust Language");
+    }
+
+    #[tokio::test]
+    async fn test_store_triple_error_handling() {
+        let db = setup_db().await;
+        // Drop table to force an error
+        sqlx::query("DROP TABLE knowledge_triples").execute(&db).await.unwrap();
+
+        let triple = KnowledgeTriple {
+            subject: "S".to_string(), predicate: "P".to_string(), object: "O".to_string(), confidence: 1.0
+        };
+        
+        // Should not panic, just log error
+        store_triple(&db, &triple).await;
+    }
+
+    #[tokio::test]
+    async fn test_get_triples_error_handling() {
+        let db = setup_db().await;
+        
+        // Happy path (empty)
+        let res = get_triples_for_subject(&db, "NonExistent").await;
+        assert!(res.is_ok());
+        assert!(res.unwrap().is_empty());
+
+        // Error path
+        sqlx::query("DROP TABLE knowledge_triples").execute(&db).await.unwrap();
+        let res = get_triples_for_subject(&db, "Something").await;
+        assert!(res.is_err());
     }
 }

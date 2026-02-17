@@ -1,9 +1,9 @@
-name: Deploy to Staging
+name: Deploy to Production
 
 on:
   push:
     branches:
-      - staging
+      - main
 
 jobs:
   build-and-test:
@@ -49,12 +49,13 @@ jobs:
   deploy:
     needs: build-and-test
     runs-on: ubuntu-latest
-    environment: staging
+    environment: production
+    permissions:
+      contents: write # Required to push a tag
     
     env:
-      # IMPORTANT: This path MUST match the WorkingDirectory in your jeebs.service file.
-      # Using a standard path like /opt/jeebs is recommended.
-      REMOTE_APP_DIR: /opt/jeebs-staging
+      # Production Path
+      REMOTE_APP_DIR: /opt/jeebs
 
     steps:
     - name: Download Binary
@@ -69,7 +70,7 @@ jobs:
         host: 192.227.193.148
         username: ${{ secrets.STAGING_SSH_USERNAME }}
         key: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
-        script: sudo systemctl stop jeebs-staging
+        script: sudo systemctl stop jeebs
 
     - name: Backup Old Binary
       uses: appleboy/ssh-action@v0.1.5
@@ -96,17 +97,17 @@ jobs:
         key: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
         script: |
           echo "Starting JeebsAI service..."
-          sudo systemctl start jeebs-staging
+          sudo systemctl start jeebs
 
           echo "Waiting for service to stabilize..."
           sleep 10
 
-          if ! systemctl is-active --quiet jeebs-staging; then
+          if ! systemctl is-active --quiet jeebs; then
             echo "❌ Deployment failed! Service is not running. Rolling back..."
-            sudo systemctl stop jeebs-staging
+            sudo systemctl stop jeebs
             if [ -f ${{ env.REMOTE_APP_DIR }}/target/release/jeebs.bak ]; then
               mv ${{ env.REMOTE_APP_DIR }}/target/release/jeebs.bak ${{ env.REMOTE_APP_DIR }}/target/release/jeebs
-              sudo systemctl start jeebs-staging
+              sudo systemctl start jeebs
               echo "✅ Rollback complete. Previous version restored."
             fi
             exit 1
@@ -119,4 +120,13 @@ jobs:
       with:
         webhook: ${{ secrets.DISCORD_WEBHOOK }}
         status: ${{ job.status }}
-        title: "Staging Deployment"
+        title: "Production Deployment"
+
+    - name: Tag Release
+      if: success()
+      run: |
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
+        TAG_NAME="release-$(date +%Y-%m-%d-%H%M%S)"
+        git tag -a $TAG_NAME -m "Production release $TAG_NAME"
+        git push origin $TAG_NAME
