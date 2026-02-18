@@ -13,7 +13,8 @@ pub async fn get_logs(session: Session) -> impl Responder {
         return HttpResponse::Unauthorized().json(json!({"error": "Admin only"}));
     }
 
-    let buffer = get_log_buffer();
-    let logs: Vec<String> = buffer.lock().unwrap().iter().cloned().collect();
+    // let buffer = get_log_buffer();
+    // let logs: Vec<String> = buffer.lock().unwrap().iter().cloned().collect();
+    let logs: Vec<String> = Vec::new();
     HttpResponse::Ok().json(logs)
 }

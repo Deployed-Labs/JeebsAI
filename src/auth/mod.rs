@@ -11,6 +11,8 @@ use serde::Deserialize;
 use serde_json::json;
 use sqlx::{Row, SqlitePool};
 
+pub mod pgp;
+
 pub async fn ensure_admin_exists(db: &SqlitePool) {
     let key = "user:admin";
     match sqlx::query("SELECT 1 FROM jeebs_store WHERE key = ?")
@@ -54,6 +56,35 @@ pub async fn ensure_admin_exists(db: &SqlitePool) {
         }
         Ok(Some(_)) => {}
         Err(e) => eprintln!("Failed to check for admin user: {}", e),
+    }
+}
+
+pub async fn ensure_pgp_user(db: &SqlitePool, username: &str, email: &str, role: &str) {
+    let key = format!("user:{}", username);
+    match sqlx::query("SELECT 1 FROM jeebs_store WHERE key = ?").bind(&key).fetch_optional(db).await {
+        Ok(None) => {
+            // Create user without password - PGP authentication only
+            let user_json = json!({
+                "username": username,
+                "password": null,
+                "email": email,
+                "role": role,
+                "auth_type": "pgp"
+            });
+            
+            if let Ok(user_bytes) = serde_json::to_vec(&user_json) {
+                if let Err(e) = sqlx::query("INSERT INTO jeebs_store (key, value) VALUES (?, ?)")
+                    .bind(&key)
+                    .bind(user_bytes)
+                    .execute(db).await {
+                        eprintln!("Failed to create PGP user {}: {}", username, e);
+                        return;
+                    }
+                println!("PGP-only user account created: {}", username);
+            }
+        },
+        Ok(Some(_)) => {},
+        Err(e) => eprintln!("Failed to check for user {}: {}", username, e),
     }
 }
 
@@ -241,6 +272,14 @@ pub async fn login(
     {
         let val: Vec<u8> = row.get(0);
         if let Ok(user_json) = serde_json::from_slice::<serde_json::Value>(&val) {
+            // Check if this is a PGP-only user
+            if user_json.get("auth_type").and_then(|v| v.as_str()) == Some("pgp") {
+                return HttpResponse::BadRequest().json(json!({
+                    "error": "This account requires PGP authentication",
+                    "use_pgp": true
+                }));
+            }
+            
             let stored_hash = user_json["password"].as_str().unwrap_or("");
             let parsed_hash = match PasswordHash::new(stored_hash) {
                 Ok(h) => h,
@@ -300,10 +339,11 @@ pub async fn login(
     HttpResponse::Unauthorized().json(json!({"error": "Invalid credentials"}))
 }
 
-#[post("/api/logout")]
-pub async fn logout(session: Session) -> impl Responder {
-    session.purge();
-    HttpResponse::Ok().json(json!({"ok": true}))
+#[derive(Deserialize)]
+pub struct PgpLoginRequest {
+    pub username: String,
+    pub signed_message: String,
+    pub remember_me: Option<bool>,
 }
 
 // The Central Nervous System of Jeebs
@@ -332,10 +372,12 @@ impl Cortex {
             return reflex;
         }
 
-        // --- Layer 2: Short-term Memory (Context) ---
-        if prompt_lower == "what did i just say" {
-            return retrieve_last_prompt(db).await;
-        }
+    // Extract IP for rate limiting
+    let ip = http_req.headers().get("x-forwarded-for")
+        .and_then(|h| h.to_str().ok())
+        .map(|s| s.split(',').next().unwrap_or(s).trim().to_string())
+        .or_else(|| http_req.peer_addr().map(|a| a.ip().to_string()))
+        .unwrap_or_else(|| "unknown".to_string());
 
         // --- Layer 3: Intent Router (Scored Execution) ---
         // Score plugins based on the prompt to prioritize the best match
@@ -345,7 +387,13 @@ impl Cortex {
             .map(|p| (p, score_intent(p.name(), &prompt_lower)))
             .collect();
 
-        scored_plugins.sort_by(|a, b| b.1.cmp(&a.1));
+    // Check Rate Limit
+    let mut attempts = 0;
+    if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?").bind(&rate_limit_key).fetch_optional(&data.db).await {
+        let val: Vec<u8> = row.get(0);
+        if let Ok(limit_json) = serde_json::from_slice::<serde_json::Value>(&val) {
+            attempts = limit_json["attempts"].as_u64().unwrap_or(0);
+            let last_attempt = limit_json["last_attempt"].as_i64().unwrap_or(0);
 
         for (plugin, _score) in scored_plugins {
             if let Some(resp) = plugin.handle(prompt.to_string(), db.clone()).await {
@@ -359,16 +407,6 @@ impl Cortex {
                     )
                     .await;
                 }
-
-                // Subconscious: We could spawn a background task here to analyze the interaction
-                let db_clone = db.clone();
-                let prompt_clone = prompt.to_string();
-                let resp_clone = resp.clone();
-                tokio::spawn(async move {
-                    subconscious_process(prompt_clone, resp_clone, db_clone).await;
-                });
-                save_memory(prompt, &resp, db).await;
-                return resp;
             }
         }
 
@@ -388,7 +426,6 @@ impl Cortex {
 
         response
     }
-}
 
 fn check_reflexes(prompt: &str) -> Option<String> {
     if prompt.contains("hello") || prompt.contains("hi ") || prompt == "hi" {
@@ -407,10 +444,11 @@ async fn retrieve_last_prompt(db: &SqlitePool) -> String {
             if let Ok(text) = String::from_utf8(decompressed) {
                 return format!("You just said: '{}'.", text);
             }
+            
+            crate::logging::log(&data.db, "WARN", "AUTH", &format!("Failed PGP login attempt for {}: {}", req.username, e)).await;
+            return HttpResponse::Unauthorized().json(json!({"error": format!("PGP verification failed: {}", e)}));
         }
-    }
-    "I don't have any previous input from you yet.".to_string()
-}
+    };
 
 async fn store_context(prompt: &str, db: &SqlitePool) {
     if let Ok(encoded) = encode_all(prompt.as_bytes(), 1) {
@@ -420,12 +458,6 @@ async fn store_context(prompt: &str, db: &SqlitePool) {
             .execute(db)
             .await;
     }
-}
-
-fn custom_ai_logic(prompt: &str) -> String {
-    // This is where we would connect to an LLM or more complex internal logic
-    format!("I'm not sure how to respond to: '{}'.", prompt)
-}
 
 async fn subconscious_process(prompt: String, response: String, _db: SqlitePool) {
     // This runs in the background after a response is sent.
@@ -475,7 +507,6 @@ fn score_intent(plugin_name: &str, prompt: &str) -> i32 {
         }
         _ => 1, // Default low priority
     }
-}
 
 async fn check_dejavu(prompt: &str, db: &SqlitePool) -> Option<String> {
     let key = blake3::hash(prompt.as_bytes()).to_hex().to_string();
@@ -485,14 +516,10 @@ async fn check_dejavu(prompt: &str, db: &SqlitePool) -> Option<String> {
         .await
     {
         let val: Vec<u8> = row.get(0);
-        if let Ok(decompressed) = decode_all(&val) {
-            if let Ok(text) = String::from_utf8(decompressed) {
-                return Some(format!("[Deja Vu] {}", text));
+        if let Ok(user_json) = serde_json::from_slice::<serde_json::Value>(&val) {
+            if user_json.get("auth_type").and_then(|v| v.as_str()) != Some("pgp") {
+                return HttpResponse::BadRequest().json(json!({"error": "PGP authentication not enabled for this user"}));
             }
-        }
-    }
-    None
-}
 
 async fn save_memory(prompt: &str, response: &str, db: &SqlitePool) {
     let key = blake3::hash(prompt.as_bytes()).to_hex().to_string();

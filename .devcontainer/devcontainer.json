@@ -1,0 +1,26 @@
+{
+  "name": "JeebsAI Dev Container",
+  "context": "..",
+  "dockerFile": "../Dockerfile",
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
+  "runArgs": ["--cap-add=SYS_PTRACE"],
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.shell.linux": "/bin/bash",
+        "editor.formatOnSave": true
+      },
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "matklad.rust-analyzer-dev",
+        "serayuzgur.crates",
+        "vadimcn.vscode-lldb",
+        "ms-vscode.cpptools",
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  },
+  "postCreateCommand": "cargo build",
+  "remoteUser": "root"
+}

@@ -1,3 +1,4 @@
+use actix_session::Session;
 mod admin;
 mod auth;
 mod brain;

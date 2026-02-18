@@ -22,7 +22,7 @@ pub struct BrainNode {
     pub created_at: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, FromRow)]
 pub struct KnowledgeTriple {
     pub subject: String,
     pub predicate: String,
@@ -33,15 +33,20 @@ pub struct KnowledgeTriple {
 // --- Restored Functions ---
 
 pub async fn store_brain_node(db: &SqlitePool, node: &BrainNode) {
-    let val = serde_json::to_vec(node).unwrap();
-    let compressed = encode_all(&val[..], 1).unwrap();
-    sqlx::query("INSERT OR REPLACE INTO brain_nodes (id, label, summary, data, created_at) VALUES (?, ?, ?, ?, ?)")
-        .bind(&node.id)
-        .bind(&node.label)
-        .bind(&node.summary)
-        .bind(&compressed)
-        .bind(&node.created_at)
-        .execute(db).await.unwrap();
+    if let Ok(val) = serde_json::to_vec(node) {
+        if let Ok(compressed) = encode_all(&val[..], 1) {
+            if let Err(e) = sqlx::query("INSERT OR REPLACE INTO brain_nodes (id, label, summary, data, created_at) VALUES (?, ?, ?, ?, ?)")
+                .bind(&node.id)
+                .bind(&node.label)
+                .bind(&node.summary)
+                .bind(&compressed)
+                .bind(&node.created_at)
+                .execute(db).await 
+            {
+                log::error!("Failed to store brain node {}: {}", node.id, e);
+            }
+        }
+    }
 }
 
 pub async fn get_brain_node(db: &SqlitePool, id: &str) -> Option<BrainNode> {
@@ -59,12 +64,14 @@ pub async fn get_brain_node(db: &SqlitePool, id: &str) -> Option<BrainNode> {
 }
 
 pub async fn store_triple(db: &SqlitePool, triple: &KnowledgeTriple) {
-    sqlx::query("INSERT OR REPLACE INTO knowledge_triples (subject, predicate, object, confidence) VALUES (?, ?, ?, ?)")
+    if let Err(e) = sqlx::query("INSERT OR REPLACE INTO knowledge_triples (subject, predicate, object, confidence) VALUES (?, ?, ?, ?)")
         .bind(&triple.subject)
         .bind(&triple.predicate)
         .bind(&triple.object)
         .bind(triple.confidence)
-        .execute(db).await.unwrap();
+        .execute(db).await {
+        log::error!("Failed to store triple {} {} {}: {}", triple.subject, triple.predicate, triple.object, e);
+    }
 }
 
 pub async fn get_triples_for_subject(db: &SqlitePool, subject: &str) -> Vec<KnowledgeTriple> {

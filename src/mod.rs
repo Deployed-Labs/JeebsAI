@@ -27,7 +27,7 @@ pub struct ProposedUpdate {
 
 #[get("/api/admin/evolution/updates")]
 pub async fn list_updates(data: web::Data<AppState>, session: Session) -> impl Responder {
-    let is_admin = session.get::<bool>("is_admin").unwrap_or(Some(false)).unwrap_or(false);
+    let is_admin = session.get::<bool>("is_admin").ok().flatten().unwrap_or(false);
     if !is_admin {
         return HttpResponse::Unauthorized().json(json!({"error": "Admin only"}));
     }
@@ -56,7 +56,7 @@ pub async fn apply_update(
     path: web::Path<String>,
     session: Session,
 ) -> impl Responder {
-    let is_admin = session.get::<bool>("is_admin").unwrap_or(Some(false)).unwrap_or(false);
+    let is_admin = session.get::<bool>("is_admin").ok().flatten().unwrap_or(false);
     if !is_admin {
         return HttpResponse::Unauthorized().json(json!({"error": "Admin only"}));
     }
@@ -101,8 +101,13 @@ pub async fn apply_update(
                 }
 
                 update.status = "applied".to_string();
-                let new_val = encode_all(&serde_json::to_vec(&update).unwrap(), 1).unwrap();
-                sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)").bind(&key).bind(new_val).execute(&data.db).await.unwrap();
+                if let Ok(json_bytes) = serde_json::to_vec(&update) {
+                    if let Ok(new_val) = encode_all(&json_bytes, 1) {
+                        if let Err(e) = sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)").bind(&key).bind(new_val).execute(&data.db).await {
+                             return HttpResponse::InternalServerError().json(json!({"error": format!("Database error: {}", e)}));
+                        }
+                    }
+                }
 
                 return HttpResponse::Ok().json(json!({"message": "Update applied successfully. Please rebuild/restart Jeebs."}));
             }
@@ -117,7 +122,7 @@ pub async fn deny_update(
     path: web::Path<String>,
     session: Session,
 ) -> impl Responder {
-    let is_admin = session.get::<bool>("is_admin").unwrap_or(Some(false)).unwrap_or(false);
+    let is_admin = session.get::<bool>("is_admin").ok().flatten().unwrap_or(false);
     if !is_admin {
         return HttpResponse::Unauthorized().json(json!({"error": "Admin only"}));
     }
@@ -130,8 +135,13 @@ pub async fn deny_update(
         if let Ok(bytes) = decode_all(&val) {
             if let Ok(mut update) = serde_json::from_slice::<ProposedUpdate>(&bytes) {
                 update.status = "denied".to_string();
-                let new_val = encode_all(&serde_json::to_vec(&update).unwrap(), 1).unwrap();
-                sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)").bind(&key).bind(new_val).execute(&data.db).await.unwrap();
+                if let Ok(json_bytes) = serde_json::to_vec(&update) {
+                    if let Ok(new_val) = encode_all(&json_bytes, 1) {
+                        if let Err(e) = sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)").bind(&key).bind(new_val).execute(&data.db).await {
+                            return HttpResponse::InternalServerError().json(json!({"error": format!("Database error: {}", e)}));
+                        }
+                    }
+                }
                 return HttpResponse::Ok().json(json!({"message": "Update denied"}));
             }
         }
@@ -145,7 +155,7 @@ pub async fn rollback_update(
     path: web::Path<String>,
     session: Session,
 ) -> impl Responder {
-    let is_admin = session.get::<bool>("is_admin").unwrap_or(Some(false)).unwrap_or(false);
+    let is_admin = session.get::<bool>("is_admin").ok().flatten().unwrap_or(false);
     if !is_admin {
         return HttpResponse::Unauthorized().json(json!({"error": "Admin only"}));
     }
@@ -163,8 +173,13 @@ pub async fn rollback_update(
                             let _ = fs::write(&file.path, &file.new_content);
                         }
                         update.status = "rolled_back".to_string();
-                        let new_val = encode_all(&serde_json::to_vec(&update).unwrap(), 1).unwrap();
-                        sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)").bind(&key).bind(new_val).execute(&data.db).await.unwrap();
+                        if let Ok(json_bytes) = serde_json::to_vec(&update) {
+                            if let Ok(new_val) = encode_all(&json_bytes, 1) {
+                                if let Err(e) = sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)").bind(&key).bind(new_val).execute(&data.db).await {
+                                    return HttpResponse::InternalServerError().json(json!({"error": format!("Database error: {}", e)}));
+                                }
+                            }
+                        }
                         return HttpResponse::Ok().json(json!({"message": "Update rolled back successfully"}));
                     }
                     return HttpResponse::BadRequest().json(json!({"error": "No backup available for this update"}));
@@ -179,7 +194,7 @@ pub async fn rollback_update(
 // Simulation endpoint for Jeebs to "think" of an update
 #[post("/api/evolution/brainstorm")]
 pub async fn brainstorm_update(data: web::Data<AppState>, session: Session) -> impl Responder {
-    let is_admin = session.get::<bool>("is_admin").unwrap_or(Some(false)).unwrap_or(false);
+    let is_admin = session.get::<bool>("is_admin").ok().flatten().unwrap_or(false);
     if !is_admin {
         return HttpResponse::Unauthorized().json(json!({"error": "Admin only (for simulation trigger)"}));
     }
@@ -195,7 +210,12 @@ pub async fn brainstorm_update(data: web::Data<AppState>, session: Session) -> i
         backup: None,
     };
     let key = format!("evolution:update:{}", id);
-    let val = encode_all(&serde_json::to_vec(&update).unwrap(), 1).unwrap();
-    sqlx::query("INSERT INTO jeebs_store (key, value) VALUES (?, ?)").bind(key).bind(val).execute(&data.db).await.unwrap();
+    if let Ok(json_bytes) = serde_json::to_vec(&update) {
+        if let Ok(val) = encode_all(&json_bytes, 1) {
+            if let Err(e) = sqlx::query("INSERT INTO jeebs_store (key, value) VALUES (?, ?)").bind(key).bind(val).execute(&data.db).await {
+                return HttpResponse::InternalServerError().json(json!({"error": format!("Database error: {}", e)}));
+            }
+        }
+    }
     HttpResponse::Ok().json(json!({"message": "Jeebs has proposed a new update!", "id": id}))
 }
