@@ -30,6 +30,25 @@ jobs:
       uses: dtolnay/rust-toolchain@stable
       with:
         components: rustfmt, clippy
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Make plugin examples executable
+      run: chmod +x plugins/python-echo/run plugins/node-hello/run.js || true
+
+    - name: Plugin examples smoke test
+      run: |
+        echo '{"input":"ci test"}' | plugins/python-echo/run | grep -q "Python echo"
+        echo '{"input":"ci test"}' | plugins/node-hello/run.js | grep -q "Node hello"
+
     
     - name: Cache cargo registry
       uses: actions/cache@v4
@@ -77,20 +96,25 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-    
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential pkg-config libssl-dev libgit2-dev ca-certificates curl
+
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
-    
+
     - name: Cache cargo audit binary
       uses: actions/cache@v4
       id: cache-cargo-audit
       with:
         path: ~/.cargo/bin/cargo-audit
         key: ${{ runner.os }}-cargo-audit-0.18
-    
+
     - name: Install cargo-audit
       if: steps.cache-cargo-audit.outputs.cache-hit != 'true'
       run: cargo install cargo-audit --vers 0.18
-    
+
     - name: Run security audit
       run: cargo audit

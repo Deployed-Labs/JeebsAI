@@ -1,0 +1,14 @@
+#!/usr/bin/env python3
+import sys, json
+
+def main():
+    try:
+        data = json.load(sys.stdin)
+    except Exception:
+        data = {}
+    inp = data.get('input', '')
+    resp = f"Python echo: {inp}"
+    print(json.dumps({"response": resp}))
+
+if __name__ == '__main__':
+    main()

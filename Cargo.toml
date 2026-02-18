@@ -16,7 +16,7 @@ chrono = "0.4"
 meval = "0.2"
 hex = "0.4"
 actix-web = "4"
-tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "io-util"] }
 actix-session = { version = "0.7", features = ["cookie-session"] }
 actix-web-actors = "4"
 tokio-stream = { version = "0.1", features = ["sync"] }

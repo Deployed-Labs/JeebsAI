@@ -344,7 +344,129 @@ pub struct WebsiteStatusPlugin;
 pub struct TodoPlugin;
 pub struct ErrorPlugin;
 
-// Dynamic plugin loader stub
-pub fn load_dynamic_plugins(_dir: &str) -> Vec<Box<dyn Plugin>> {
-    Vec::new()
+// External CLI plugin wrapper — supports simple JSON-over-stdin contract
+pub struct ExternalCliPlugin {
+    pub name: &'static str,
+    pub cmd: Vec<String>,
+}
+
+#[async_trait]
+impl Plugin for ExternalCliPlugin {
+    fn name(&self) -> &'static str {
+        self.name
+    }
+
+    async fn handle(&self, input: &str, _state: &AppState) -> Option<String> {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        use tokio::process::Command;
+        use tokio::time::{Duration, timeout};
+
+        let payload = match serde_json::json!({ "input": input })
+            .to_string()
+            .into_bytes()
+        {
+            b => b,
+        };
+
+        let mut cmd = Command::new(&self.cmd[0]);
+        if self.cmd.len() > 1 {
+            cmd.args(&self.cmd[1..]);
+        }
+        cmd.stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped());
+
+        match cmd.spawn() {
+            Ok(mut child) => {
+                if let Some(mut stdin) = child.stdin.take() {
+                    if let Err(e) = stdin.write_all(&payload).await {
+                        let _ = child.kill().await;
+                        return Some(format!("plugin '{}' write error: {}", self.name, e));
+                    }
+                }
+
+                // enforce a short timeout for plugin execution
+                match timeout(Duration::from_secs(3), child.wait_with_output()).await {
+                    Ok(Ok(output)) => {
+                        if !output.status.success() {
+                            return Some(format!(
+                                "plugin '{}' failed: {}",
+                                self.name,
+                                String::from_utf8_lossy(&output.stderr)
+                            ));
+                        }
+                        let out = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                        // Try structured response first
+                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&out) {
+                            if let Some(resp) = json.get("response").and_then(|v| v.as_str()) {
+                                return Some(resp.to_string());
+                            }
+                        }
+                        if !out.is_empty() {
+                            return Some(out);
+                        }
+                        None
+                    }
+                    Ok(Err(e)) => {
+                        let _ = child.kill().await;
+                        Some(format!("plugin '{}' execution error: {}", self.name, e))
+                    }
+                    Err(_) => {
+                        let _ = child.kill().await;
+                        Some(format!("plugin '{}' timed out", self.name))
+                    }
+                }
+            }
+            Err(e) => Some(format!("plugin '{}' spawn error: {}", self.name, e)),
+        }
+    }
+}
+
+// Discover simple CLI-based plugins under `plugins/`.
+// Plugin contract: plugin reads JSON from stdin { "input": "..." } and writes JSON { "response": "..." }
+// Supported runners (by file present):
+//  - run          (executable in plugin directory)
+//  - run.py       (invoked with `python3 run.py`)
+//  - run.js/index.js (invoked with `node <file>`)
+pub fn load_dynamic_plugins(dir: &str) -> Vec<Box<dyn Plugin>> {
+    let mut v: Vec<Box<dyn Plugin>> = Vec::new();
+
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+            let name = path.file_name().unwrap().to_string_lossy().to_string();
+
+            let runner: Option<Vec<String>> = if path.join("run").exists() {
+                Some(vec![path.join("run").to_string_lossy().to_string()])
+            } else if path.join("run.py").exists() {
+                Some(vec![
+                    "python3".to_string(),
+                    path.join("run.py").to_string_lossy().to_string(),
+                ])
+            } else if path.join("run.js").exists() || path.join("index.js").exists() {
+                let js = if path.join("run.js").exists() {
+                    "run.js"
+                } else {
+                    "index.js"
+                };
+                Some(vec![
+                    "node".to_string(),
+                    path.join(js).to_string_lossy().to_string(),
+                ])
+            } else {
+                None
+            };
+
+            if let Some(cmd) = runner {
+                // leak name into &'static str (one-time, acceptable for plugin names)
+                let leaked: &'static str = Box::leak(name.into_boxed_str());
+                v.push(Box::new(ExternalCliPlugin { name: leaked, cmd }));
+            }
+        }
+    }
+
+    v
 }

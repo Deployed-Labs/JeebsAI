@@ -45,6 +45,26 @@ Important:
   - `./install.sh` and `one-click.sh` will install and verify these automatically; if verification fails the scripts print a clear, actionable apt command.
 - Use an external reverse proxy (Nginx/Caddy/Traefik) for TLS and a domain.
 
+
+## CI / GHCR (quick notes)
+- CI publishes Docker images to GitHub Container Registry (GHCR) at `ghcr.io/deployed-labs/jeebs:latest`.
+- To allow CI to push images automatically, add a repository secret named `GHCR_PAT` with **write:packages** scope:
+  1. GitHub → Settings → Developer settings → Personal access tokens → Generate new token
+  2. Select `write:packages` and create the token
+  3. Repo → Settings → Secrets and variables → Actions → New repository secret → `GHCR_PAT`
+- If `GHCR_PAT` is not provided, the workflow will try `GITHUB_TOKEN` (may be blocked by org policy).
+
+Revoking a leaked token (do this immediately if you accidentally exposed a token):
+1. GitHub → Settings → Developer settings → Personal access tokens → Revoke the token.
+2. Remove any copies from your environment, CI secrets, or history.
+
+Developer toolchain:
+- Project requires Rust 1.88+. To update locally run:
+  - `rustup toolchain install 1.88.0 && rustup override set 1.88.0`
+  - Or run `./install.sh` which verifies native deps and sets the toolchain.
+
+
+
 Verify / logs:
 
 ```bash

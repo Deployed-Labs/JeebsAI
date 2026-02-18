@@ -3,6 +3,9 @@ name: Build and publish Docker image
 on:
   push:
     branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build-and-push:
@@ -57,12 +60,24 @@ jobs:
         run: docker images | sed -n '1,200p'
         continue-on-error: true
 
+      - name: GHCR publish hint
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            if [ -z "${{ secrets.GHCR_PAT }}" ]; then
+              echo "NOTICE: No GHCR_PAT repository secret set. The workflow will try GITHUB_TOKEN which may be blocked by organization policy. To ensure publish, add GHCR_PAT (scope: write:packages)."
+            else
+              echo "GHCR_PAT present — publish should be possible."
+            fi
+          else
+            echo "Not on main (PR/test); push is disabled."
+          fi
+
       - name: Build and push image
         uses: docker/build-push-action@v4
         with:
           context: .
           file: ./Dockerfile
-          push: true
+          push: ${{ github.ref == 'refs/heads/main' }}
           platforms: linux/amd64,linux/arm64
           tags: |
             ghcr.io/${{ steps.owner.outputs.owner_lower }}/jeebs:latest
