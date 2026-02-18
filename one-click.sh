@@ -66,6 +66,34 @@ apt-get install -y \
   build-essential clang pkg-config libssl-dev sqlite3 git curl ca-certificates \
   nettle-dev libgpg-error-dev libgcrypt-dev
 
+# Verify native build dependencies (clear, actionable output)
+verify_native_deps() {
+  local missing=()
+
+  if ! command -v pkg-config >/dev/null 2>&1; then
+    missing+=("pkg-config")
+  fi
+  if ! command -v clang >/dev/null 2>&1 && ! command -v gcc >/dev/null 2>&1; then
+    missing+=("clang/gcc")
+  fi
+  for lib in nettle gpg-error gcrypt; do
+    if ! pkg-config --exists "$lib" 2>/dev/null; then
+      missing+=("pkg-config:$lib")
+    fi
+  done
+
+  if [ ${#missing[@]} -ne 0 ]; then
+    echo "\nERROR: missing native packages required to build JeebsAI: ${missing[*]}\n"
+    echo "Fix (Debian/Ubuntu):"
+    echo "  sudo apt update && sudo apt install -y build-essential clang pkg-config nettle-dev libgpg-error-dev libgcrypt-dev"
+    echo "After installing the packages re-run this script or run: ./install.sh"
+    exit 1
+  fi
+  echo "Native build dependencies verified. Continuing..."
+}
+
+verify_native_deps
+
 if [[ -n "$DOMAIN" ]]; then
   apt-get install -y nginx certbot python3-certbot-nginx
 fi

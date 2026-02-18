@@ -40,6 +40,8 @@ docker run -d \
 Important:
 - Data path inside container: `/data` (map to host, e.g. `/var/lib/jeebs`).
 - Environment vars: `PORT`, `DATABASE_URL`, `RUST_LOG`.
+- Local builds require native packages: `nettle-dev`, `libgpg-error-dev`, `libgcrypt-dev`, `clang`, and `pkg-config`.
+  - `./install.sh` and `one-click.sh` will install and verify these automatically; if verification fails the scripts print a clear, actionable apt command.
 - Use an external reverse proxy (Nginx/Caddy/Traefik) for TLS and a domain.
 
 Verify / logs:
