@@ -1,0 +1,30 @@
+version: "3.8"
+
+services:
+  jeebs:
+    image: deployed-labs/jeebs:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: ${PORT:-8080}
+      DATABASE_URL: ${DATABASE_URL:-sqlite:/data/jeebs.db}
+      RUST_LOG: ${RUST_LOG:-info}
+    ports:
+      - "8080:8080"
+    volumes:
+      - jeebs_data:/data
+      - ./plugins:/app/plugins:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  jeebs_data:
+    driver: local
