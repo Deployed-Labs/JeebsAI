@@ -1,0 +1,98 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install SSH key
+      uses: webfactory/ssh-agent@v0.9.0
+      with:
+        ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+    
+    - name: Add VPS to known hosts
+      run: |
+        mkdir -p ~/.ssh
+        ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+    
+    - name: Deploy to VPS
+      env:
+        VPS_HOST: ${{ secrets.VPS_HOST }}
+        VPS_USER: ${{ secrets.VPS_USER }}
+        VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
+      run: |
+        # Create deployment directory if it doesn't exist
+        ssh $VPS_USER@$VPS_HOST "mkdir -p $VPS_DEPLOY_PATH"
+        
+        # Transfer files to VPS (excluding .git, target, and node_modules)
+        rsync -avz --delete \
+          --exclude='.git' \
+          --exclude='target' \
+          --exclude='node_modules' \
+          --exclude='jeebs.db' \
+          --exclude='backups' \
+          ./ $VPS_USER@$VPS_HOST:$VPS_DEPLOY_PATH/
+    
+    - name: Build and restart service on VPS
+      env:
+        VPS_HOST: ${{ secrets.VPS_HOST }}
+        VPS_USER: ${{ secrets.VPS_USER }}
+        VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
+      run: |
+        ssh $VPS_USER@$VPS_HOST << 'EOF'
+          cd $VPS_DEPLOY_PATH
+          
+          # Build the release binary
+          echo "Building release binary..."
+          cargo build --release
+          
+          # Restart the systemd service
+          echo "Restarting service..."
+          sudo systemctl restart jeebs
+          
+          # Wait a moment for the service to start
+          sleep 3
+          
+          # Check service status
+          sudo systemctl status jeebs --no-pager
+        EOF
+    
+    - name: Verify deployment
+      env:
+        VPS_HOST: ${{ secrets.VPS_HOST }}
+        VPS_USER: ${{ secrets.VPS_USER }}
+        VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
+      run: |
+        ssh $VPS_USER@$VPS_HOST << 'EOF'
+          # Check if service is running
+          if systemctl is-active --quiet jeebs; then
+            echo "✅ Service is running successfully"
+            
+            # Show recent logs
+            echo "Recent logs:"
+            sudo journalctl -u jeebs -n 20 --no-pager
+          else
+            echo "❌ Service failed to start"
+            echo "Error logs:"
+            sudo journalctl -u jeebs -n 50 --no-pager
+            exit 1
+          fi
+        EOF
+    
+    - name: Notify deployment status
+      if: always()
+      run: |
+        if [ $? -eq 0 ]; then
+          echo "✅ Deployment successful!"
+        else
+          echo "❌ Deployment failed!"
+        fi
