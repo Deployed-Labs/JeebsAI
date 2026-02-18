@@ -97,6 +97,19 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+  gitleaks:
+    name: Gitleaks scan
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Gitleaks
+      uses: gitleaks/gitleaks-action@v2.3.9
+      with:
+        args: '--redact --verbose'
+
     - name: Install system dependencies
       run: |
         sudo apt-get update

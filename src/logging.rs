@@ -2,7 +2,7 @@ use crate::state::AppState;
 use actix::ActorContext;
 use actix::AsyncContext;
 use actix_session::Session;
-use actix_web::{HttpResponse, Responder, delete, get, web};
+use actix_web::{delete, get, web, HttpResponse, Responder};
 use actix_web_actors::ws;
 use chrono::Local;
 use csv::Writer;
@@ -90,14 +90,13 @@ pub async fn cleanup_old_logs(db: &SqlitePool) {
                     "INFO",
                     "SYSTEM",
                     &format!(
-                        "Log cleanup task finished. Removed {} entries older than 30 days.",
-                        rows_affected
+                        "Log cleanup task finished. Removed {rows_affected} entries older than 30 days."
                     ),
                 )
                 .await;
             }
         }
-        Err(e) => eprintln!("[ERROR] Failed to execute log cleanup task: {}", e),
+        Err(e) => eprintln!("[ERROR] Failed to execute log cleanup task: {e}"),
     }
 }
 
@@ -132,7 +131,7 @@ pub async fn get_logs(
 
     let search_term = query.search.as_deref().unwrap_or("");
     let has_search = !search_term.is_empty();
-    let search_pattern = format!("%{}%", search_term);
+    let search_pattern = format!("%{search_term}%");
 
     // Build dynamic query
     let mut conditions = Vec::new();
@@ -167,8 +166,7 @@ pub async fn get_logs(
     };
 
     let sql = format!(
-        "SELECT id, timestamp, level, category, message FROM system_logs {} ORDER BY id DESC LIMIT ? OFFSET ?",
-        where_clause
+        "SELECT id, timestamp, level, category, message FROM system_logs {where_clause} ORDER BY id DESC LIMIT ? OFFSET ?"
     );
     let mut q = sqlx::query_as::<_, LogEntry>(&sql);
 
@@ -252,7 +250,7 @@ pub async fn export_logs(
 
     let search_term = query.search.as_deref().unwrap_or("");
     let has_search = !search_term.is_empty();
-    let search_pattern = format!("%{}%", search_term);
+    let search_pattern = format!("%{search_term}%");
 
     let mut conditions = Vec::new();
     if let Some(cat) = &query.category {
@@ -285,8 +283,7 @@ pub async fn export_logs(
         format!("WHERE {}", conditions.join(" AND "))
     };
     let sql = format!(
-        "SELECT id, timestamp, level, category, message FROM system_logs {} ORDER BY id ASC",
-        where_clause
+        "SELECT id, timestamp, level, category, message FROM system_logs {where_clause} ORDER BY id ASC"
     );
 
     let mut q = sqlx::query_as::<_, LogEntry>(&sql);
@@ -333,7 +330,7 @@ pub async fn export_logs(
                 .content_type("text/csv")
                 .append_header((
                     "Content-Disposition",
-                    format!("attachment; filename=\"{}\"", filename),
+                    format!("attachment; filename=\"{filename}\""),
                 ))
                 .body(csv_data)
         }
@@ -380,7 +377,7 @@ pub async fn get_my_logs(data: web::Data<AppState>, session: Session) -> impl Re
     };
 
     // Filter logs where the message contains the username
-    let pattern = format!("%{}%", username);
+    let pattern = format!("%{username}%");
     let rows = sqlx::query_as::<_, LogEntry>("SELECT id, timestamp, level, category, message FROM system_logs WHERE message LIKE ? ORDER BY id DESC LIMIT 100")
         .bind(pattern)
         .fetch_all(&data.db).await;

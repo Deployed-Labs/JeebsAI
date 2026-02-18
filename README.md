@@ -76,5 +76,48 @@ That's it — the app will persist its SQLite DB in the mounted `/data` director
 
 ---
 
+## Systemd deployment (no Docker)
+
+If you removed Docker and want to run `jeebs` directly on a Linux VPS using `systemd`, follow these steps.
+
+1. Build and install the release binary:
+
+```bash
+cargo build --release
+sudo install -m 755 target/release/jeebs /usr/local/bin/jeebs
+```
+
+2. Create a service user and runtime directories:
+
+```bash
+sudo useradd --system --no-create-home --shell /usr/sbin/nologin --user-group jeebs || true
+sudo mkdir -p /var/lib/jeebs/plugins
+sudo cp -r webui /var/lib/jeebs/webui
+sudo chown -R jeebs:jeebs /var/lib/jeebs
+```
+
+3. Create `/etc/jeebs.env` with required environment variables (example):
+
+```ini
+DATABASE_URL=sqlite:/var/lib/jeebs/jeebs.db
+PORT=8080
+# Optional: RUST_LOG=info
+```
+
+4. Install the systemd unit shipped in the repo and start the service:
+
+```bash
+sudo cp packaging/jeebs.service /etc/systemd/system/jeebs.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now jeebs
+sudo journalctl -u jeebs -f
+```
+
+Notes:
+- The binary runs migrations on startup (no separate migration step required).
+- Adjust `WorkingDirectory` or `EnvironmentFile` in `/etc/systemd/system/jeebs.service` if you prefer a different layout.
+- Use a reverse proxy (nginx/Caddy) for TLS in production.
+
+
 License: MIT
 

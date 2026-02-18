@@ -1,6 +1,6 @@
 use crate::state::AppState;
 use actix_session::Session;
-use actix_web::{HttpResponse, Responder, get, web};
+use actix_web::{get, web, HttpResponse, Responder};
 use serde_json::json;
 use sysinfo::System;
 
@@ -33,5 +33,5 @@ fn format_uptime(seconds: u64) -> String {
     let days = seconds / 86400;
     let hours = (seconds % 86400) / 3600;
     let minutes = (seconds % 3600) / 60;
-    format!("{}d {}h {}m", days, hours, minutes)
+    format!("{days}d {hours}h {minutes}m")
 }

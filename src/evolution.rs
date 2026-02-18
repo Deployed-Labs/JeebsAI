@@ -1,7 +1,7 @@
 use crate::state::AppState;
 use crate::utils::{decode_all, encode_all};
 use actix_session::Session;
-use actix_web::{HttpResponse, Responder, delete, get, post, web};
+use actix_web::{delete, get, post, web, HttpResponse, Responder};
 use chrono::Local;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -117,7 +117,7 @@ pub async fn apply_update(
     }
 
     let id = path.into_inner();
-    let key = format!("evolution:update:{}", id);
+    let key = format!("evolution:update:{id}");
 
     if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
         .bind(&key)
@@ -213,7 +213,7 @@ pub async fn deny_update(
     }
 
     let id = path.into_inner();
-    let key = format!("evolution:update:{}", id);
+    let key = format!("evolution:update:{id}");
 
     if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
         .bind(&key)
@@ -270,7 +270,7 @@ pub async fn resolve_update(
     }
 
     let id = path.into_inner();
-    let key = format!("evolution:update:{}", id);
+    let key = format!("evolution:update:{id}");
 
     if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
         .bind(&key)
@@ -320,7 +320,7 @@ pub async fn rollback_update(
     }
 
     let id = path.into_inner();
-    let key = format!("evolution:update:{}", id);
+    let key = format!("evolution:update:{id}");
 
     if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
         .bind(&key)
@@ -390,7 +390,7 @@ pub async fn add_comment(
     }
 
     let id = path.into_inner();
-    let key = format!("evolution:update:{}", id);
+    let key = format!("evolution:update:{id}");
 
     if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
         .bind(&key)
@@ -486,7 +486,7 @@ pub async fn dismiss_notification(
     }
 
     let id = path.into_inner();
-    let key = format!("notification:{}", id);
+    let key = format!("notification:{id}");
     sqlx::query("DELETE FROM jeebs_store WHERE key = ?")
         .bind(key)
         .execute(&data.db)
@@ -535,7 +535,7 @@ pub async fn brainstorm_update(data: web::Data<AppState>, session: Session) -> i
         created_at: chrono::Local::now().to_rfc3339(),
         backup: None,
     };
-    let key = format!("evolution:update:{}", id);
+    let key = format!("evolution:update:{id}");
     let val = encode_all(&serde_json::to_vec(&update).unwrap(), 1).unwrap();
     sqlx::query("INSERT INTO jeebs_store (key, value) VALUES (?, ?)")
         .bind(key)

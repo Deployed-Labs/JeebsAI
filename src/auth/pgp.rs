@@ -53,17 +53,17 @@ pub fn verify_signature(signed_message: &str) -> Result<String, String> {
     // Verify the signature using cached certificate
     let helper = Helper::new(&ADMIN_CERT);
     let mut verifier = openpgp::parse::stream::VerifierBuilder::from_reader(&mut message_reader)
-        .map_err(|e| format!("Failed to create verifier: {}", e))?
+        .map_err(|e| format!("Failed to create verifier: {e}"))?
         .with_policy(&policy, None, helper)
-        .map_err(|e| format!("Failed to verify: {}", e))?;
+        .map_err(|e| format!("Failed to verify: {e}"))?;
 
     // Read the verified message
     let mut verified_data = Vec::new();
     std::io::copy(&mut verifier, &mut verified_data)
-        .map_err(|e| format!("Failed to read verified data: {}", e))?;
+        .map_err(|e| format!("Failed to read verified data: {e}"))?;
 
     String::from_utf8(verified_data)
-        .map_err(|e| format!("Failed to convert verified data to string: {}", e))
+        .map_err(|e| format!("Failed to convert verified data to string: {e}"))
 }
 
 struct Helper<'a> {
@@ -87,16 +87,13 @@ impl<'a> openpgp::parse::stream::VerificationHelper for Helper<'a> {
     ) -> openpgp::Result<()> {
         use std::io::{Error, ErrorKind};
         for layer in structure.iter() {
-            match layer {
-                openpgp::parse::stream::MessageLayer::SignatureGroup { results } => {
-                    for result in results {
-                        if result.is_ok() {
-                            return Ok(());
-                        }
+            if let openpgp::parse::stream::MessageLayer::SignatureGroup { results } = layer {
+                for result in results {
+                    if result.is_ok() {
+                        return Ok(());
                     }
-                    return Err(Error::new(ErrorKind::InvalidData, "Bad signature").into());
                 }
-                _ => {}
+                return Err(Error::new(ErrorKind::InvalidData, "Bad signature").into());
             }
         }
         Err(Error::new(ErrorKind::InvalidData, "No valid signature found").into())

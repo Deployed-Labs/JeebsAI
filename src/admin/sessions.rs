@@ -1,6 +1,6 @@
 use crate::state::AppState;
 use actix_session::Session;
-use actix_web::{HttpResponse, Responder, delete, get, web};
+use actix_web::{delete, get, web, HttpResponse, Responder};
 use serde::Serialize;
 use serde_json::json;
 use sqlx::Row;

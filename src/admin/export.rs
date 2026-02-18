@@ -1,7 +1,7 @@
 use crate::state::AppState;
 use crate::utils::decode_all;
 use actix_session::Session;
-use actix_web::{HttpResponse, Responder, get, web};
+use actix_web::{get, web, HttpResponse, Responder};
 use serde_json::json;
 use sqlx::Row;
 

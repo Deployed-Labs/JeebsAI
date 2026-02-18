@@ -1,6 +1,6 @@
 use crate::state::AppState;
 use actix_session::Session;
-use actix_web::{HttpResponse, Responder, delete, get, post, web};
+use actix_web::{delete, get, post, web, HttpResponse, Responder};
 use argon2::{Argon2, PasswordHasher};
 use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
@@ -68,7 +68,7 @@ pub async fn admin_delete_user(
         return HttpResponse::BadRequest().json(json!({"error": "Cannot delete root admin"}));
     }
 
-    let user_key = format!("user:{}", username);
+    let user_key = format!("user:{username}");
     sqlx::query("DELETE FROM jeebs_store WHERE key = ?")
         .bind(user_key)
         .execute(&data.db)

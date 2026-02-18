@@ -1,0 +1,18 @@
+[Unit]
+Description=Jeebs AI service
+After=network.target
+
+[Service]
+Type=simple
+User=jeebs
+Group=jeebs
+WorkingDirectory=/var/lib/jeebs
+EnvironmentFile=/etc/jeebs.env
+ExecStart=/usr/local/bin/jeebs
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+KillMode=control-group
+
+[Install]
+WantedBy=multi-user.target

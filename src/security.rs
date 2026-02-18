@@ -1,11 +1,11 @@
 use crate::plugins::Plugin;
 use crate::state::AppState;
 use aes_gcm::{
-    Aes256Gcm, Nonce,
     aead::{Aead, AeadCore, KeyInit, OsRng},
+    Aes256Gcm, Nonce,
 };
 use async_trait::async_trait;
-use base64::{Engine as _, engine::general_purpose};
+use base64::{engine::general_purpose, Engine as _};
 use std::env;
 
 pub struct SecurityPlugin;
@@ -21,14 +21,14 @@ impl Plugin for SecurityPlugin {
         if prompt_lower.starts_with("encrypt ") {
             let text = input[8..].trim();
             match encrypt(text) {
-                Ok(cipher) => Some(format!("Encrypted: {}", cipher)),
-                Err(e) => Some(format!("Encryption failed: {}", e)),
+                Ok(cipher) => Some(format!("Encrypted: {cipher}")),
+                Err(e) => Some(format!("Encryption failed: {e}")),
             }
         } else if prompt_lower.starts_with("decrypt ") {
             let text = input[8..].trim();
             match decrypt(text) {
-                Ok(plain) => Some(format!("Decrypted: {}", plain)),
-                Err(e) => Some(format!("Decryption failed: {}", e)),
+                Ok(plain) => Some(format!("Decrypted: {plain}")),
+                Err(e) => Some(format!("Decryption failed: {e}")),
             }
         } else {
             None
@@ -59,7 +59,7 @@ pub fn encrypt(data: &str) -> Result<String, String> {
     let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
     let ciphertext = cipher
         .encrypt(&nonce, data.as_bytes())
-        .map_err(|e| format!("{}", e))?;
+        .map_err(|e| format!("{e}"))?;
 
     let mut combined = nonce.to_vec();
     combined.extend(ciphertext);
@@ -71,7 +71,7 @@ pub fn decrypt(encrypted_data: &str) -> Result<String, String> {
     let cipher = Aes256Gcm::new(&key.into());
     let decoded = general_purpose::STANDARD
         .decode(encrypted_data)
-        .map_err(|e| format!("{}", e))?;
+        .map_err(|e| format!("{e}"))?;
     if decoded.len() < 12 {
         return Err("Data too short".to_string());
     }
@@ -79,6 +79,6 @@ pub fn decrypt(encrypted_data: &str) -> Result<String, String> {
     let ciphertext = &decoded[12..];
     let plaintext = cipher
         .decrypt(nonce, ciphertext)
-        .map_err(|e| format!("{}", e))?;
-    String::from_utf8(plaintext).map_err(|e| format!("{}", e))
+        .map_err(|e| format!("{e}"))?;
+    String::from_utf8(plaintext).map_err(|e| format!("{e}"))
 }

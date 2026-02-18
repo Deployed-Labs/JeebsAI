@@ -1,9 +1,9 @@
 use actix_session::Session;
-use actix_web::{HttpRequest, HttpResponse, Responder, post, web};
+use actix_web::{post, web, HttpRequest, HttpResponse, Responder};
 use chrono::Local;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::io::{Write};
+use std::io::Write;
 
 use crate::cortex::Cortex;
 use crate::state::AppState;
@@ -76,7 +76,7 @@ pub fn start_cli(data: web::Data<AppState>) {
                 break;
             }
             let response = Cortex::think(prompt, &data).await;
-            println!("Jeebs: {}", response);
+            println!("Jeebs: {response}");
         }
         println!("Goodbye from Jeebs!");
     });

@@ -1,9 +1,7 @@
 use crate::state::AppState;
 use crate::utils::{decode_all, encode_all};
 use actix_session::Session;
-use actix_web::{HttpResponse, Responder, get, post, web};
-use chrono;
-use reqwest;
+use actix_web::{get, post, web, HttpResponse, Responder};
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, Row, SqlitePool};
@@ -148,7 +146,7 @@ pub async fn admin_train(
         &data.db,
         "INFO",
         "BRAIN",
-        &format!("Trained on URL: {}", url),
+        &format!("Trained on URL: {url}"),
     )
     .await;
     HttpResponse::Ok().json(serde_json::json!({"ok": true, "id": id, "label": node.label}))
@@ -195,8 +193,8 @@ pub async fn admin_crawl(
                 continue;
             }
 
-            println!("Jeebs Crawling: {}", url);
-            crate::logging::log(&db, "INFO", "CRAWLER", &format!("Crawling: {}", url)).await;
+            println!("Jeebs Crawling: {url}");
+            crate::logging::log(&db, "INFO", "CRAWLER", &format!("Crawling: {url}")).await;
 
             let client = reqwest::Client::builder()
                 .timeout(std::time::Duration::from_secs(10))
@@ -320,7 +318,7 @@ pub async fn search_brain(
 
 /// Search knowledge nodes by label/summary. Returns Result so callers can handle DB errors.
 pub async fn search_knowledge(db: &SqlitePool, query: &str) -> Result<Vec<BrainNode>, sqlx::Error> {
-    let term = format!("%{}%", query);
+    let term = format!("%{query}%");
     let rows =
         sqlx::query("SELECT data FROM brain_nodes WHERE label LIKE ? OR summary LIKE ? LIMIT 20")
             .bind(&term)

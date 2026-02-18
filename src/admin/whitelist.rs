@@ -1,5 +1,5 @@
 use actix_session::Session;
-use actix_web::{HttpResponse, Responder, delete, get, post, web};
+use actix_web::{delete, get, post, web, HttpResponse, Responder};
 use serde::Deserialize;
 use serde_json::json;
 

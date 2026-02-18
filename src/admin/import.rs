@@ -2,7 +2,7 @@ use crate::brain::BrainNode;
 use crate::state::AppState;
 use crate::utils::encode_all;
 use actix_session::Session;
-use actix_web::{HttpResponse, Responder, post, web};
+use actix_web::{post, web, HttpResponse, Responder};
 use serde::Deserialize;
 use serde_json::Value;
 

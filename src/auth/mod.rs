@@ -2,7 +2,7 @@ use crate::state::AppState;
 use crate::utils::{decode_all, encode_all};
 use actix_multipart::Multipart;
 use actix_session::Session;
-use actix_web::{HttpRequest, HttpResponse, Responder, get, post, web};
+use actix_web::{get, post, web, HttpRequest, HttpResponse, Responder};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use chrono::Local;
 use futures_util::TryStreamExt;
@@ -27,7 +27,7 @@ pub async fn ensure_admin_exists(db: &SqlitePool) {
             let hash = match Argon2::default().hash_password(new_password.as_bytes(), &salt) {
                 Ok(h) => h.to_string(),
                 Err(e) => {
-                    eprintln!("Failed to hash admin password: {}", e);
+                    eprintln!("Failed to hash admin password: {e}");
                     return;
                 }
             };
@@ -45,22 +45,21 @@ pub async fn ensure_admin_exists(db: &SqlitePool) {
                     .execute(db)
                     .await
                 {
-                    eprintln!("Failed to create admin user: {}", e);
+                    eprintln!("Failed to create admin user: {e}");
                     return;
                 }
                 println!(
-                    "\n!!! IMPORTANT !!!\nAdmin account created.\nUsername: admin\nPassword: {}\n!!! SAVE THIS PASSWORD !!!\n",
-                    new_password
+                    "\n!!! IMPORTANT !!!\nAdmin account created.\nUsername: admin\nPassword: {new_password}\n!!! SAVE THIS PASSWORD !!!\n"
                 );
             }
         }
         Ok(Some(_)) => {}
-        Err(e) => eprintln!("Failed to check for admin user: {}", e),
+        Err(e) => eprintln!("Failed to check for admin user: {e}"),
     }
 }
 
 pub async fn ensure_user(db: &SqlitePool, username: &str, password: &str, role: &str) {
-    let key = format!("user:{}", username);
+    let key = format!("user:{username}");
     match sqlx::query("SELECT 1 FROM jeebs_store WHERE key = ?")
         .bind(&key)
         .fetch_optional(db)
@@ -71,7 +70,7 @@ pub async fn ensure_user(db: &SqlitePool, username: &str, password: &str, role: 
             let hash = match Argon2::default().hash_password(password.as_bytes(), &salt) {
                 Ok(h) => h.to_string(),
                 Err(e) => {
-                    eprintln!("Failed to hash password: {}", e);
+                    eprintln!("Failed to hash password: {e}");
                     return;
                 }
             };
@@ -89,14 +88,14 @@ pub async fn ensure_user(db: &SqlitePool, username: &str, password: &str, role: 
                     .execute(db)
                     .await
                 {
-                    eprintln!("Failed to create user {}: {}", username, e);
+                    eprintln!("Failed to create user {username}: {e}");
                     return;
                 }
-                println!("User account created: {}", username);
+                println!("User account created: {username}");
             }
         }
         Ok(Some(_)) => {}
-        Err(e) => eprintln!("Failed to check for user {}: {}", username, e),
+        Err(e) => eprintln!("Failed to check for user {username}: {e}"),
     }
 }
 
@@ -201,7 +200,7 @@ pub async fn login(
         .or_else(|| http_req.peer_addr().map(|a| a.ip().to_string()))
         .unwrap_or_else(|| "unknown".to_string());
 
-    let rate_limit_key = format!("ratelimit:login:{}", ip);
+    let rate_limit_key = format!("ratelimit:login:{ip}");
     let now = Local::now().timestamp();
 
     // Check Rate Limit
@@ -222,7 +221,7 @@ pub async fn login(
                         &data.db,
                         "WARN",
                         "AUTH",
-                        &format!("Rate limit exceeded for IP: {}", ip),
+                        &format!("Rate limit exceeded for IP: {ip}"),
                     )
                     .await;
                     return HttpResponse::TooManyRequests().json(
@@ -276,7 +275,7 @@ pub async fn login(
 
                 if req.remember_me.unwrap_or(false) {
                     // Extend session if supported by middleware configuration
-                    let _ = session.renew();
+                    session.renew();
                 }
 
                 // Clear rate limit on success
@@ -339,7 +338,7 @@ pub async fn login_pgp(
         .or_else(|| http_req.peer_addr().map(|a| a.ip().to_string()))
         .unwrap_or_else(|| "unknown".to_string());
 
-    let rate_limit_key = format!("ratelimit:login:{}", ip);
+    let rate_limit_key = format!("ratelimit:login:{ip}");
     let now = Local::now().timestamp();
 
     // Check Rate Limit
@@ -360,7 +359,7 @@ pub async fn login_pgp(
                         &data.db,
                         "WARN",
                         "AUTH",
-                        &format!("Rate limit exceeded for IP: {}", ip),
+                        &format!("Rate limit exceeded for IP: {ip}"),
                     )
                     .await;
                     return HttpResponse::TooManyRequests().json(
@@ -428,7 +427,7 @@ pub async fn login_pgp(
     if let Ok(timestamp) = parts[2].parse::<i64>() {
         let time_diff = now - timestamp;
         // Reject if timestamp is more than 5 minutes old or more than 1 minute in the future
-        if time_diff > 300 || time_diff < -60 {
+        if !(-60..=300).contains(&time_diff) {
             return HttpResponse::BadRequest()
                 .json(json!({"error": "Timestamp expired or invalid"}));
         }
@@ -460,7 +459,7 @@ pub async fn login_pgp(
             }
 
             if req.remember_me.unwrap_or(false) {
-                let _ = session.renew();
+                session.renew();
             }
 
             // Clear rate limit on success
@@ -673,7 +672,7 @@ pub async fn change_password(
         _ => return HttpResponse::Unauthorized().json(json!({"error": "Not logged in"})),
     };
 
-    let user_key = format!("user:{}", username);
+    let user_key = format!("user:{username}");
     if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
         .bind(&user_key)
         .fetch_optional(&data.db)
@@ -722,7 +721,7 @@ pub async fn change_password(
                         &data.db,
                         "INFO",
                         "AUTH",
-                        &format!("User {} changed password", username),
+                        &format!("User {username} changed password"),
                     )
                     .await;
                     return HttpResponse::Ok().json(json!({"ok": true}));
@@ -751,7 +750,7 @@ pub async fn update_email(
         _ => return HttpResponse::Unauthorized().json(json!({"error": "Not logged in"})),
     };
 
-    let user_key = format!("user:{}", username);
+    let user_key = format!("user:{username}");
     if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
         .bind(&user_key)
         .fetch_optional(&data.db)
@@ -791,7 +790,7 @@ pub async fn update_email(
                         &data.db,
                         "INFO",
                         "AUTH",
-                        &format!("User {} updated email", username),
+                        &format!("User {username} updated email"),
                     )
                     .await;
                     return HttpResponse::Ok().json(json!({"ok": true}));
@@ -826,7 +825,7 @@ pub async fn upload_avatar(
                 }
             }
             if !image_data.is_empty() {
-                let key = format!("avatar:{}", username);
+                let key = format!("avatar:{username}");
                 if sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)")
                     .bind(&key)
                     .bind(&image_data)
@@ -848,7 +847,7 @@ pub async fn upload_avatar(
 #[get("/api/avatar/{username}")]
 pub async fn get_avatar(data: web::Data<AppState>, path: web::Path<String>) -> impl Responder {
     let username = path.into_inner();
-    let key = format!("avatar:{}", username);
+    let key = format!("avatar:{username}");
     if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
         .bind(&key)
         .fetch_optional(&data.db)
@@ -880,7 +879,7 @@ pub async fn get_profile(data: web::Data<AppState>, session: Session) -> impl Re
         _ => return HttpResponse::Unauthorized().json(json!({"error": "Not logged in"})),
     };
 
-    let user_key = format!("user:{}", username);
+    let user_key = format!("user:{username}");
     if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
         .bind(&user_key)
         .fetch_optional(&data.db)
@@ -919,7 +918,7 @@ pub async fn delete_account(
             .json(json!({"error": "Cannot delete root admin account"}));
     }
 
-    let user_key = format!("user:{}", username);
+    let user_key = format!("user:{username}");
     if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
         .bind(&user_key)
         .fetch_optional(&data.db)
@@ -963,7 +962,7 @@ pub async fn delete_account(
                 &data.db,
                 "WARN",
                 "AUTH",
-                &format!("User {} deleted their own account", username),
+                &format!("User {username} deleted their own account"),
             )
             .await;
             session.purge();
@@ -978,6 +977,7 @@ mod tests {
     use super::*;
     use crate::cortex::Cortex;
     use crate::plugins::ErrorPlugin;
+    use crate::plugins::Plugin;
     use actix_web::web;
     use sqlx::sqlite::SqlitePoolOptions;
     use std::collections::HashSet;

@@ -2,7 +2,6 @@ use crate::state::AppState;
 use crate::utils::{decode_all, encode_all};
 use actix_web::web;
 use chrono::Local;
-use log;
 use once_cell::sync::Lazy;
 use serde_json::json;
 use sqlx::{Row, SqlitePool};
@@ -19,7 +18,7 @@ impl Cortex {
             db,
             "INFO",
             "CORTEX",
-            &format!("Processing thought: {}", prompt),
+            &format!("Processing thought: {prompt}"),
         )
         .await;
 
@@ -113,7 +112,7 @@ async fn retrieve_last_prompt(db: &SqlitePool) -> String {
         let val: Vec<u8> = row.get(0);
         if let Ok(decompressed) = decode_all(&val) {
             if let Ok(text) = String::from_utf8(decompressed) {
-                return format!("You just said: '{}'.", text);
+                return format!("You just said: '{text}'.");
             }
         }
     }
@@ -169,8 +168,7 @@ async fn custom_ai_logic(prompt: &str, db: &sqlx::SqlitePool) -> String {
     // Process structured facts from the knowledge graph
     let facts: Vec<String> = triples_results
         .into_iter()
-        .enumerate()
-        .flat_map(|(_i, triples)| {
+        .flat_map(|triples| {
             triples
                 .into_iter()
                 .map(|t| format!("- {} {} {}.", t.subject, t.predicate, t.object))
@@ -196,7 +194,7 @@ async fn custom_ai_logic(prompt: &str, db: &sqlx::SqlitePool) -> String {
                     .map(|n| format!("- {} ({})", n.summary, n.label)),
             );
         }
-        Err(e) => log::error!("Failed to search knowledge nodes: {}", e),
+        Err(e) => log::error!("Failed to search knowledge nodes: {e}"),
         _ => {}
     }
 
@@ -213,7 +211,7 @@ async fn custom_ai_logic(prompt: &str, db: &sqlx::SqlitePool) -> String {
 async fn subconscious_process(prompt: String, response: String, db: SqlitePool) {
     // This runs in the background after a response is sent.
     // It can be used for sentiment analysis, self-correction, or memory consolidation.
-    let log_message = format!("Reflected on: '{}' -> '{}'", prompt, response);
+    let log_message = format!("Reflected on: '{prompt}' -> '{response}'");
     crate::logging::log(&db, "DEBUG", "SUBCONSCIOUS", &log_message).await;
 
     let extract_keywords = |text: &str| -> Vec<String> {
@@ -302,7 +300,7 @@ async fn check_dejavu(prompt: &str, db: &SqlitePool) -> Option<String> {
         let val: Vec<u8> = row.get(0);
         if let Ok(decompressed) = decode_all(&val) {
             if let Ok(text) = String::from_utf8(decompressed) {
-                return Some(format!("[Deja Vu] {}", text));
+                return Some(format!("[Deja Vu] {text}"));
             }
         }
     }
@@ -322,17 +320,16 @@ async fn save_memory(prompt: &str, response: &str, db: &SqlitePool) {
 
 async fn report_error_to_evolution(db: &SqlitePool, plugin_name: &str, error: &str) {
     let id = uuid::Uuid::new_v4().to_string();
-    let title = format!("Auto-Fix: {} Error", plugin_name);
+    let title = format!("Auto-Fix: {plugin_name} Error");
     let description = format!(
-        "The {} plugin reported an error: '{}'. I should investigate and fix this.",
-        plugin_name, error
+        "The {plugin_name} plugin reported an error: '{error}'. I should investigate and fix this."
     );
 
     crate::logging::log(
         db,
         "WARN",
         "EVOLUTION",
-        &format!("Reporting error for evolution: {}", title),
+        &format!("Reporting error for evolution: {title}"),
     )
     .await;
 
@@ -350,7 +347,7 @@ async fn report_error_to_evolution(db: &SqlitePool, plugin_name: &str, error: &s
         "backup": null
     });
 
-    let key = format!("evolution:update:{}", id);
+    let key = format!("evolution:update:{id}");
     if let Ok(json_bytes) = serde_json::to_vec(&update_json) {
         if let Ok(val) = encode_all(&json_bytes, 1) {
             let _ = sqlx::query("INSERT INTO jeebs_store (key, value) VALUES (?, ?)")
@@ -371,7 +368,7 @@ async fn report_error_to_evolution(db: &SqlitePool, plugin_name: &str, error: &s
             "created_at": Local::now().to_rfc3339(),
             "link": id
         });
-        let notif_key = format!("notification:{}", notif_id);
+        let notif_key = format!("notification:{notif_id}");
         if let Ok(notif_bytes) = serde_json::to_vec(&notif_json) {
             if let Ok(val) = encode_all(&notif_bytes, 1) {
                 let _ = sqlx::query("INSERT INTO jeebs_store (key, value) VALUES (?, ?)")

@@ -71,7 +71,7 @@ impl Plugin for LogicPlugin {
             }
             // Try to evaluate as a boolean expression
             match evalexpr::eval_boolean(&expr) {
-                Ok(result) => Some(format!("The result is {}.", result)),
+                Ok(result) => Some(format!("The result is {result}.")),
                 Err(_) => Some("Sorry, I couldn't evaluate that logic expression.".to_string()),
             }
         } else {
@@ -88,7 +88,7 @@ impl Plugin for Base64Plugin {
     async fn handle(&self, input: &str, _state: &crate::state::AppState) -> Option<String> {
         let lower = input.to_lowercase();
         if lower.contains("base64 encode") {
-            let text = input.splitn(2, ':').nth(1).unwrap_or(input).trim();
+            let text = input.split_once(':').map(|x| x.1).unwrap_or(input).trim();
             if text.is_empty() {
                 return Some("Please provide text to encode.".to_string());
             }
@@ -97,10 +97,10 @@ impl Plugin for Base64Plugin {
                 general_purpose::STANDARD.encode(text)
             ))
         } else if lower.contains("base64 decode") {
-            let text = input.splitn(2, ':').nth(1).unwrap_or(input).trim();
+            let text = input.split_once(':').map(|x| x.1).unwrap_or(input).trim();
             match general_purpose::STANDARD.decode(text) {
                 Ok(bytes) => match String::from_utf8(bytes) {
-                    Ok(s) => Some(format!("Decoded: {}", s)),
+                    Ok(s) => Some(format!("Decoded: {s}")),
                     Err(_) => Some("Decoded bytes are not valid UTF-8.".to_string()),
                 },
                 Err(_) => Some("Invalid base64 input.".to_string()),
@@ -119,21 +119,21 @@ impl Plugin for HashPlugin {
     async fn handle(&self, input: &str, _state: &crate::state::AppState) -> Option<String> {
         let lower = input.to_lowercase();
         if lower.contains("hash") {
-            let text = input.splitn(2, ':').nth(1).unwrap_or(input).trim();
+            let text = input.split_once(':').map(|x| x.1).unwrap_or(input).trim();
             if text.is_empty() {
                 return Some("Please provide text to hash.".to_string());
             }
             let mut hasher = Sha256::new();
             hasher.update(text.as_bytes());
             let result = hasher.finalize();
-            Some(format!("SHA-256: {:x}", result))
+            Some(format!("SHA-256: {result:x}"))
         } else {
             None
         }
     }
 }
-use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use base64::Engine;
 use rand::RngCore;
 use rand_core::OsRng;
 #[async_trait]
@@ -146,8 +146,8 @@ impl Plugin for PasswordPlugin {
         if lower.contains("password") || lower.contains("generate password") {
             let mut buf = [0u8; 16];
             OsRng.fill_bytes(&mut buf);
-            let pw = URL_SAFE_NO_PAD.encode(&buf);
-            Some(format!("Generated password: {}", pw))
+            let pw = URL_SAFE_NO_PAD.encode(buf);
+            Some(format!("Generated password: {pw}"))
         } else {
             None
         }
@@ -175,12 +175,12 @@ impl Plugin for SummaryPlugin {
     async fn handle(&self, input: &str, _state: &crate::state::AppState) -> Option<String> {
         let lower = input.to_lowercase();
         if lower.contains("summarize") || lower.contains("summary") {
-            let text = input.splitn(2, ':').nth(1).unwrap_or(input).trim();
+            let text = input.split_once(':').map(|x| x.1).unwrap_or(input).trim();
             if text.is_empty() {
                 return Some("Please provide text to summarize.".to_string());
             }
             let summary = text.split('.').next().unwrap_or(text).trim();
-            Some(format!("Summary: {}...", summary))
+            Some(format!("Summary: {summary}..."))
         } else {
             None
         }
@@ -218,20 +218,20 @@ impl Plugin for MemoryPlugin {
     async fn handle(&self, input: &str, _state: &crate::state::AppState) -> Option<String> {
         let lower = input.to_lowercase();
         if lower.contains("remember") {
-            let to_remember = input.splitn(2, "remember").nth(1).unwrap_or("").trim();
+            let to_remember = input.split_once("remember").map(|x| x.1).unwrap_or("").trim();
             if to_remember.is_empty() {
                 return Some("What should I remember?".to_string());
             }
             let mut mem = MEMORY.lock().unwrap();
             *mem = Some(to_remember.to_string());
-            Some(format!("Okay, I'll remember: {}", to_remember))
+            Some(format!("Okay, I'll remember: {to_remember}"))
         } else if lower.contains("recall")
             || lower.contains("what did you remember")
             || lower.contains("what do you remember")
         {
             let mem = MEMORY.lock().unwrap();
             match &*mem {
-                Some(val) => Some(format!("I remember: {}", val)),
+                Some(val) => Some(format!("I remember: {val}")),
                 None => Some("I don't remember anything yet.".to_string()),
             }
         } else {
@@ -292,7 +292,7 @@ impl Plugin for CalcPlugin {
                 return Some("Please provide a math expression to calculate.".to_string());
             }
             match evalexpr::eval(&expr) {
-                Ok(result) => Some(format!("The answer is {}.", result)),
+                Ok(result) => Some(format!("The answer is {result}.")),
                 Err(_) => Some("Sorry, I couldn't evaluate that expression.".to_string()),
             }
         } else {
@@ -359,9 +359,9 @@ impl Plugin for ExternalCliPlugin {
     }
 
     async fn handle(&self, input: &str, _state: &AppState) -> Option<String> {
-                use tokio::io::AsyncWriteExt;
+        use tokio::io::AsyncWriteExt;
         use tokio::process::Command;
-        use tokio::time::{Duration, timeout};
+        use tokio::time::{timeout, Duration};
 
         let payload = match serde_json::json!({ "input": input })
             .to_string()
@@ -413,14 +413,22 @@ impl Plugin for ExternalCliPlugin {
                     Ok(Err(e)) => {
                         // waiting returned an I/O error; try to kill by PID if available
                         if let Some(p) = pid {
-                            let _ = Command::new("kill").arg("-9").arg(p.to_string()).status().await;
+                            let _ = Command::new("kill")
+                                .arg("-9")
+                                .arg(p.to_string())
+                                .status()
+                                .await;
                         }
                         Some(format!("plugin '{}' execution error: {}", self.name, e))
                     }
                     Err(_) => {
                         // timeout: kill process by PID if possible
                         if let Some(p) = pid {
-                            let _ = Command::new("kill").arg("-9").arg(p.to_string()).status().await;
+                            let _ = Command::new("kill")
+                                .arg("-9")
+                                .arg(p.to_string())
+                                .status()
+                                .await;
                         }
                         Some(format!("plugin '{}' timed out", self.name))
                     }

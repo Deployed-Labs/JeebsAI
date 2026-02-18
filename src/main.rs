@@ -1,18 +1,6 @@
 use actix_session::Session;
-mod admin;
-mod auth;
-mod brain;
-mod chat;
-mod cli;
-mod cortex;
-mod evolution;
-mod logging;
-mod plugins;
-mod security;
-mod server;
-mod state;
-mod updater;
-mod utils;
+// Modules are provided by the library crate (`src/lib.rs`).
+use jeebs::{admin, auth, brain, chat, cli, cortex, evolution, logging, plugins, security, server, state, updater, utils};
 
 use crate::plugins::{
     Base64Plugin, CalcPlugin, ContactPlugin, ErrorPlugin, HashPlugin, LogicPlugin, MemoryPlugin,
@@ -21,14 +9,14 @@ use crate::plugins::{
 };
 use actix_files::Files;
 use actix_governor::{Governor, GovernorConfigBuilder, KeyExtractor, SimpleKeyExtractionError};
-use actix_session::{SessionMiddleware, storage::CookieSessionStore};
+use actix_session::{storage::CookieSessionStore, SessionMiddleware};
 use actix_web::cookie::Key;
 use actix_web::dev::{Service, ServiceRequest};
 use actix_web::middleware::Logger;
-use actix_web::{App, HttpResponse, HttpServer, Responder, get, web};
+use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
 use futures_util::future::{ready, Either};
-use sqlx::Row;
 use sqlx::sqlite::SqlitePoolOptions;
+use sqlx::Row;
 use std::collections::HashSet;
 use std::sync::Mutex;
 use std::sync::{Arc, RwLock};
@@ -46,7 +34,7 @@ async fn health_check(data: web::Data<AppState>, session: Session) -> impl Respo
         }
     };
 
-    let user_key = format!("user:{}", username);
+    let user_key = format!("user:{username}");
     if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
         .bind(&user_key)
         .fetch_optional(&data.db)
@@ -71,7 +59,7 @@ async fn health_check(data: web::Data<AppState>, session: Session) -> impl Respo
 async fn main() -> std::io::Result<()> {
     let database_url =
         std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:jeebs.db".to_string());
-    println!("Connecting to database: {}", database_url);
+    println!("Connecting to database: {database_url}");
     let db = SqlitePoolOptions::new()
         .connect(&database_url)
         .await
@@ -201,7 +189,8 @@ async fn main() -> std::io::Result<()> {
                     .map(|a| a.ip().to_string())
                     .unwrap_or_default();
                 if state.ip_blacklist.read().unwrap().contains(&ip) {
-                    let resp = HttpResponse::Forbidden().json(serde_json::json!({ "error": "IP Blacklisted" }));
+                    let resp = HttpResponse::Forbidden()
+                        .json(serde_json::json!({ "error": "IP Blacklisted" }));
                     Either::Left(ready(Ok(req.into_response(resp))))
                 } else {
                     Either::Right(srv.call(req))
@@ -276,7 +265,7 @@ async fn main() -> std::io::Result<()> {
 
     // CLI loop (optional, can be removed if only web is needed)
     let port = std::env::var("PORT").unwrap_or_else(|_| "8080".to_string());
-    println!("Jeebs is running! Web API at http://127.0.0.1:{}", port);
+    println!("Jeebs is running! Web API at http://127.0.0.1:{port}");
 
     let mut cli_plugins: Vec<Box<dyn crate::plugins::Plugin>> = vec![
         Box::new(TimePlugin),
