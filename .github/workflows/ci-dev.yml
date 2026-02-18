@@ -15,6 +15,25 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Make plugin examples executable
+        run: chmod +x plugins/python-echo/run plugins/node-hello/run.js || true
+
+      - name: Plugin examples smoke test
+        run: |
+          echo '{"input":"ci test"}' | plugins/python-echo/run | grep -q "Python echo"
+          echo '{"input":"ci test"}' | plugins/node-hello/run.js | grep -q "Node hello"
+
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y nettle-dev pkg-config clang llvm
       - name: Cache cargo registry & target
