@@ -7,7 +7,7 @@ use meval;
 use reqwest;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
-use sqlx::{Row, SqlitePool, FromRow};
+use sqlx::{FromRow, Row, SqlitePool};
 use std::collections::HashSet;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -41,7 +41,7 @@ pub async fn store_brain_node(db: &SqlitePool, node: &BrainNode) {
                 .bind(&node.summary)
                 .bind(&compressed)
                 .bind(&node.created_at)
-                .execute(db).await 
+                .execute(db).await
             {
                 log::error!("Failed to store brain node {}: {}", node.id, e);
             }
@@ -336,11 +336,12 @@ pub async fn search_brain(
 /// Search knowledge nodes by label/summary. Returns Result so callers can handle DB errors.
 pub async fn search_knowledge(db: &SqlitePool, query: &str) -> Result<Vec<BrainNode>, sqlx::Error> {
     let term = format!("%{}%", query);
-    let rows = sqlx::query("SELECT data FROM brain_nodes WHERE label LIKE ? OR summary LIKE ? LIMIT 20")
-        .bind(&term)
-        .bind(&term)
-        .fetch_all(db)
-        .await?;
+    let rows =
+        sqlx::query("SELECT data FROM brain_nodes WHERE label LIKE ? OR summary LIKE ? LIMIT 20")
+            .bind(&term)
+            .bind(&term)
+            .fetch_all(db)
+            .await?;
 
     let mut nodes = Vec::new();
     for row in rows {

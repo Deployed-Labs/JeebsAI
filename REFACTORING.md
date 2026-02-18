@@ -8,6 +8,13 @@ Before you start
   - Ensures `rustfmt`, `clippy`, `cargo test` pass and that the working tree is clean
   - Scans for obvious secret/token patterns
 
+Plugin development (Python / Node)
+- New polyglot plugin model: place each plugin under `plugins/<plugin-name>/` and provide a runner:
+  - `run` (executable) or `run.py` (Python) or `run.js` / `index.js` (Node)
+  - Contract: reads JSON from stdin `{ "input": "..." }` and writes `{ "response": "..." }` to stdout
+- Examples: `plugins/python-echo` and `plugins/node-hello` (included in `refactor/prep`).
+- The Rust core discovers and executes these plugins via `load_dynamic_plugins("plugins")` — no Rust code changes are required to add a new plugin.
+
 Continuous integration
 - CI already runs `cargo fmt`, `clippy`, build, tests and a security audit on PRs.
 - A `Secret scan` workflow (gitleaks) is included to block accidental secret commits.

@@ -359,9 +359,12 @@ impl Plugin for ExternalCliPlugin {
     async fn handle(&self, input: &str, _state: &AppState) -> Option<String> {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
         use tokio::process::Command;
-        use tokio::time::{timeout, Duration};
+        use tokio::time::{Duration, timeout};
 
-        let payload = match serde_json::json!({ "input": input }).to_string().into_bytes() {
+        let payload = match serde_json::json!({ "input": input })
+            .to_string()
+            .into_bytes()
+        {
             b => b,
         };
 
@@ -439,10 +442,20 @@ pub fn load_dynamic_plugins(dir: &str) -> Vec<Box<dyn Plugin>> {
             let runner: Option<Vec<String>> = if path.join("run").exists() {
                 Some(vec![path.join("run").to_string_lossy().to_string()])
             } else if path.join("run.py").exists() {
-                Some(vec!["python3".to_string(), path.join("run.py").to_string_lossy().to_string()])
+                Some(vec![
+                    "python3".to_string(),
+                    path.join("run.py").to_string_lossy().to_string(),
+                ])
             } else if path.join("run.js").exists() || path.join("index.js").exists() {
-                let js = if path.join("run.js").exists() { "run.js" } else { "index.js" };
-                Some(vec!["node".to_string(), path.join(js).to_string_lossy().to_string()])
+                let js = if path.join("run.js").exists() {
+                    "run.js"
+                } else {
+                    "index.js"
+                };
+                Some(vec![
+                    "node".to_string(),
+                    path.join(js).to_string_lossy().to_string(),
+                ])
             } else {
                 None
             };
