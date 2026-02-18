@@ -21,6 +21,8 @@ Thank you for your interest in contributing to JeebsAI! This document provides g
    source $HOME/.cargo/env
    ```
 
+   > **Note:** If you are using VS Code, you can use the provided Dev Container configuration to set up your environment automatically.
+
 2. **Install system dependencies:**
    ```bash
    # Ubuntu/Debian
@@ -110,6 +112,8 @@ Thank you for your interest in contributing to JeebsAI! This document provides g
   - `src/admin/` - Administrative features
   - `src/auth/` - Authentication and authorization
   - `src/brain/` - Knowledge graph and AI logic
+  - `src/cortex/` - Central processing and intent routing
+  - `plugins/` - Polyglot plugins (Python, Node, etc.)
   - Create new modules for distinct feature areas
 
 ### Documentation
@@ -117,6 +121,25 @@ Thank you for your interest in contributing to JeebsAI! This document provides g
 - Add doc comments (`///`) for public functions and modules
 - Update the README if adding user-facing features
 - Include examples in doc comments when helpful
+
+### Plugin Development
+
+JeebsAI supports a polyglot plugin model. Plugins are located in `plugins/<plugin-name>/`.
+
+Each plugin must provide a runner executable:
+- `run` (binary executable)
+- `run.py` (Python)
+- `run.js` or `index.js` (Node.js)
+
+**Contract:**
+The runner must read a JSON object from `stdin` containing an `input` field:
+```json
+{ "input": "..." }
+```
+And write a JSON object to `stdout` containing a `response` field:
+```json
+{ "response": "..." }
+```
 
 ### Commit Messages
 
@@ -221,6 +244,7 @@ Every push and pull request triggers automated checks:
 3. **Build** - Verifies the project compiles
 4. **Tests** - Runs all unit and integration tests
 5. **Security Audit** - Checks for known vulnerabilities in dependencies
+6. **Secret Scan** - Scans for accidental secret/token commits
 
 ### Deployment
 

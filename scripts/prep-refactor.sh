@@ -24,8 +24,8 @@ cargo test --all --verbose
 
 # Quick secret-scan in repo (grep for common GitHub token patterns)
 echo "- Scanning for obvious token patterns (ghp_, GITHUB_TOKEN, GHCR_PAT)"
-if git grep -n --break --heading -I "ghp_\|GITHUB_TOKEN\|GHCR_PAT" >/dev/null 2>&1; then
-  echo "ERROR: possible secret pattern found in repository. Inspect and remove before continuing."; git grep -n --break --heading -I "ghp_\|GITHUB_TOKEN\|GHCR_PAT"; exit 1
+if git grep -n --break --heading -I "ghp_\|GITHUB_TOKEN\|GHCR_PAT" -- . ":(exclude)scripts/prep-refactor.sh" >/dev/null 2>&1; then
+  echo "ERROR: possible secret pattern found in repository. Inspect and remove before continuing."; git grep -n --break --heading -I "ghp_\|GITHUB_TOKEN\|GHCR_PAT" -- . ":(exclude)scripts/prep-refactor.sh"; exit 1
 fi
 
 echo "All prep checks passed. Create your refactor branch (example: git checkout -b refactor/your-task) and start coding."

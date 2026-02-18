@@ -13,7 +13,7 @@ sqlx = { version = "0.7", features = ["runtime-tokio", "tls-native-tls", "sqlite
 blake3 = "1.5"
 zstd = "0.13"
 chrono = "0.4"
-meval = "0.2"
+evalexpr = "13.1.0"
 hex = "0.4"
 actix-web = "4"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "io-util"] }

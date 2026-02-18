@@ -3,7 +3,6 @@ use crate::utils::{decode_all, encode_all};
 use actix_session::Session;
 use actix_web::{HttpResponse, Responder, get, post, web};
 use chrono;
-use meval;
 use reqwest;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
@@ -47,20 +46,6 @@ pub async fn store_brain_node(db: &SqlitePool, node: &BrainNode) {
             }
         }
     }
-}
-
-pub async fn get_brain_node(db: &SqlitePool, id: &str) -> Option<BrainNode> {
-    if let Ok(Some(row)) = sqlx::query("SELECT data FROM brain_nodes WHERE id = ?")
-        .bind(id)
-        .fetch_optional(db)
-        .await
-    {
-        let val: Vec<u8> = row.get(0);
-        return decode_all(&val)
-            .ok()
-            .and_then(|bytes| serde_json::from_slice(&bytes).ok());
-    }
-    None
 }
 
 pub async fn store_triple(db: &SqlitePool, triple: &KnowledgeTriple) {
@@ -221,8 +206,6 @@ pub async fn admin_crawl(
 
             if let Ok(res) = client.get(&url).send().await {
                 if let Ok(body) = res.text().await {
-                    let doc = Html::parse_document(&body);
-
                     // Offload HTML parsing to a blocking thread so `scraper::Html` (which
                     // is not `Send`) never becomes part of the async future captured by
                     // `tokio::spawn`.

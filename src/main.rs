@@ -3,11 +3,13 @@ mod admin;
 mod auth;
 mod brain;
 mod chat;
+mod cli;
 mod cortex;
 mod evolution;
 mod logging;
 mod plugins;
 mod security;
+mod server;
 mod state;
 mod updater;
 mod utils;
@@ -24,6 +26,7 @@ use actix_web::cookie::Key;
 use actix_web::dev::{Service, ServiceRequest};
 use actix_web::middleware::Logger;
 use actix_web::{App, HttpResponse, HttpServer, Responder, get, web};
+use futures_util::future::{ready, Either};
 use sqlx::Row;
 use sqlx::sqlite::SqlitePoolOptions;
 use std::collections::HashSet;
@@ -198,12 +201,11 @@ async fn main() -> std::io::Result<()> {
                     .map(|a| a.ip().to_string())
                     .unwrap_or_default();
                 if state.ip_blacklist.read().unwrap().contains(&ip) {
-                    // Build a response synchronously and return a ready future so we don't
-                    // capture the non-Send `ServiceRequest` inside an async block.
                     let resp = HttpResponse::Forbidden().json(serde_json::json!({ "error": "IP Blacklisted" }));
-                    return Box::pin(futures_util::future::ready(Ok(req.into_response(resp))));
+                    Either::Left(ready(Ok(req.into_response(resp))))
+                } else {
+                    Either::Right(srv.call(req))
                 }
-                srv.call(req)
             })
             .wrap(Governor::new(&governor_conf))
             .wrap(Logger::default())

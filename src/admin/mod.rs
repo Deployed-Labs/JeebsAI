@@ -7,7 +7,6 @@ pub use whitelist::*;
 pub mod status;
 pub use status::*;
 pub mod logs;
-pub use logs::*;
 pub mod export;
 pub use export::*;
 pub mod import;

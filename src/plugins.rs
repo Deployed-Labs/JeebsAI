@@ -69,9 +69,9 @@ impl Plugin for LogicPlugin {
             if expr.is_empty() {
                 return Some("Please provide a logic expression to evaluate.".to_string());
             }
-            // Try to evaluate as a boolean expression (0 = false, nonzero = true)
-            match meval::eval_str(expr) {
-                Ok(result) => Some(format!("The result is {}.", result != 0.0)),
+            // Try to evaluate as a boolean expression
+            match evalexpr::eval_boolean(&expr) {
+                Ok(result) => Some(format!("The result is {}.", result)),
                 Err(_) => Some("Sorry, I couldn't evaluate that logic expression.".to_string()),
             }
         } else {
@@ -79,6 +79,7 @@ impl Plugin for LogicPlugin {
         }
     }
 }
+use base64::engine::general_purpose;
 #[async_trait]
 impl Plugin for Base64Plugin {
     fn name(&self) -> &'static str {
@@ -91,10 +92,13 @@ impl Plugin for Base64Plugin {
             if text.is_empty() {
                 return Some("Please provide text to encode.".to_string());
             }
-            Some(format!("Base64: {}", base64::encode(text)))
+            Some(format!(
+                "Base64: {}",
+                general_purpose::STANDARD.encode(text)
+            ))
         } else if lower.contains("base64 decode") {
             let text = input.splitn(2, ':').nth(1).unwrap_or(input).trim();
-            match base64::decode(text) {
+            match general_purpose::STANDARD.decode(text) {
                 Ok(bytes) => match String::from_utf8(bytes) {
                     Ok(s) => Some(format!("Decoded: {}", s)),
                     Err(_) => Some("Decoded bytes are not valid UTF-8.".to_string()),
@@ -182,7 +186,6 @@ impl Plugin for SummaryPlugin {
         }
     }
 }
-use sysinfo::System;
 #[async_trait]
 impl Plugin for SystemPlugin {
     fn name(&self) -> &'static str {
@@ -265,7 +268,6 @@ impl Plugin for WeatherPlugin {
         }
     }
 }
-use meval;
 #[async_trait]
 impl Plugin for CalcPlugin {
     fn name(&self) -> &'static str {
@@ -289,7 +291,7 @@ impl Plugin for CalcPlugin {
             if expr.is_empty() {
                 return Some("Please provide a math expression to calculate.".to_string());
             }
-            match meval::eval_str(expr) {
+            match evalexpr::eval(&expr) {
                 Ok(result) => Some(format!("The answer is {}.", result)),
                 Err(_) => Some("Sorry, I couldn't evaluate that expression.".to_string()),
             }
@@ -357,7 +359,7 @@ impl Plugin for ExternalCliPlugin {
     }
 
     async fn handle(&self, input: &str, _state: &AppState) -> Option<String> {
-        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+                use tokio::io::AsyncWriteExt;
         use tokio::process::Command;
         use tokio::time::{Duration, timeout};
 

@@ -1,4 +1,3 @@
-use crate::plugins::Plugin;
 use crate::state::AppState;
 use crate::utils::{decode_all, encode_all};
 use actix_multipart::Multipart;
@@ -7,12 +6,10 @@ use actix_web::{HttpRequest, HttpResponse, Responder, get, post, web};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use chrono::Local;
 use futures_util::TryStreamExt;
-use once_cell::sync::Lazy;
 use rand_core::OsRng;
 use serde::Deserialize;
 use serde_json::json;
 use sqlx::{Row, SqlitePool};
-use std::collections::HashSet;
 
 pub mod pgp;
 
@@ -59,41 +56,6 @@ pub async fn ensure_admin_exists(db: &SqlitePool) {
         }
         Ok(Some(_)) => {}
         Err(e) => eprintln!("Failed to check for admin user: {}", e),
-    }
-}
-
-pub async fn ensure_pgp_user(db: &SqlitePool, username: &str, email: &str, role: &str) {
-    let key = format!("user:{}", username);
-    match sqlx::query("SELECT 1 FROM jeebs_store WHERE key = ?")
-        .bind(&key)
-        .fetch_optional(db)
-        .await
-    {
-        Ok(None) => {
-            // Create user without password - PGP authentication only
-            let user_json = json!({
-                "username": username,
-                "password": null,
-                "email": email,
-                "role": role,
-                "auth_type": "pgp"
-            });
-
-            if let Ok(user_bytes) = serde_json::to_vec(&user_json) {
-                if let Err(e) = sqlx::query("INSERT INTO jeebs_store (key, value) VALUES (?, ?)")
-                    .bind(&key)
-                    .bind(user_bytes)
-                    .execute(db)
-                    .await
-                {
-                    eprintln!("Failed to create PGP user {}: {}", username, e);
-                    return;
-                }
-                println!("PGP-only user account created: {}", username);
-            }
-        }
-        Ok(Some(_)) => {}
-        Err(e) => eprintln!("Failed to check for user {}: {}", username, e),
     }
 }
 
