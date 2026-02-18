@@ -4,6 +4,10 @@ use chrono::Local;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::io::Write;
+<<<<<<< HEAD
+=======
+use chrono::Local;
+>>>>>>> feat/dev-container-ci
 
 use crate::cortex::Cortex;
 use crate::state::AppState;
@@ -43,6 +47,7 @@ pub async fn jeebs_api(
         new_id
     };
 
+<<<<<<< HEAD
     // Update last_seen
     let _ = sqlx::query("UPDATE user_sessions SET last_seen = ? WHERE username = ?")
         .bind(Local::now().to_rfc3339())
@@ -58,6 +63,10 @@ pub async fn jeebs_api(
         prompt
     );
 
+=======
+    println!("[API] user_id={} username={:?} ip={:?} prompt=\"{}\"", user_id, username, http_req.peer_addr(), prompt);
+    
+>>>>>>> feat/dev-container-ci
     let response = Cortex::think(prompt, &data).await;
     HttpResponse::Ok().json(JeebsResponse { response })
 }

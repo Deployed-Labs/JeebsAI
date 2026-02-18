@@ -1,5 +1,12 @@
 use crate::state::AppState;
-use crate::utils::{decode_all, encode_all};
+use crate::utils::{encode_all, decode_all};
+use actix_web::{get, post, web, HttpRequest, HttpResponse, Responder};
+use actix_session::Session;
+use serde_json::json;
+use serde::Deserialize;
+use chrono::Local;
+use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
+use rand_core::OsRng;
 use actix_multipart::Multipart;
 use actix_session::Session;
 use actix_web::{get, post, web, HttpRequest, HttpResponse, Responder};
@@ -865,10 +872,8 @@ pub async fn get_avatar(data: web::Data<AppState>, path: web::Path<String>) -> i
         };
         return HttpResponse::Ok().content_type(ct).body(val);
     }
-    let svg = format!(
-        r#"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='#23283a'><rect width='100' height='100'/><text x='50' y='65' font-size='50' text-anchor='middle' fill='#7fffd4' font-family='sans-serif'>{}</text></svg>"#,
-        username.chars().next().unwrap_or('?').to_uppercase()
-    );
+    let initial = username.chars().next().unwrap_or('?').to_uppercase();
+    let svg = format!("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"#23283a\"><rect width=\"100\" height=\"100\"/><text x=\"50\" y=\"65\" font-size=\"50\" text-anchor=\"middle\" fill=\"#7fffd4\" font-family=\"sans-serif\">{}</text></svg>", initial);
     HttpResponse::Ok().content_type("image/svg+xml").body(svg)
 }
 

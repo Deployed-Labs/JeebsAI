@@ -5,6 +5,7 @@ use actix_web::{get, post, web, HttpResponse, Responder};
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, Row, SqlitePool};
+use chrono;
 use std::collections::HashSet;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -118,11 +119,11 @@ pub async fn admin_train(
     };
 
     let doc = Html::parse_document(&body);
-    let title = doc
-        .select(&Selector::parse("title").unwrap())
-        .next()
-        .map(|e| e.text().collect::<String>())
-        .unwrap_or_else(|| url.to_string());
+    let title_selector = match Selector::parse("title") {
+        Ok(s) => s,
+        Err(e) => return HttpResponse::InternalServerError().json(serde_json::json!({"error": format!("Selector error: {}", e)})),
+    };
+    let title = doc.select(&title_selector).next().map(|e| e.text().collect::<String>()).unwrap_or_else(|| url.to_string());
     let mut text = String::new();
     if let Ok(selector) = Selector::parse("p") {
         for el in doc.select(&selector) {
@@ -204,45 +205,22 @@ pub async fn admin_crawl(
 
             if let Ok(res) = client.get(&url).send().await {
                 if let Ok(body) = res.text().await {
-                    // Offload HTML parsing to a blocking thread so `scraper::Html` (which
-                    // is not `Send`) never becomes part of the async future captured by
-                    // `tokio::spawn`.
-                    // Clone `url` for the blocking closure so the outer `url` remains available
-                    let url_clone = url.clone();
-                    let parse_result = tokio::task::spawn_blocking(move || {
-                        let doc = Html::parse_document(&body);
-
-                        let title = doc
-                            .select(&Selector::parse("title").unwrap())
-                            .next()
-                            .map(|e| e.text().collect::<String>())
-                            .unwrap_or_else(|| url_clone.clone());
-
-                        let mut text = String::new();
-                        if let Ok(selector) = Selector::parse("p") {
-                            for el in doc.select(&selector) {
-                                text.push_str(&el.text().collect::<Vec<_>>().join(" "));
-                                text.push(' ');
-                            }
+                    let doc = Html::parse_document(&body);
+                    
+                    let title = if let Ok(sel) = Selector::parse("title") {
+                        doc.select(&sel).next().map(|e| e.text().collect::<String>()).unwrap_or_else(|| url.clone())
+                    } else {
+                        url.clone()
+                    };
+                    let mut text = String::new();
+                    if let Ok(selector) = Selector::parse("p") {
+                        for el in doc.select(&selector) {
+                            text.push_str(&el.text().collect::<Vec<_>>().join(" "));
+                            text.push(' ');
                         }
-                        let summary: String = text.chars().take(600).collect();
-
-                        let mut links = Vec::new();
-                        if let Ok(selector) = Selector::parse("a[href]") {
-                            for element in doc.select(&selector) {
-                                if let Some(href) = element.value().attr("href") {
-                                    links.push(href.to_string());
-                                }
-                            }
-                        }
-
-                        (title, summary, links)
-                    })
-                    .await
-                    .unwrap_or_else(|_| (url.clone(), String::new(), Vec::new()));
-
-                    let (title, summary, links) = parse_result;
-
+                    }
+                    let summary: String = text.chars().take(600).collect();
+                    
                     let id = blake3::hash(url.as_bytes()).to_hex().to_string();
                     let node = BrainNode {
                         id: id.clone(),
@@ -253,18 +231,21 @@ pub async fn admin_crawl(
                         last_trained: chrono::Local::now().to_rfc3339(),
                         created_at: Some(chrono::Local::now().to_rfc3339()),
                     };
-
                     store_brain_node(&db, &node).await;
                     pages_crawled += 1;
 
                     if depth < max_depth {
-                        for href in links {
-                            if href.starts_with("http") {
-                                queue.push_back((href.to_string(), depth + 1));
-                            } else if href.starts_with("/") {
-                                if let Ok(base) = reqwest::Url::parse(&url) {
-                                    if let Ok(joined) = base.join(&href) {
-                                        queue.push_back((joined.to_string(), depth + 1));
+                        if let Ok(selector) = Selector::parse("a[href]") {
+                            for element in doc.select(&selector) {
+                                if let Some(href) = element.value().attr("href") {
+                                    if href.starts_with("http") {
+                                        queue.push_back((href.to_string(), depth + 1));
+                                    } else if href.starts_with("/") {
+                                         if let Ok(base) = reqwest::Url::parse(&url) {
+                                             if let Ok(joined) = base.join(href) {
+                                                 queue.push_back((joined.to_string(), depth + 1));
+                                             }
+                                         }
                                     }
                                 }
                             }

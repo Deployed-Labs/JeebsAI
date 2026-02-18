@@ -29,11 +29,8 @@ dependencies = [
 
 [[package]]
 name = "actix-codec"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f7b0a21988c1bf877cf4759ef5ddaac04c1c9fe808c9142ecb78ba97d97a28a"
-dependencies = [
- "bitflags 2.11.0",
+ "evalexpr",
+ "meval",
  "bytes",
  "futures-core",
  "futures-sink",
@@ -1922,13 +1919,20 @@ dependencies = [
  "blake3",
  "chrono",
  "csv",
+<<<<<<< HEAD
  "evalexpr",
+=======
+>>>>>>> feat/dev-container-ci
  "futures-util",
  "hex",
  "lazy_static",
  "libloading",
  "log",
  "md-5",
+<<<<<<< HEAD
+=======
+ "meval",
+>>>>>>> feat/dev-container-ci
  "once_cell",
  "rand 0.8.5",
  "rand_core 0.6.4",
@@ -1944,6 +1948,7 @@ dependencies = [
  "sysinfo",
  "tokio",
  "tokio-stream",
+ "urlencoding",
  "uuid",
  "zstd",
 ]

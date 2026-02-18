@@ -7,11 +7,17 @@ use actix_web_actors::ws;
 use chrono::Local;
 use csv::Writer;
 use futures_util::StreamExt;
+<<<<<<< HEAD
 use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqlitePool};
 use std::sync::OnceLock;
 use tokio::sync::broadcast;
 use tokio_stream::wrappers::BroadcastStream;
+=======
+use actix::AsyncContext;
+use actix::ActorContext;
+use std::sync::Mutex;
+>>>>>>> feat/dev-container-ci
 
 #[derive(Serialize, Clone, sqlx::FromRow)]
 pub struct LogEntry {
@@ -30,6 +36,13 @@ fn get_broadcaster() -> &'static broadcast::Sender<LogEntry> {
         let (tx, _) = broadcast::channel(100);
         tx
     })
+}
+
+// In-memory recent-log buffer for admin UI
+static LOG_BUFFER: OnceLock<Mutex<Vec<String>>> = OnceLock::new();
+
+pub fn get_log_buffer() -> &'static Mutex<Vec<String>> {
+    LOG_BUFFER.get_or_init(|| Mutex::new(Vec::new()))
 }
 
 pub async fn init(db: &SqlitePool) {
@@ -67,6 +80,12 @@ pub async fn log(db: &SqlitePool, level: &str, category: &str, message: &str) {
             category: category.to_string(),
             message: message.to_string(),
         };
+        // push to in-memory buffer (bounded)
+        if let Ok(mut buf) = get_log_buffer().lock() {
+            buf.push(format!("{} [{}] {}: {}", entry.timestamp, entry.category, entry.level, entry.message));
+            let len = buf.len();
+            if len > 1000 { buf.drain(0..(len - 1000)); }
+        }
         let _ = get_broadcaster().send(entry);
     }
 }

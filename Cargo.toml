@@ -19,27 +19,22 @@ actix-web = "4"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "io-util"] }
 actix-session = { version = "0.7", features = ["cookie-session"] }
 actix-web-actors = "4"
+<<<<<<< HEAD
 tokio-stream = { version = "0.1", features = ["sync"] }
-actix-logger = "0.4.1"
-reqwest = { version = "0.11", features = ["json"] }
-libloading = "0.8"
-actix-governor = "0.5"
-sysinfo = "0.30.11"
-log = "0.4"
-scraper = "0.18"
-aes-gcm = "0.10"
-base64 = "0.21"
-sha2 = "0.10"
+=======
+	tokio-stream = { version = "0.1", features = ["sync"] }
+	actix-files = "0.6"
+	actix = "0.13"
+	once_cell = "1.21"
+	rand_core = "0.6"
+	csv = "1.2"
+>>>>>>> feat/dev-container-ci
 md-5 = "0.10"
 sha1 = "0.10"
 regex = "1"
 actix-multipart = "0.6"
 futures-util = "0.3"
-lazy_static = "1.4"
-csv = "1.3"
-actix = "0.13"
-actix-files = "0.6"
-async-trait = "0.1"
+chrono = "0.4"
 
 once_cell = "1.19"
 rand_core = "0.6"

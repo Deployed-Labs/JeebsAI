@@ -37,7 +37,7 @@ jobs:
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y nettle-dev pkg-config clang llvm
       - name: Cache cargo registry & target
-        uses: actions/cache@v4
+        uses: actions/cache@v3
         with:
           path: |
             ~/.cargo/registry

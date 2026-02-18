@@ -2,11 +2,19 @@ use actix_session::Session;
 // Modules are provided by the library crate (`src/lib.rs`).
 use jeebs::{admin, auth, brain, chat, cli, cortex, evolution, logging, plugins, security, server, state, updater, utils};
 
+<<<<<<< HEAD
 use crate::plugins::{
     Base64Plugin, CalcPlugin, ContactPlugin, ErrorPlugin, HashPlugin, LogicPlugin, MemoryPlugin,
     NewsPlugin, PasswordPlugin, SummaryPlugin, SystemPlugin, TimePlugin, TodoPlugin,
     TranslatePlugin, WeatherPlugin, WebsiteStatusPlugin,
 };
+=======
+use actix_web::{get, web, App, HttpServer, HttpResponse, Responder};
+use actix_web::dev::Service;
+use actix_session::{Session, SessionMiddleware, storage::CookieSessionStore};
+use actix_web::cookie::Key;
+use actix_web::middleware::Logger;
+>>>>>>> feat/dev-container-ci
 use actix_files::Files;
 use actix_governor::{Governor, GovernorConfigBuilder, KeyExtractor, SimpleKeyExtractionError};
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
@@ -155,6 +163,7 @@ async fn main() -> std::io::Result<()> {
     });
     let secret_key = Key::generate();
 
+<<<<<<< HEAD
     #[derive(Clone)]
     struct WhitelistedKeyExtractor;
     impl KeyExtractor for WhitelistedKeyExtractor {
@@ -262,6 +271,103 @@ async fn main() -> std::io::Result<()> {
             .parse::<u16>()
             .unwrap_or(8080),
     ))?;
+=======
+		#[derive(Clone)]
+		struct WhitelistedKeyExtractor;
+		impl KeyExtractor for WhitelistedKeyExtractor {
+			type Key = String;
+		type KeyExtractionError = SimpleKeyExtractionError<String>;
+			fn extract(&self, req: &ServiceRequest) -> Result<Self::Key, Self::KeyExtractionError> {
+				let state = req.app_data::<web::Data<AppState>>().unwrap();
+				let ip = req.peer_addr().map(|a| a.ip().to_string()).unwrap_or_else(|| "unknown".to_string());
+				if state.ip_whitelist.read().unwrap().contains(&ip) {
+					return Ok(format!("whitelist:{}", uuid::Uuid::new_v4())); // Unique key per request bypasses rate limit
+				}
+				Ok(ip)
+			}
+		}
+
+		let governor_conf = GovernorConfigBuilder::default()
+			.key_extractor(WhitelistedKeyExtractor)
+			.per_second(2)
+			.burst_size(5)
+			.finish()
+			.unwrap();
+		let web_server = HttpServer::new(move || {
+			App::new()
+				.app_data(web::JsonConfig::default().limit(50 * 1024 * 1024))
+				.wrap_fn(|req, srv| {
+					use futures_util::{future::{Either, ready}};
+					let ip = req.peer_addr().map(|a| a.ip().to_string()).unwrap_or_default();
+					let state = req.app_data::<web::Data<AppState>>().cloned();
+					if let Some(state) = state {
+						if state.ip_blacklist.read().unwrap().contains(&ip) {
+							let resp = req.error_response(actix_web::error::ErrorForbidden("IP Blacklisted"));
+							return Either::Left(ready(Ok(resp)));
+						}
+					}
+					Either::Right(srv.call(req))
+				})
+				.wrap(Governor::new(&governor_conf))
+				.wrap(Logger::default())
+				.wrap(SessionMiddleware::new(
+					CookieSessionStore::default(),
+					secret_key.clone(),
+				))
+				.app_data(state.clone())
+				.service(auth::register)
+				.service(auth::login)
+				.service(auth::logout)
+				.service(auth::request_reset)
+				.service(auth::reset_password)
+				.service(auth::verify_email)
+				.service(auth::change_password)
+				.service(auth::upload_avatar)
+				.service(auth::get_avatar)
+				.service(auth::get_profile)
+				.service(auth::delete_account)
+				.service(health_check)
+				.service(chat::jeebs_api)
+				.service(brain::admin_train)
+				.service(brain::admin_crawl)
+				.service(brain::search_brain)
+				.service(brain::reindex_brain)
+				.service(brain::visualize_brain)
+				.service(brain::get_logic_graph)
+				.service(admin::admin_list_users)
+				.service(admin::admin_delete_user)
+				.service(admin::admin_reset_user_password)
+				.service(admin::admin_update_user_role)
+				.service(admin::get_blacklist)
+				.service(admin::add_blacklist_ip)
+				.service(admin::remove_blacklist_ip)
+				.service(admin::get_whitelist)
+				.service(admin::add_whitelist_ip)
+				.service(admin::remove_whitelist_ip)
+				.service(admin::get_system_status)
+				.service(logging::get_logs)
+				.service(logging::clear_logs)
+				.service(logging::get_categories)
+				.service(logging::get_my_logs)
+				.service(logging::export_logs)
+				.service(logging::ws_index)
+				.service(admin::export_database)
+				.service(admin::import_database)
+				.service(admin::get_active_sessions)
+				.service(admin::terminate_session)
+				.service(evolution::list_updates)
+				.service(evolution::apply_update)
+				.service(evolution::deny_update)
+				.service(evolution::resolve_update)
+				.service(evolution::rollback_update)
+				.service(evolution::add_comment)
+				.service(evolution::get_notifications)
+				.service(evolution::dismiss_notification)
+				.service(evolution::brainstorm_update)
+				.service(Files::new("/", "webui").index_file("index.html"))
+	})
+	.bind(("0.0.0.0", std::env::var("PORT").unwrap_or_else(|_| "8080".to_string()).parse::<u16>().unwrap_or(8080)))?;
+>>>>>>> feat/dev-container-ci
 
     // CLI loop (optional, can be removed if only web is needed)
     let port = std::env::var("PORT").unwrap_or_else(|_| "8080".to_string());

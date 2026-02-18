@@ -129,3 +129,7 @@ at [https://www.contributor-covenant.org/translations][translations].
 [Mozilla CoC]: https://github.com/mozilla/diversity
 [FAQ]: https://www.contributor-covenant.org/faq
 [translations]: https://www.contributor-covenant.org/translations
+
+## Additional Attributions
+
+Portions of this document or its structure may have been inspired by or adapted from [EzpzReadMeGenerator](https://github.com/AcheronandStyx/EzpzReadMeGenerator), which is licensed under the MIT License.

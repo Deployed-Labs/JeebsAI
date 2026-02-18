@@ -1,6 +1,11 @@
-target/
-.git/
-.github/
+target
+**/target
+.git
+.github
 *.db
 *.db-shm
 *.db-wal
+.vscode
+node_modules
+.env
+.DS_Store
