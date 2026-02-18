@@ -7,17 +7,12 @@ use actix_web_actors::ws;
 use chrono::Local;
 use csv::Writer;
 use futures_util::StreamExt;
-<<<<<<< HEAD
 use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqlitePool};
 use std::sync::OnceLock;
 use tokio::sync::broadcast;
 use tokio_stream::wrappers::BroadcastStream;
-=======
-use actix::AsyncContext;
-use actix::ActorContext;
 use std::sync::Mutex;
->>>>>>> feat/dev-container-ci
 
 #[derive(Serialize, Clone, sqlx::FromRow)]
 pub struct LogEntry {

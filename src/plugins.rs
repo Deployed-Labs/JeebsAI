@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 #[async_trait]
 impl Plugin for ErrorPlugin {
     fn name(&self) -> &'static str {
@@ -487,38 +486,7 @@ pub fn load_dynamic_plugins(dir: &str) -> Vec<Box<dyn Plugin>> {
     }
 
     v
-}
-=======
-use std::pin::Pin;
-use std::future::Future;
-use sqlx::{SqlitePool, Row};
-use crate::utils::{encode_all, decode_all};
-use chrono::Local;
-use reqwest::Client;
-use meval;
-use sysinfo::System;
-use base64::Engine;
-use serde_json::json;
-use base64 as b64;
-use blake3;
-use sha2::{Sha256, Digest};
-use md5;
-use hex;
-use crate::security::generate_password;
-
-// Plugin trait used across the app (object-safe)
-pub trait Plugin: Send + Sync {
-    fn name(&self) -> &str;
-    fn handle(&self, prompt: String, db: SqlitePool) -> Pin<Box<dyn Future<Output = Option<String>> + Send>>;
-}
-
-// Time plugin — returns current time
-pub struct TimePlugin;
-impl Plugin for TimePlugin {
-    fn name(&self) -> &str { "Time" }
-    fn handle(&self, prompt: String, _db: SqlitePool) -> Pin<Box<dyn Future<Output = Option<String>> + Send>> {
-        Box::pin(async move {
-            let p = prompt.to_lowercase();
+}            let p = prompt.to_lowercase();
             if p.contains("time") || p.contains("what time") {
                 Some(Local::now().to_rfc3339())
             } else { None }
@@ -931,4 +899,3 @@ impl Plugin for ErrorPlugin {
 
 // Dynamic plugin loader (no-op; runtime plugins may be added to `/plugins` directory)
 pub fn load_dynamic_plugins(_dir: &str) -> Vec<Box<dyn Plugin>> { Vec::new() }
->>>>>>> feat/dev-container-ci
