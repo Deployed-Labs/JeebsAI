@@ -1,7 +1,7 @@
-use sqlx::SqlitePool;
 use crate::plugins::Plugin;
-use std::sync::{Arc, RwLock, Mutex};
+use sqlx::SqlitePool;
 use std::collections::HashSet;
+use std::sync::{Arc, Mutex, RwLock};
 use sysinfo::System;
 
 pub struct AppState {

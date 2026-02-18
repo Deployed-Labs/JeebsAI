@@ -1,16 +1,15 @@
-use actix;
-use sqlx::{SqlitePool, Row};
-use chrono::Local;
-use actix_web::{get, delete, web, HttpResponse, Responder};
-use actix_web_actors::ws;
-use csv::Writer;
-use serde::{Serialize, Deserialize};
 use crate::state::AppState;
 use actix_session::Session;
-use tokio::sync::broadcast;
-use std::sync::OnceLock;
-use tokio_stream::wrappers::BroadcastStream;
+use actix_web::{HttpResponse, Responder, delete, get, web};
+use actix_web_actors::ws;
+use chrono::Local;
+use csv::Writer;
 use futures_util::StreamExt;
+use serde::{Deserialize, Serialize};
+use sqlx::{Row, SqlitePool};
+use std::sync::OnceLock;
+use tokio::sync::broadcast;
+use tokio_stream::wrappers::BroadcastStream;
 
 #[derive(Serialize, Clone, sqlx::FromRow)]
 pub struct LogEntry {
@@ -39,7 +38,7 @@ pub async fn init(db: &SqlitePool) {
             level TEXT NOT NULL,
             category TEXT NOT NULL,
             message TEXT NOT NULL
-        )"
+        )",
     )
     .execute(db)
     .await
@@ -48,13 +47,16 @@ pub async fn init(db: &SqlitePool) {
 
 pub async fn log(db: &SqlitePool, level: &str, category: &str, message: &str) {
     let timestamp = Local::now().to_rfc3339();
-    let res = sqlx::query("INSERT INTO system_logs (timestamp, level, category, message) VALUES (?, ?, ?, ?)")
-        .bind(timestamp)
-        .bind(level)
-        .bind(category)
-        .bind(message)
-        .execute(db).await;
-    
+    let res = sqlx::query(
+        "INSERT INTO system_logs (timestamp, level, category, message) VALUES (?, ?, ?, ?)",
+    )
+    .bind(timestamp)
+    .bind(level)
+    .bind(category)
+    .bind(message)
+    .execute(db)
+    .await;
+
     if let Ok(r) = res {
         let entry = LogEntry {
             id: r.last_insert_rowid(),
@@ -71,7 +73,7 @@ pub async fn log(db: &SqlitePool, level: &str, category: &str, message: &str) {
 pub async fn cleanup_old_logs(db: &SqlitePool) {
     // RFC3339 timestamps are lexicographically sortable, making this comparison reliable.
     let thirty_days_ago = (Local::now() - chrono::Duration::days(30)).to_rfc3339();
-    
+
     match sqlx::query("DELETE FROM system_logs WHERE timestamp < ?")
         .bind(thirty_days_ago)
         .execute(db)
@@ -81,9 +83,18 @@ pub async fn cleanup_old_logs(db: &SqlitePool) {
             let rows_affected = result.rows_affected();
             if rows_affected > 0 {
                 // Log the cleanup event itself.
-                log(db, "INFO", "SYSTEM", &format!("Log cleanup task finished. Removed {} entries older than 30 days.", rows_affected)).await;
+                log(
+                    db,
+                    "INFO",
+                    "SYSTEM",
+                    &format!(
+                        "Log cleanup task finished. Removed {} entries older than 30 days.",
+                        rows_affected
+                    ),
+                )
+                .await;
             }
-        },
+        }
         Err(e) => eprintln!("[ERROR] Failed to execute log cleanup task: {}", e),
     }
 }
@@ -100,8 +111,15 @@ pub struct LogQuery {
 }
 
 #[get("/api/admin/logs")]
-pub async fn get_logs(data: web::Data<AppState>, query: web::Query<LogQuery>, session: Session) -> impl Responder {
-    let is_admin = session.get::<bool>("is_admin").unwrap_or(Some(false)).unwrap_or(false);
+pub async fn get_logs(
+    data: web::Data<AppState>,
+    query: web::Query<LogQuery>,
+    session: Session,
+) -> impl Responder {
+    let is_admin = session
+        .get::<bool>("is_admin")
+        .unwrap_or(Some(false))
+        .unwrap_or(false);
     if !is_admin {
         return HttpResponse::Unauthorized().json(serde_json::json!({"error": "Admin only"}));
     }
@@ -130,10 +148,14 @@ pub async fn get_logs(data: web::Data<AppState>, query: web::Query<LogQuery>, se
         conditions.push("message LIKE ?");
     }
     if let Some(start) = &query.start_date {
-        if !start.is_empty() { conditions.push("timestamp >= ?"); }
+        if !start.is_empty() {
+            conditions.push("timestamp >= ?");
+        }
     }
     if let Some(end) = &query.end_date {
-        if !end.is_empty() { conditions.push("timestamp <= ?"); }
+        if !end.is_empty() {
+            conditions.push("timestamp <= ?");
+        }
     }
 
     let where_clause = if conditions.is_empty() {
@@ -142,18 +164,35 @@ pub async fn get_logs(data: web::Data<AppState>, query: web::Query<LogQuery>, se
         format!("WHERE {}", conditions.join(" AND "))
     };
 
-    let sql = format!("SELECT id, timestamp, level, category, message FROM system_logs {} ORDER BY id DESC LIMIT ? OFFSET ?", where_clause);
+    let sql = format!(
+        "SELECT id, timestamp, level, category, message FROM system_logs {} ORDER BY id DESC LIMIT ? OFFSET ?",
+        where_clause
+    );
     let mut q = sqlx::query_as::<_, LogEntry>(&sql);
 
     if let Some(cat) = &query.category {
-        if cat != "All" && !cat.is_empty() { q = q.bind(cat); }
+        if cat != "All" && !cat.is_empty() {
+            q = q.bind(cat);
+        }
     }
     if let Some(lvl) = &query.level {
-        if lvl != "All" && !lvl.is_empty() { q = q.bind(lvl); }
+        if lvl != "All" && !lvl.is_empty() {
+            q = q.bind(lvl);
+        }
     }
-    if has_search { q = q.bind(&search_pattern); }
-    if let Some(start) = &query.start_date { if !start.is_empty() { q = q.bind(start); } }
-    if let Some(end) = &query.end_date { if !end.is_empty() { q = q.bind(end); } }
+    if has_search {
+        q = q.bind(&search_pattern);
+    }
+    if let Some(start) = &query.start_date {
+        if !start.is_empty() {
+            q = q.bind(start);
+        }
+    }
+    if let Some(end) = &query.end_date {
+        if !end.is_empty() {
+            q = q.bind(end);
+        }
+    }
 
     q = q.bind(limit).bind(offset);
 
@@ -161,29 +200,50 @@ pub async fn get_logs(data: web::Data<AppState>, query: web::Query<LogQuery>, se
 
     match rows {
         Ok(logs) => HttpResponse::Ok().json(logs),
-        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({"error": "Failed to fetch logs"}))
+        Err(_) => HttpResponse::InternalServerError()
+            .json(serde_json::json!({"error": "Failed to fetch logs"})),
     }
 }
 
 #[delete("/api/admin/logs")]
 pub async fn clear_logs(data: web::Data<AppState>, session: Session) -> impl Responder {
-    let is_admin = session.get::<bool>("is_admin").unwrap_or(Some(false)).unwrap_or(false);
+    let is_admin = session
+        .get::<bool>("is_admin")
+        .unwrap_or(Some(false))
+        .unwrap_or(false);
     if !is_admin {
         return HttpResponse::Unauthorized().json(serde_json::json!({"error": "Admin only"}));
     }
 
-    match sqlx::query("DELETE FROM system_logs").execute(&data.db).await {
+    match sqlx::query("DELETE FROM system_logs")
+        .execute(&data.db)
+        .await
+    {
         Ok(_) => {
-            log(&data.db, "WARN", "SYSTEM", "All system logs cleared by admin.").await;
+            log(
+                &data.db,
+                "WARN",
+                "SYSTEM",
+                "All system logs cleared by admin.",
+            )
+            .await;
             HttpResponse::Ok().json(serde_json::json!({"ok": true}))
-        },
-        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({"error": "Failed to clear logs"}))
+        }
+        Err(_) => HttpResponse::InternalServerError()
+            .json(serde_json::json!({"error": "Failed to clear logs"})),
     }
 }
 
 #[get("/api/admin/logs/export")]
-pub async fn export_logs(data: web::Data<AppState>, query: web::Query<LogQuery>, session: Session) -> impl Responder {
-    let is_admin = session.get::<bool>("is_admin").unwrap_or(Some(false)).unwrap_or(false);
+pub async fn export_logs(
+    data: web::Data<AppState>,
+    query: web::Query<LogQuery>,
+    session: Session,
+) -> impl Responder {
+    let is_admin = session
+        .get::<bool>("is_admin")
+        .unwrap_or(Some(false))
+        .unwrap_or(false);
     if !is_admin {
         return HttpResponse::Unauthorized().json(serde_json::json!({"error": "Admin only"}));
     }
@@ -194,29 +254,64 @@ pub async fn export_logs(data: web::Data<AppState>, query: web::Query<LogQuery>,
 
     let mut conditions = Vec::new();
     if let Some(cat) = &query.category {
-        if cat != "All" && !cat.is_empty() { conditions.push("category = ?"); }
+        if cat != "All" && !cat.is_empty() {
+            conditions.push("category = ?");
+        }
     }
     if let Some(lvl) = &query.level {
-        if lvl != "All" && !lvl.is_empty() { conditions.push("level = ?"); }
+        if lvl != "All" && !lvl.is_empty() {
+            conditions.push("level = ?");
+        }
     }
-    if has_search { conditions.push("message LIKE ?"); }
-    if let Some(start) = &query.start_date { if !start.is_empty() { conditions.push("timestamp >= ?"); } }
-    if let Some(end) = &query.end_date { if !end.is_empty() { conditions.push("timestamp <= ?"); } }
+    if has_search {
+        conditions.push("message LIKE ?");
+    }
+    if let Some(start) = &query.start_date {
+        if !start.is_empty() {
+            conditions.push("timestamp >= ?");
+        }
+    }
+    if let Some(end) = &query.end_date {
+        if !end.is_empty() {
+            conditions.push("timestamp <= ?");
+        }
+    }
 
-    let where_clause = if conditions.is_empty() { String::new() } else { format!("WHERE {}", conditions.join(" AND ")) };
-    let sql = format!("SELECT id, timestamp, level, category, message FROM system_logs {} ORDER BY id ASC", where_clause);
-    
+    let where_clause = if conditions.is_empty() {
+        String::new()
+    } else {
+        format!("WHERE {}", conditions.join(" AND "))
+    };
+    let sql = format!(
+        "SELECT id, timestamp, level, category, message FROM system_logs {} ORDER BY id ASC",
+        where_clause
+    );
+
     let mut q = sqlx::query_as::<_, LogEntry>(&sql);
 
     if let Some(cat) = &query.category {
-        if cat != "All" && !cat.is_empty() { q = q.bind(cat); }
+        if cat != "All" && !cat.is_empty() {
+            q = q.bind(cat);
+        }
     }
     if let Some(lvl) = &query.level {
-        if lvl != "All" && !lvl.is_empty() { q = q.bind(lvl); }
+        if lvl != "All" && !lvl.is_empty() {
+            q = q.bind(lvl);
+        }
     }
-    if has_search { q = q.bind(&search_pattern); }
-    if let Some(start) = &query.start_date { if !start.is_empty() { q = q.bind(start); } }
-    if let Some(end) = &query.end_date { if !end.is_empty() { q = q.bind(end); } }
+    if has_search {
+        q = q.bind(&search_pattern);
+    }
+    if let Some(start) = &query.start_date {
+        if !start.is_empty() {
+            q = q.bind(start);
+        }
+    }
+    if let Some(end) = &query.end_date {
+        if !end.is_empty() {
+            q = q.bind(end);
+        }
+    }
 
     let rows = q.fetch_all(&data.db).await;
 
@@ -229,28 +324,36 @@ pub async fn export_logs(data: web::Data<AppState>, query: web::Query<LogQuery>,
                     return HttpResponse::InternalServerError().finish();
                 }
             }
-            
+
             let csv_data = wtr.into_inner().unwrap_or_default();
             let filename = format!("jeebs_logs_{}.csv", Local::now().format("%Y-%m-%d"));
             HttpResponse::Ok()
                 .content_type("text/csv")
-                .append_header(("Content-Disposition", format!("attachment; filename=\"{}\"", filename)))
+                .append_header((
+                    "Content-Disposition",
+                    format!("attachment; filename=\"{}\"", filename),
+                ))
                 .body(csv_data)
-        },
-        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({"error": "Failed to fetch logs for export"}))
+        }
+        Err(_) => HttpResponse::InternalServerError()
+            .json(serde_json::json!({"error": "Failed to fetch logs for export"})),
     }
 }
 
 #[get("/api/admin/log_categories")]
 pub async fn get_categories(data: web::Data<AppState>, session: Session) -> impl Responder {
-    let is_admin = session.get::<bool>("is_admin").unwrap_or(Some(false)).unwrap_or(false);
+    let is_admin = session
+        .get::<bool>("is_admin")
+        .unwrap_or(Some(false))
+        .unwrap_or(false);
     if !is_admin {
         return HttpResponse::Unauthorized().json(serde_json::json!({"error": "Admin only"}));
     }
-    
+
     let rows = sqlx::query("SELECT DISTINCT category FROM system_logs ORDER BY category ASC")
-        .fetch_all(&data.db).await;
-        
+        .fetch_all(&data.db)
+        .await;
+
     match rows {
         Ok(rs) => {
             let mut cats: Vec<String> = rs.iter().map(|r| r.get(0)).collect();
@@ -258,8 +361,9 @@ pub async fn get_categories(data: web::Data<AppState>, session: Session) -> impl
                 cats.insert(0, "All".to_string());
             }
             HttpResponse::Ok().json(cats)
-        },
-        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({"error": "Failed to fetch categories"}))
+        }
+        Err(_) => HttpResponse::InternalServerError()
+            .json(serde_json::json!({"error": "Failed to fetch categories"})),
     }
 }
 
@@ -267,7 +371,10 @@ pub async fn get_categories(data: web::Data<AppState>, session: Session) -> impl
 pub async fn get_my_logs(data: web::Data<AppState>, session: Session) -> impl Responder {
     let username = match session.get::<String>("username") {
         Ok(Some(u)) => u,
-        _ => return HttpResponse::Unauthorized().json(serde_json::json!({"error": "Not logged in"})),
+        _ => {
+            return HttpResponse::Unauthorized()
+                .json(serde_json::json!({"error": "Not logged in"}));
+        }
     };
 
     // Filter logs where the message contains the username
@@ -278,7 +385,8 @@ pub async fn get_my_logs(data: web::Data<AppState>, session: Session) -> impl Re
 
     match rows {
         Ok(logs) => HttpResponse::Ok().json(logs),
-        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({"error": "Failed to fetch logs"}))
+        Err(_) => HttpResponse::InternalServerError()
+            .json(serde_json::json!({"error": "Failed to fetch logs"})),
     }
 }
 
@@ -315,8 +423,17 @@ impl actix::StreamHandler<Result<ws::Message, ws::ProtocolError>> for LogWs {
 }
 
 #[get("/api/admin/logs/stream")]
-pub async fn ws_index(req: actix_web::HttpRequest, stream: web::Payload, session: Session) -> Result<HttpResponse, actix_web::Error> {
-    let is_admin = session.get::<bool>("is_admin").unwrap_or(Some(false)).unwrap_or(false);
-    if !is_admin { return Ok(HttpResponse::Unauthorized().finish()); }
+pub async fn ws_index(
+    req: actix_web::HttpRequest,
+    stream: web::Payload,
+    session: Session,
+) -> Result<HttpResponse, actix_web::Error> {
+    let is_admin = session
+        .get::<bool>("is_admin")
+        .unwrap_or(Some(false))
+        .unwrap_or(false);
+    if !is_admin {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
     ws::start(LogWs, &req, stream)
 }
