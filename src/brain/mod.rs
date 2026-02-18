@@ -190,10 +190,9 @@ pub async fn admin_crawl(
             if depth > max_depth || pages_crawled >= max_pages {
                 continue;
             }
-            if visited.contains(&url) {
+            if !visited.insert(url.clone()) {
                 continue;
             }
-            visited.insert(url.clone());
 
             println!("Jeebs Crawling: {url}");
             crate::logging::log(&db, "INFO", "CRAWLER", &format!("Crawling: {url}")).await;
@@ -405,15 +404,14 @@ pub async fn visualize_brain(data: web::Data<AppState>) -> impl Responder {
     let mut graph_edges = Vec::new();
 
     for node in nodes {
-        let node_id = node.id;
         graph_nodes.push(GraphNode {
-            id: node_id.clone(),
+            id: node.id.clone(),
             label: node.label,
             title: node.summary.chars().take(150).collect::<String>(),
         });
         for target in node.edges {
             graph_edges.push(GraphEdge {
-                from: node_id.clone(),
+                from: node.id.clone(),
                 to: target,
             });
         }
@@ -443,12 +441,12 @@ pub async fn get_logic_graph(data: web::Data<AppState>) -> impl Responder {
 
         if seen.insert(s.clone()) {
             nodes.push(
-                serde_json::json!({ "id": &s, "label": &s, "shape": "box", "color": "#97C2FC" }),
+                serde_json::json!({ "id": s, "label": s, "shape": "box", "color": "#97C2FC" }),
             );
         }
         if seen.insert(o.clone()) {
             nodes.push(
-                serde_json::json!({ "id": &o, "label": &o, "shape": "box", "color": "#FFD700" }),
+                serde_json::json!({ "id": o, "label": o, "shape": "box", "color": "#FFD700" }),
             );
         }
         edges.push(serde_json::json!({ "from": s, "to": o, "label": p, "arrows": "to" }));
