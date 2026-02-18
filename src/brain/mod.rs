@@ -406,7 +406,7 @@ pub async fn visualize_brain(data: web::Data<AppState>) -> impl Responder {
     for node in nodes {
         graph_nodes.push(GraphNode {
             id: node.id.clone(),
-            label: node.label,
+            label: node.label.clone(),
             title: node.summary.chars().take(150).collect::<String>(),
         });
         for target in node.edges {
