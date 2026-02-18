@@ -1,4 +1,32 @@
 
+
+# JeebsAI — One-Click VPS Deployment
+
+Want to deploy JeebsAI on a fresh VPS in one step? Just run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Deployed-Labs/JeebsAI/main/one-click-vps.sh | bash
+```
+
+Or, if you already cloned the repo:
+
+```bash
+./one-click-vps.sh
+```
+
+This script will:
+- Install Rust, git, and sqlite3 if missing
+- Clone (or update) the JeebsAI repo
+- Build the JeebsAI binary
+- Install and start the systemd service (jeebs)
+- Set up a default environment file at /etc/jeebs.env
+
+After running, JeebsAI will be running as a systemd service. View logs with:
+
+```bash
+sudo journalctl -u jeebs -f
+```
+
 # JeebsAI — Docker deployment (VPS)
 
 JeebsAI is a Rust-based AI assistant with a lightweight web UI and SQLite-backed storage.
