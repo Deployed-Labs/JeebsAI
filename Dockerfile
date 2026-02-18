@@ -3,11 +3,16 @@ FROM rust:1.88-slim-bookworm as builder
 
 WORKDIR /app
 
-# Install build dependencies (OpenSSL, SQLite, pkg-config)
+# Install build dependencies (OpenSSL, SQLite, nettle for sequoia, pkg-config, compilers)
 RUN apt-get update && apt-get install -y \
+    build-essential \
+    clang \
     pkg-config \
     libssl-dev \
     libsqlite3-dev \
+    libnettle-dev \
+    libgpg-error-dev \
+    libgcrypt-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy source code
@@ -25,6 +30,8 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     libssl3 \
     libsqlite3-0 \
+    libnettle8 \
+    libgpg-error0 \
     curl \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
