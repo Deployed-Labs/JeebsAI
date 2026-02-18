@@ -1,13 +1,13 @@
-use actix_web::{get, post, delete, web, HttpResponse, Responder};
+use crate::state::AppState;
+use crate::utils::{decode_all, encode_all};
 use actix_session::Session;
+use actix_web::{HttpResponse, Responder, delete, get, post, web};
+use chrono::Local;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::Row;
 use std::fs;
 use std::path::Path;
-use crate::state::AppState;
-use crate::utils::{encode_all, decode_all};
-use chrono::Local;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct FileChange {
@@ -62,17 +62,20 @@ pub async fn list_updates(data: web::Data<AppState>, session: Session) -> impl R
     let role: String = match sqlx::query("SELECT role FROM users WHERE username = ?")
         .bind(&username)
         .fetch_optional(&data.db)
-        .await {
-            Ok(Some(row)) => row.get(0),
-            _ => return HttpResponse::Unauthorized().json(json!({"error": "User not found"})),
-        };
+        .await
+    {
+        Ok(Some(row)) => row.get(0),
+        _ => return HttpResponse::Unauthorized().json(json!({"error": "User not found"})),
+    };
 
     if role == "user" {
         return HttpResponse::Forbidden().json(json!({"error": "Access denied"}));
     }
 
     let rows = sqlx::query("SELECT value FROM jeebs_store WHERE key LIKE 'evolution:update:%'")
-        .fetch_all(&data.db).await.unwrap_or_default();
+        .fetch_all(&data.db)
+        .await
+        .unwrap_or_default();
 
     let mut updates = Vec::new();
     for row in rows {
@@ -86,10 +89,7 @@ pub async fn list_updates(data: web::Data<AppState>, session: Session) -> impl R
     // Sort by date desc
     updates.sort_by(|a, b| b.created_at.cmp(&a.created_at));
 
-    HttpResponse::Ok().json(UpdatesResponse {
-        updates,
-        role
-    })
+    HttpResponse::Ok().json(UpdatesResponse { updates, role })
 }
 
 #[post("/api/admin/evolution/apply/{id}")]
@@ -106,10 +106,11 @@ pub async fn apply_update(
     let role: String = match sqlx::query("SELECT role FROM users WHERE username = ?")
         .bind(&username)
         .fetch_optional(&data.db)
-        .await {
-            Ok(Some(row)) => row.get(0),
-            _ => return HttpResponse::Unauthorized().json(json!({"error": "User not found"})),
-        };
+        .await
+    {
+        Ok(Some(row)) => row.get(0),
+        _ => return HttpResponse::Unauthorized().json(json!({"error": "User not found"})),
+    };
 
     if role != "admin" {
         return HttpResponse::Forbidden().json(json!({"error": "Admin only"}));
@@ -118,12 +119,17 @@ pub async fn apply_update(
     let id = path.into_inner();
     let key = format!("evolution:update:{}", id);
 
-    if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?").bind(&key).fetch_optional(&data.db).await {
+    if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
+        .bind(&key)
+        .fetch_optional(&data.db)
+        .await
+    {
         let val: Vec<u8> = row.get(0);
         if let Ok(bytes) = decode_all(&val) {
             if let Ok(mut update) = serde_json::from_slice::<ProposedUpdate>(&bytes) {
                 if update.status != "pending" {
-                    return HttpResponse::BadRequest().json(json!({"error": "Update already processed"}));
+                    return HttpResponse::BadRequest()
+                        .json(json!({"error": "Update already processed"}));
                 }
 
                 // Create Backup
@@ -132,7 +138,10 @@ pub async fn apply_update(
                     let path = Path::new(&change.path);
                     if path.exists() {
                         if let Ok(content) = fs::read_to_string(path) {
-                            backups.push(FileChange { path: change.path.clone(), new_content: content });
+                            backups.push(FileChange {
+                                path: change.path.clone(),
+                                new_content: content,
+                            });
                         }
                     }
                 }
@@ -142,22 +151,35 @@ pub async fn apply_update(
                 for change in &update.changes {
                     // Security check: prevent directory traversal
                     if change.path.contains("..") || change.path.starts_with("/") {
-                        return HttpResponse::BadRequest().json(json!({"error": "Invalid file path detected in update"}));
+                        return HttpResponse::BadRequest()
+                            .json(json!({"error": "Invalid file path detected in update"}));
                     }
-                    
+
                     let path = Path::new(&change.path);
                     if let Some(parent) = path.parent() {
                         fs::create_dir_all(parent).ok();
                     }
                     if let Err(e) = fs::write(path, &change.new_content) {
-                        return HttpResponse::InternalServerError().json(json!({"error": format!("Failed to write file: {}", e)}));
+                        return HttpResponse::InternalServerError()
+                            .json(json!({"error": format!("Failed to write file: {}", e)}));
                     }
                 }
 
                 update.status = "applied".to_string();
                 let new_val = encode_all(&serde_json::to_vec(&update).unwrap(), 1).unwrap();
-                sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)").bind(&key).bind(new_val).execute(&data.db).await.unwrap();
-                crate::logging::log(&data.db, "INFO", "EVOLUTION", &format!("Applied update: {}", update.title)).await;
+                sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)")
+                    .bind(&key)
+                    .bind(new_val)
+                    .execute(&data.db)
+                    .await
+                    .unwrap();
+                crate::logging::log(
+                    &data.db,
+                    "INFO",
+                    "EVOLUTION",
+                    &format!("Applied update: {}", update.title),
+                )
+                .await;
 
                 return HttpResponse::Ok().json(json!({"message": "Update applied successfully. Please rebuild/restart Jeebs."}));
             }
@@ -180,10 +202,11 @@ pub async fn deny_update(
     let role: String = match sqlx::query("SELECT role FROM users WHERE username = ?")
         .bind(&username)
         .fetch_optional(&data.db)
-        .await {
-            Ok(Some(row)) => row.get(0),
-            _ => return HttpResponse::Unauthorized().json(json!({"error": "User not found"})),
-        };
+        .await
+    {
+        Ok(Some(row)) => row.get(0),
+        _ => return HttpResponse::Unauthorized().json(json!({"error": "User not found"})),
+    };
 
     if role != "admin" {
         return HttpResponse::Forbidden().json(json!({"error": "Admin only"}));
@@ -192,14 +215,29 @@ pub async fn deny_update(
     let id = path.into_inner();
     let key = format!("evolution:update:{}", id);
 
-    if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?").bind(&key).fetch_optional(&data.db).await {
+    if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
+        .bind(&key)
+        .fetch_optional(&data.db)
+        .await
+    {
         let val: Vec<u8> = row.get(0);
         if let Ok(bytes) = decode_all(&val) {
             if let Ok(mut update) = serde_json::from_slice::<ProposedUpdate>(&bytes) {
                 update.status = "denied".to_string();
                 let new_val = encode_all(&serde_json::to_vec(&update).unwrap(), 1).unwrap();
-                sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)").bind(&key).bind(new_val).execute(&data.db).await.unwrap();
-                crate::logging::log(&data.db, "WARN", "EVOLUTION", &format!("Denied update: {}", update.title)).await;
+                sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)")
+                    .bind(&key)
+                    .bind(new_val)
+                    .execute(&data.db)
+                    .await
+                    .unwrap();
+                crate::logging::log(
+                    &data.db,
+                    "WARN",
+                    "EVOLUTION",
+                    &format!("Denied update: {}", update.title),
+                )
+                .await;
                 return HttpResponse::Ok().json(json!({"message": "Update denied"}));
             }
         }
@@ -221,10 +259,11 @@ pub async fn resolve_update(
     let role: String = match sqlx::query("SELECT role FROM users WHERE username = ?")
         .bind(&username)
         .fetch_optional(&data.db)
-        .await {
-            Ok(Some(row)) => row.get(0),
-            _ => return HttpResponse::Unauthorized().json(json!({"error": "User not found"})),
-        };
+        .await
+    {
+        Ok(Some(row)) => row.get(0),
+        _ => return HttpResponse::Unauthorized().json(json!({"error": "User not found"})),
+    };
 
     if role != "admin" {
         return HttpResponse::Forbidden().json(json!({"error": "Admin only"}));
@@ -233,13 +272,22 @@ pub async fn resolve_update(
     let id = path.into_inner();
     let key = format!("evolution:update:{}", id);
 
-    if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?").bind(&key).fetch_optional(&data.db).await {
+    if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
+        .bind(&key)
+        .fetch_optional(&data.db)
+        .await
+    {
         let val: Vec<u8> = row.get(0);
         if let Ok(bytes) = decode_all(&val) {
             if let Ok(mut update) = serde_json::from_slice::<ProposedUpdate>(&bytes) {
                 update.status = "resolved".to_string();
                 let new_val = encode_all(&serde_json::to_vec(&update).unwrap(), 1).unwrap();
-                sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)").bind(&key).bind(new_val).execute(&data.db).await.unwrap();
+                sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)")
+                    .bind(&key)
+                    .bind(new_val)
+                    .execute(&data.db)
+                    .await
+                    .unwrap();
                 return HttpResponse::Ok().json(json!({"message": "Update resolved"}));
             }
         }
@@ -261,10 +309,11 @@ pub async fn rollback_update(
     let role: String = match sqlx::query("SELECT role FROM users WHERE username = ?")
         .bind(&username)
         .fetch_optional(&data.db)
-        .await {
-            Ok(Some(row)) => row.get(0),
-            _ => return HttpResponse::Unauthorized().json(json!({"error": "User not found"})),
-        };
+        .await
+    {
+        Ok(Some(row)) => row.get(0),
+        _ => return HttpResponse::Unauthorized().json(json!({"error": "User not found"})),
+    };
 
     if role != "admin" {
         return HttpResponse::Forbidden().json(json!({"error": "Admin only"}));
@@ -273,7 +322,11 @@ pub async fn rollback_update(
     let id = path.into_inner();
     let key = format!("evolution:update:{}", id);
 
-    if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?").bind(&key).fetch_optional(&data.db).await {
+    if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
+        .bind(&key)
+        .fetch_optional(&data.db)
+        .await
+    {
         let val: Vec<u8> = row.get(0);
         if let Ok(bytes) = decode_all(&val) {
             if let Ok(mut update) = serde_json::from_slice::<ProposedUpdate>(&bytes) {
@@ -284,12 +337,22 @@ pub async fn rollback_update(
                         }
                         update.status = "rolled_back".to_string();
                         let new_val = encode_all(&serde_json::to_vec(&update).unwrap(), 1).unwrap();
-                        sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)").bind(&key).bind(new_val).execute(&data.db).await.unwrap();
-                        return HttpResponse::Ok().json(json!({"message": "Update rolled back successfully"}));
+                        sqlx::query(
+                            "INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)",
+                        )
+                        .bind(&key)
+                        .bind(new_val)
+                        .execute(&data.db)
+                        .await
+                        .unwrap();
+                        return HttpResponse::Ok()
+                            .json(json!({"message": "Update rolled back successfully"}));
                     }
-                    return HttpResponse::BadRequest().json(json!({"error": "No backup available for this update"}));
+                    return HttpResponse::BadRequest()
+                        .json(json!({"error": "No backup available for this update"}));
                 }
-                return HttpResponse::BadRequest().json(json!({"error": "Update is not in applied state"}));
+                return HttpResponse::BadRequest()
+                    .json(json!({"error": "Update is not in applied state"}));
             }
         }
     }
@@ -316,10 +379,11 @@ pub async fn add_comment(
     let role: String = match sqlx::query("SELECT role FROM users WHERE username = ?")
         .bind(&username)
         .fetch_optional(&data.db)
-        .await {
-            Ok(Some(row)) => row.get(0),
-            _ => return HttpResponse::Unauthorized().json(json!({"error": "User not found"})),
-        };
+        .await
+    {
+        Ok(Some(row)) => row.get(0),
+        _ => return HttpResponse::Unauthorized().json(json!({"error": "User not found"})),
+    };
 
     if role == "user" {
         return HttpResponse::Forbidden().json(json!({"error": "Access denied"}));
@@ -328,7 +392,11 @@ pub async fn add_comment(
     let id = path.into_inner();
     let key = format!("evolution:update:{}", id);
 
-    if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?").bind(&key).fetch_optional(&data.db).await {
+    if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
+        .bind(&key)
+        .fetch_optional(&data.db)
+        .await
+    {
         let val: Vec<u8> = row.get(0);
         if let Ok(bytes) = decode_all(&val) {
             if let Ok(mut update) = serde_json::from_slice::<ProposedUpdate>(&bytes) {
@@ -338,9 +406,14 @@ pub async fn add_comment(
                     timestamp: Local::now().to_rfc3339(),
                 };
                 update.comments.push(comment);
-                
+
                 let new_val = encode_all(&serde_json::to_vec(&update).unwrap(), 1).unwrap();
-                sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)").bind(&key).bind(new_val).execute(&data.db).await.unwrap();
+                sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)")
+                    .bind(&key)
+                    .bind(new_val)
+                    .execute(&data.db)
+                    .await
+                    .unwrap();
                 return HttpResponse::Ok().json(json!({"message": "Comment added"}));
             }
         }
@@ -358,17 +431,20 @@ pub async fn get_notifications(data: web::Data<AppState>, session: Session) -> i
     let role: String = match sqlx::query("SELECT role FROM users WHERE username = ?")
         .bind(&username)
         .fetch_optional(&data.db)
-        .await {
-            Ok(Some(row)) => row.get(0),
-            _ => return HttpResponse::Unauthorized().json(json!({"error": "User not found"})),
-        };
+        .await
+    {
+        Ok(Some(row)) => row.get(0),
+        _ => return HttpResponse::Unauthorized().json(json!({"error": "User not found"})),
+    };
 
     if role != "admin" {
         return HttpResponse::Forbidden().json(json!({"error": "Admin only"}));
     }
 
     let rows = sqlx::query("SELECT value FROM jeebs_store WHERE key LIKE 'notification:%'")
-        .fetch_all(&data.db).await.unwrap_or_default();
+        .fetch_all(&data.db)
+        .await
+        .unwrap_or_default();
 
     let mut notifications = Vec::new();
     for row in rows {
@@ -399,10 +475,11 @@ pub async fn dismiss_notification(
     let role: String = match sqlx::query("SELECT role FROM users WHERE username = ?")
         .bind(&username)
         .fetch_optional(&data.db)
-        .await {
-            Ok(Some(row)) => row.get(0),
-            _ => return HttpResponse::Unauthorized().json(json!({"error": "User not found"})),
-        };
+        .await
+    {
+        Ok(Some(row)) => row.get(0),
+        _ => return HttpResponse::Unauthorized().json(json!({"error": "User not found"})),
+    };
 
     if role != "admin" {
         return HttpResponse::Forbidden().json(json!({"error": "Admin only"}));
@@ -410,8 +487,12 @@ pub async fn dismiss_notification(
 
     let id = path.into_inner();
     let key = format!("notification:{}", id);
-    sqlx::query("DELETE FROM jeebs_store WHERE key = ?").bind(key).execute(&data.db).await.unwrap();
-    
+    sqlx::query("DELETE FROM jeebs_store WHERE key = ?")
+        .bind(key)
+        .execute(&data.db)
+        .await
+        .unwrap();
+
     HttpResponse::Ok().json(json!({"ok": true}))
 }
 
@@ -426,10 +507,11 @@ pub async fn brainstorm_update(data: web::Data<AppState>, session: Session) -> i
     let role: String = match sqlx::query("SELECT role FROM users WHERE username = ?")
         .bind(&username)
         .fetch_optional(&data.db)
-        .await {
-            Ok(Some(row)) => row.get(0),
-            _ => return HttpResponse::Unauthorized().json(json!({"error": "User not found"})),
-        };
+        .await
+    {
+        Ok(Some(row)) => row.get(0),
+        _ => return HttpResponse::Unauthorized().json(json!({"error": "User not found"})),
+    };
 
     if role != "admin" {
         return HttpResponse::Forbidden().json(json!({"error": "Admin only"}));
@@ -442,14 +524,24 @@ pub async fn brainstorm_update(data: web::Data<AppState>, session: Session) -> i
         author: "Jeebs (Simulation)".to_string(),
         severity: "Low".to_string(),
         comments: Vec::new(),
-        description: "I have researched my interaction logs and decided to add a new reflex for 'ping'.".to_string(),
-        changes: vec![FileChange { path: "src/plugins/ping.rs".to_string(), new_content: "// Auto-generated Ping Plugin\n".to_string() }],
+        description:
+            "I have researched my interaction logs and decided to add a new reflex for 'ping'."
+                .to_string(),
+        changes: vec![FileChange {
+            path: "src/plugins/ping.rs".to_string(),
+            new_content: "// Auto-generated Ping Plugin\n".to_string(),
+        }],
         status: "pending".to_string(),
         created_at: chrono::Local::now().to_rfc3339(),
         backup: None,
     };
     let key = format!("evolution:update:{}", id);
     let val = encode_all(&serde_json::to_vec(&update).unwrap(), 1).unwrap();
-    sqlx::query("INSERT INTO jeebs_store (key, value) VALUES (?, ?)").bind(key).bind(val).execute(&data.db).await.unwrap();
+    sqlx::query("INSERT INTO jeebs_store (key, value) VALUES (?, ?)")
+        .bind(key)
+        .bind(val)
+        .execute(&data.db)
+        .await
+        .unwrap();
     HttpResponse::Ok().json(json!({"message": "Jeebs has proposed a new update!", "id": id}))
 }

@@ -1,12 +1,15 @@
-use actix_web::{get, web, Responder, HttpResponse};
+use crate::state::AppState;
 use actix_session::Session;
+use actix_web::{HttpResponse, Responder, get, web};
 use serde_json::json;
 use sysinfo::System;
-use crate::state::AppState;
 
 #[get("/api/admin/status")]
 pub async fn get_system_status(data: web::Data<AppState>, session: Session) -> impl Responder {
-    let is_admin = session.get::<bool>("is_admin").unwrap_or(Some(false)).unwrap_or(false);
+    let is_admin = session
+        .get::<bool>("is_admin")
+        .unwrap_or(Some(false))
+        .unwrap_or(false);
     if !is_admin {
         return HttpResponse::Unauthorized().json(json!({"error": "Admin only"}));
     }

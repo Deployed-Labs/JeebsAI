@@ -1,14 +1,14 @@
-use sqlx::{SqlitePool, Row};
-use meval;
-use chrono;
-use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
-use actix_web::{get, post, web, Responder, HttpResponse};
+use crate::state::AppState;
+use crate::utils::{decode_all, encode_all};
 use actix_session::Session;
+use actix_web::{HttpResponse, Responder, get, post, web};
+use chrono;
+use meval;
 use reqwest;
 use scraper::{Html, Selector};
-use crate::state::AppState;
-use crate::utils::{encode_all, decode_all};
+use serde::{Deserialize, Serialize};
+use sqlx::{Row, SqlitePool};
+use std::collections::HashSet;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct BrainNode {
@@ -45,9 +45,15 @@ pub async fn store_brain_node(db: &SqlitePool, node: &BrainNode) {
 }
 
 pub async fn get_brain_node(db: &SqlitePool, id: &str) -> Option<BrainNode> {
-    if let Ok(Some(row)) = sqlx::query("SELECT data FROM brain_nodes WHERE id = ?").bind(id).fetch_optional(db).await {
+    if let Ok(Some(row)) = sqlx::query("SELECT data FROM brain_nodes WHERE id = ?")
+        .bind(id)
+        .fetch_optional(db)
+        .await
+    {
         let val: Vec<u8> = row.get(0);
-        return decode_all(&val).ok().and_then(|bytes| serde_json::from_slice(&bytes).ok());
+        return decode_all(&val)
+            .ok()
+            .and_then(|bytes| serde_json::from_slice(&bytes).ok());
     }
     None
 }
@@ -62,13 +68,22 @@ pub async fn store_triple(db: &SqlitePool, triple: &KnowledgeTriple) {
 }
 
 pub async fn get_triples_for_subject(db: &SqlitePool, subject: &str) -> Vec<KnowledgeTriple> {
-    let rows = sqlx::query("SELECT subject, predicate, object, confidence FROM knowledge_triples WHERE subject = ?")
-        .bind(subject)
-        .fetch_all(db).await.unwrap_or_default();
-    
-    rows.iter().map(|row| KnowledgeTriple {
-        subject: row.get(0), predicate: row.get(1), object: row.get(2), confidence: row.get(3)
-    }).collect()
+    let rows = sqlx::query(
+        "SELECT subject, predicate, object, confidence FROM knowledge_triples WHERE subject = ?",
+    )
+    .bind(subject)
+    .fetch_all(db)
+    .await
+    .unwrap_or_default();
+
+    rows.iter()
+        .map(|row| KnowledgeTriple {
+            subject: row.get(0),
+            predicate: row.get(1),
+            object: row.get(2),
+            confidence: row.get(3),
+        })
+        .collect()
 }
 
 #[derive(Deserialize)]
@@ -82,25 +97,42 @@ pub async fn admin_train(
     req: web::Json<TrainRequest>,
     session: Session,
 ) -> impl Responder {
-    let is_admin = session.get::<bool>("is_admin").unwrap_or(Some(false)).unwrap_or(false);
+    let is_admin = session
+        .get::<bool>("is_admin")
+        .unwrap_or(Some(false))
+        .unwrap_or(false);
     if !is_admin {
         return HttpResponse::Unauthorized().json(serde_json::json!({"error": "Admin only"}));
     }
 
     let url = &req.url;
     let client = reqwest::Client::new();
-    let res = match client.get(url).header("User-Agent", "JeebsAI/1.0").send().await {
+    let res = match client
+        .get(url)
+        .header("User-Agent", "JeebsAI/1.0")
+        .send()
+        .await
+    {
         Ok(r) => r,
-        Err(e) => return HttpResponse::BadRequest().json(serde_json::json!({"error": e.to_string()})),
+        Err(e) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({"error": e.to_string()}));
+        }
     };
-    
+
     let body = match res.text().await {
         Ok(t) => t,
-        Err(e) => return HttpResponse::InternalServerError().json(serde_json::json!({"error": e.to_string()})),
+        Err(e) => {
+            return HttpResponse::InternalServerError()
+                .json(serde_json::json!({"error": e.to_string()}));
+        }
     };
 
     let doc = Html::parse_document(&body);
-    let title = doc.select(&Selector::parse("title").unwrap()).next().map(|e| e.text().collect::<String>()).unwrap_or_else(|| url.to_string());
+    let title = doc
+        .select(&Selector::parse("title").unwrap())
+        .next()
+        .map(|e| e.text().collect::<String>())
+        .unwrap_or_else(|| url.to_string());
     let mut text = String::new();
     if let Ok(selector) = Selector::parse("p") {
         for el in doc.select(&selector) {
@@ -120,7 +152,13 @@ pub async fn admin_train(
         created_at: Some(chrono::Local::now().to_rfc3339()),
     };
     store_brain_node(&data.db, &node).await;
-    crate::logging::log(&data.db, "INFO", "BRAIN", &format!("Trained on URL: {}", url)).await;
+    crate::logging::log(
+        &data.db,
+        "INFO",
+        "BRAIN",
+        &format!("Trained on URL: {}", url),
+    )
+    .await;
     HttpResponse::Ok().json(serde_json::json!({"ok": true, "id": id, "label": node.label}))
 }
 
@@ -136,7 +174,10 @@ pub async fn admin_crawl(
     req: web::Json<CrawlRequest>,
     session: Session,
 ) -> impl Responder {
-    let is_admin = session.get::<bool>("is_admin").unwrap_or(Some(false)).unwrap_or(false);
+    let is_admin = session
+        .get::<bool>("is_admin")
+        .unwrap_or(Some(false))
+        .unwrap_or(false);
     if !is_admin {
         return HttpResponse::Unauthorized().json(serde_json::json!({"error": "Admin only"}));
     }
@@ -152,11 +193,15 @@ pub async fn admin_crawl(
 
         // Limit total pages to avoid database explosion
         let mut pages_crawled = 0;
-        let max_pages = 50; 
+        let max_pages = 50;
 
         while let Some((url, depth)) = queue.pop_front() {
-            if depth > max_depth || pages_crawled >= max_pages { continue; }
-            if !visited.insert(url.clone()) { continue; }
+            if depth > max_depth || pages_crawled >= max_pages {
+                continue;
+            }
+            if !visited.insert(url.clone()) {
+                continue;
+            }
 
             println!("Jeebs Crawling: {}", url);
             crate::logging::log(&db, "INFO", "CRAWLER", &format!("Crawling: {}", url)).await;
@@ -170,8 +215,12 @@ pub async fn admin_crawl(
             if let Ok(res) = client.get(&url).send().await {
                 if let Ok(body) = res.text().await {
                     let doc = Html::parse_document(&body);
-                    
-                    let title = doc.select(&Selector::parse("title").unwrap()).next().map(|e| e.text().collect::<String>()).unwrap_or_else(|| url.clone());
+
+                    let title = doc
+                        .select(&Selector::parse("title").unwrap())
+                        .next()
+                        .map(|e| e.text().collect::<String>())
+                        .unwrap_or_else(|| url.clone());
                     let mut text = String::new();
                     if let Ok(selector) = Selector::parse("p") {
                         for el in doc.select(&selector) {
@@ -180,7 +229,7 @@ pub async fn admin_crawl(
                         }
                     }
                     let summary: String = text.chars().take(600).collect();
-                    
+
                     let id = blake3::hash(url.as_bytes()).to_hex().to_string();
                     let node = BrainNode {
                         id: id.clone(),
@@ -201,11 +250,11 @@ pub async fn admin_crawl(
                                     if href.starts_with("http") {
                                         queue.push_back((href.to_string(), depth + 1));
                                     } else if href.starts_with("/") {
-                                         if let Ok(base) = reqwest::Url::parse(&url) {
-                                             if let Ok(joined) = base.join(href) {
-                                                 queue.push_back((joined.to_string(), depth + 1));
-                                             }
-                                         }
+                                        if let Ok(base) = reqwest::Url::parse(&url) {
+                                            if let Ok(joined) = base.join(href) {
+                                                queue.push_back((joined.to_string(), depth + 1));
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -219,7 +268,9 @@ pub async fn admin_crawl(
         crate::logging::log(&db, "INFO", "CRAWLER", "Crawl job finished.").await;
     });
 
-    HttpResponse::Ok().json(serde_json::json!({"ok": true, "message": "Jeebs unleashed! Crawling in background."}))
+    HttpResponse::Ok().json(
+        serde_json::json!({"ok": true, "message": "Jeebs unleashed! Crawling in background."}),
+    )
 }
 
 #[derive(Deserialize)]
@@ -234,32 +285,43 @@ pub async fn search_brain(
 ) -> impl Responder {
     let db = &data.db;
     let term = format!("%{}%", req.query);
-    let rows = sqlx::query("SELECT data FROM brain_nodes WHERE label LIKE ? OR summary LIKE ? LIMIT 20")
-        .bind(&term)
-        .bind(&term)
-        .fetch_all(db).await.unwrap();
+    let rows =
+        sqlx::query("SELECT data FROM brain_nodes WHERE label LIKE ? OR summary LIKE ? LIMIT 20")
+            .bind(&term)
+            .bind(&term)
+            .fetch_all(db)
+            .await
+            .unwrap();
 
-    let nodes: Vec<BrainNode> = rows.iter().filter_map(|row| {
-        let val: Vec<u8> = row.get(0);
-        decode_all(&val).ok().and_then(|bytes| serde_json::from_slice(&bytes).ok())
-    }).collect();
-    
+    let nodes: Vec<BrainNode> = rows
+        .iter()
+        .filter_map(|row| {
+            let val: Vec<u8> = row.get(0);
+            decode_all(&val)
+                .ok()
+                .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+        })
+        .collect();
+
     HttpResponse::Ok().json(nodes)
 }
 
 #[post("/api/admin/reindex")]
-pub async fn reindex_brain(
-    data: web::Data<AppState>,
-    session: Session,
-) -> impl Responder {
-    let is_admin = session.get::<bool>("is_admin").unwrap_or(Some(false)).unwrap_or(false);
+pub async fn reindex_brain(data: web::Data<AppState>, session: Session) -> impl Responder {
+    let is_admin = session
+        .get::<bool>("is_admin")
+        .unwrap_or(Some(false))
+        .unwrap_or(false);
     if !is_admin {
         return HttpResponse::Unauthorized().json(serde_json::json!({"error": "Admin only"}));
     }
 
     let db = &data.db;
-    let rows = sqlx::query("SELECT value FROM jeebs_store WHERE key LIKE 'brain:node:%'").fetch_all(db).await.unwrap();
-    
+    let rows = sqlx::query("SELECT value FROM jeebs_store WHERE key LIKE 'brain:node:%'")
+        .fetch_all(db)
+        .await
+        .unwrap();
+
     let mut count = 0;
     for row in rows {
         let val: Vec<u8> = row.get(0);
@@ -290,12 +352,20 @@ struct GraphEdge {
 #[get("/api/brain/visualize")]
 pub async fn visualize_brain(data: web::Data<AppState>) -> impl Responder {
     let db = &data.db;
-    let rows = sqlx::query("SELECT data FROM brain_nodes").fetch_all(db).await.unwrap();
+    let rows = sqlx::query("SELECT data FROM brain_nodes")
+        .fetch_all(db)
+        .await
+        .unwrap();
 
-    let nodes: Vec<BrainNode> = rows.iter().filter_map(|row| {
-        let val: Vec<u8> = row.get(0);
-        decode_all(&val).ok().and_then(|bytes| serde_json::from_slice(&bytes).ok())
-    }).collect();
+    let nodes: Vec<BrainNode> = rows
+        .iter()
+        .filter_map(|row| {
+            let val: Vec<u8> = row.get(0);
+            decode_all(&val)
+                .ok()
+                .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+        })
+        .collect();
 
     let mut graph_nodes = Vec::new();
     let mut graph_edges = Vec::new();
@@ -323,7 +393,9 @@ pub async fn visualize_brain(data: web::Data<AppState>) -> impl Responder {
 #[get("/api/brain/logic_graph")]
 pub async fn get_logic_graph(data: web::Data<AppState>) -> impl Responder {
     let rows = sqlx::query("SELECT subject, predicate, object FROM knowledge_triples LIMIT 1000")
-        .fetch_all(&data.db).await.unwrap_or_default();
+        .fetch_all(&data.db)
+        .await
+        .unwrap_or_default();
 
     let mut nodes = Vec::new();
     let mut edges = Vec::new();
@@ -335,10 +407,14 @@ pub async fn get_logic_graph(data: web::Data<AppState>) -> impl Responder {
         let o: String = row.get(2);
 
         if seen.insert(s.clone()) {
-            nodes.push(serde_json::json!({ "id": s, "label": s, "shape": "box", "color": "#97C2FC" }));
+            nodes.push(
+                serde_json::json!({ "id": s, "label": s, "shape": "box", "color": "#97C2FC" }),
+            );
         }
         if seen.insert(o.clone()) {
-            nodes.push(serde_json::json!({ "id": o, "label": o, "shape": "box", "color": "#FFD700" }));
+            nodes.push(
+                serde_json::json!({ "id": o, "label": o, "shape": "box", "color": "#FFD700" }),
+            );
         }
         edges.push(serde_json::json!({ "from": s, "to": o, "label": p, "arrows": "to" }));
     }
@@ -347,7 +423,10 @@ pub async fn get_logic_graph(data: web::Data<AppState>) -> impl Responder {
 }
 
 pub async fn seed_knowledge(db: &SqlitePool) {
-    if let Ok(row) = sqlx::query("SELECT COUNT(*) FROM knowledge_triples").fetch_one(db).await {
+    if let Ok(row) = sqlx::query("SELECT COUNT(*) FROM knowledge_triples")
+        .fetch_one(db)
+        .await
+    {
         let count: i64 = row.get(0);
         if count == 0 {
             let facts = vec![
