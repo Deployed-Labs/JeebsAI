@@ -57,6 +57,12 @@ async fn health_check(data: web::Data<AppState>, session: Session) -> impl Respo
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
+    // Parse port from environment
+    let port: u16 = std::env::var("PORT")
+        .unwrap_or_else(|_| "8080".to_string())
+        .parse()
+        .unwrap_or(8080);
+
     let database_url =
         std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:jeebs.db".to_string());
     println!("Connecting to database: {database_url}");
@@ -257,10 +263,9 @@ async fn main() -> std::io::Result<()> {
 				.service(evolution::brainstorm_update)
 				.service(Files::new("/", "webui").index_file("index.html"))
 	})
-	.bind(("0.0.0.0", std::env::var("PORT").unwrap_or_else(|_| "8080".to_string()).parse::<u16>().unwrap_or(8080)))?;
+	.bind(("0.0.0.0", port))?;
 
     // CLI loop (optional, can be removed if only web is needed)
-    let port = std::env::var("PORT").unwrap_or_else(|_| "8080".to_string());
     println!("Jeebs is running! Web API at http://127.0.0.1:{port}");
 
     let mut cli_plugins: Vec<Box<dyn crate::plugins::Plugin>> = vec![
