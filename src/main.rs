@@ -13,6 +13,7 @@ mod security;
 mod evolution;
 
 use actix_web::{get, web, App, HttpServer, HttpResponse, Responder};
+use actix_web::dev::Service;
 use actix_session::{SessionMiddleware, storage::CookieSessionStore};
 use actix_web::cookie::Key;
 use actix_web::middleware::Logger;
@@ -163,9 +164,10 @@ async fn main() -> std::io::Result<()> {
 					let state = req.app_data::<web::Data<AppState>>().unwrap();
 					let ip = req.peer_addr().map(|a| a.ip().to_string()).unwrap_or_default();
 					if state.ip_blacklist.read().unwrap().contains(&ip) {
-						return Box::pin(async { Ok(req.error_response(actix_web::error::ErrorForbidden("IP Blacklisted"))) });
+						return Box::pin(async { Ok(req.error_response(actix_web::error::ErrorForbidden("IP Blacklisted"))) })
+							as std::pin::Pin<Box<dyn std::future::Future<Output = Result<actix_web::dev::ServiceResponse, actix_web::Error>>>>;
 					}
-					srv.call(req)
+					Box::pin(srv.call(req))
 				})
 				.wrap(Governor::new(&governor_conf))
 				.wrap(Logger::default())

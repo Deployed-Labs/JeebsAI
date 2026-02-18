@@ -731,6 +731,7 @@ mod tests {
     use std::collections::HashSet;
     use sysinfo::System;
     use crate::plugins::ErrorPlugin;
+    use crate::cortex::Cortex;
 
     #[tokio::test]
     async fn test_evolution_error_reporting() {
