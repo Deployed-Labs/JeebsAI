@@ -14,4 +14,3 @@ pub mod import;
 pub use import::*;
 pub mod sessions;
 pub use sessions::*;
-            if let Ok(user_json) = serde_json::from_slice::<serde_json::Value>(&val) {

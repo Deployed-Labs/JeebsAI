@@ -1,6 +1,6 @@
-use actix_web::{get, post, delete, web, Responder, HttpResponse};
 use actix_session::Session;
-use serde::{Deserialize};
+use actix_web::{HttpResponse, Responder, delete, get, post, web};
+use serde::Deserialize;
 use serde_json::json;
 use sqlx::Row;
 
@@ -13,11 +13,14 @@ pub struct IpRequest {
 
 #[get("/api/admin/whitelist")]
 pub async fn get_whitelist(data: web::Data<AppState>, session: Session) -> impl Responder {
-    let is_admin = session.get::<bool>("is_admin").unwrap_or(Some(false)).unwrap_or(false);
+    let is_admin = session
+        .get::<bool>("is_admin")
+        .unwrap_or(Some(false))
+        .unwrap_or(false);
     if !is_admin {
         return HttpResponse::Unauthorized().json(json!({"error": "Admin only"}));
     }
-    
+
     let whitelist = data.ip_whitelist.read().unwrap();
     let ips: Vec<String> = whitelist.iter().cloned().collect();
     HttpResponse::Ok().json(ips)
@@ -29,14 +32,21 @@ pub async fn add_whitelist_ip(
     req: web::Json<IpRequest>,
     session: Session,
 ) -> impl Responder {
-    let is_admin = session.get::<bool>("is_admin").unwrap_or(Some(false)).unwrap_or(false);
+    let is_admin = session
+        .get::<bool>("is_admin")
+        .unwrap_or(Some(false))
+        .unwrap_or(false);
     if !is_admin {
         return HttpResponse::Unauthorized().json(json!({"error": "Admin only"}));
     }
 
     let ip = req.ip.trim().to_string();
-    sqlx::query("INSERT OR REPLACE INTO ip_whitelist (ip) VALUES (?)").bind(&ip).execute(&data.db).await.unwrap();
-    
+    sqlx::query("INSERT OR REPLACE INTO ip_whitelist (ip) VALUES (?)")
+        .bind(&ip)
+        .execute(&data.db)
+        .await
+        .unwrap();
+
     data.ip_whitelist.write().unwrap().insert(ip);
     HttpResponse::Ok().json(json!({"ok": true}))
 }
@@ -47,14 +57,21 @@ pub async fn remove_whitelist_ip(
     req: web::Json<IpRequest>,
     session: Session,
 ) -> impl Responder {
-    let is_admin = session.get::<bool>("is_admin").unwrap_or(Some(false)).unwrap_or(false);
+    let is_admin = session
+        .get::<bool>("is_admin")
+        .unwrap_or(Some(false))
+        .unwrap_or(false);
     if !is_admin {
         return HttpResponse::Unauthorized().json(json!({"error": "Admin only"}));
     }
 
     let ip = req.ip.trim().to_string();
-    sqlx::query("DELETE FROM ip_whitelist WHERE ip = ?").bind(&ip).execute(&data.db).await.unwrap();
-    
+    sqlx::query("DELETE FROM ip_whitelist WHERE ip = ?")
+        .bind(&ip)
+        .execute(&data.db)
+        .await
+        .unwrap();
+
     data.ip_whitelist.write().unwrap().remove(&ip);
     HttpResponse::Ok().json(json!({"ok": true}))
 }
