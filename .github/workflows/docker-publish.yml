@@ -38,6 +38,24 @@ jobs:
           echo "OWNER_LOWER=${{ steps.owner.outputs.owner_lower }}"
           echo "TAGS=ghcr.io/${{ steps.owner.outputs.owner_lower }}/jeebs:latest, ghcr.io/${{ steps.owner.outputs.owner_lower }}/jeebs:${{ github.sha }}"
 
+      - name: Debug — local Docker build (runner)
+        run: |
+          docker build -t ghcr.io/${{ steps.owner.outputs.owner_lower }}/jeebs:debug-${{ github.sha }} -f Dockerfile .
+        timeout-minutes: 30
+        continue-on-error: true
+
+      - name: Debug — attempt push to GHCR (shows exact error if push blocked)
+        run: |
+          echo "Logging in to GHCR (debug)"
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker push ghcr.io/${{ steps.owner.outputs.owner_lower }}/jeebs:debug-${{ github.sha }} || true
+        timeout-minutes: 5
+        continue-on-error: true
+
+      - name: Debug — list local images
+        run: docker images | sed -n '1,200p'
+        continue-on-error: true
+
       - name: Build and push image
         uses: docker/build-push-action@v4
         with:
