@@ -4,6 +4,20 @@
 # Sled Database directory (contains user data)
 /jeebs_db
 
+# SQLite database files (contains user data)
+*.db
+*.db-shm
+*.db-wal
+
+# Environment files (may contain secrets)
+.env
+.env.local
+/etc/jeebs/config.env
+
+# Backup files
+/backups/
+*.backup
+
 # Temporary update artifacts
 update.tar.gz
 
@@ -15,3 +29,11 @@ webui/## Chat Customization Diagnostics.md
 
 # Tooling state
 mcp-state.json
+
+# Logs
+*.log
+
+# SSH keys
+*.pem
+*.key
+!*.pub
