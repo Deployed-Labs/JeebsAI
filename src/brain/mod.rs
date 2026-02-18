@@ -206,21 +206,45 @@ pub async fn admin_crawl(
 
             if let Ok(res) = client.get(&url).send().await {
                 if let Ok(body) = res.text().await {
-                    let doc = Html::parse_document(&body);
-                    
-                    let title = if let Ok(sel) = Selector::parse("title") {
-                        doc.select(&sel).next().map(|e| e.text().collect::<String>()).unwrap_or_else(|| url.clone())
-                    } else {
-                        url.clone()
-                    };
-                    let mut text = String::new();
-                    if let Ok(selector) = Selector::parse("p") {
-                        for el in doc.select(&selector) {
-                            text.push_str(&el.text().collect::<Vec<_>>().join(" "));
-                            text.push(' ');
+                    // Extract all data from doc in a non-async block so Html (non-Send) is dropped before .await
+                    let (title, summary, links) = {
+                        let doc = Html::parse_document(&body);
+
+                        let title = if let Ok(sel) = Selector::parse("title") {
+                            doc.select(&sel).next().map(|e| e.text().collect::<String>()).unwrap_or_else(|| url.clone())
+                        } else {
+                            url.clone()
+                        };
+                        let mut text = String::new();
+                        if let Ok(selector) = Selector::parse("p") {
+                            for el in doc.select(&selector) {
+                                text.push_str(&el.text().collect::<Vec<_>>().join(" "));
+                                text.push(' ');
+                            }
                         }
-                    }
-                    let summary: String = text.chars().take(600).collect();
+                        let summary: String = text.chars().take(600).collect();
+
+                        let mut links = Vec::new();
+                        if depth < max_depth {
+                            if let Ok(selector) = Selector::parse("a[href]") {
+                                for element in doc.select(&selector) {
+                                    if let Some(href) = element.value().attr("href") {
+                                        if href.starts_with("http") {
+                                            links.push(href.to_string());
+                                        } else if href.starts_with("/") {
+                                            if let Ok(base) = reqwest::Url::parse(&url) {
+                                                if let Ok(joined) = base.join(href) {
+                                                    links.push(joined.to_string());
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        (title, summary, links)
+                    };
                     
                     let id = blake3::hash(url.as_bytes()).to_hex().to_string();
                     let node = BrainNode {
@@ -235,22 +259,8 @@ pub async fn admin_crawl(
                     store_brain_node(&db, &node).await;
                     pages_crawled += 1;
 
-                    if depth < max_depth {
-                        if let Ok(selector) = Selector::parse("a[href]") {
-                            for element in doc.select(&selector) {
-                                if let Some(href) = element.value().attr("href") {
-                                    if href.starts_with("http") {
-                                        queue.push_back((href.to_string(), depth + 1));
-                                    } else if href.starts_with("/") {
-                                         if let Ok(base) = reqwest::Url::parse(&url) {
-                                             if let Ok(joined) = base.join(href) {
-                                                 queue.push_back((joined.to_string(), depth + 1));
-                                             }
-                                         }
-                                    }
-                                }
-                            }
-                        }
+                    for link in links {
+                        queue.push_back((link, depth + 1));
                     }
                 }
             }
