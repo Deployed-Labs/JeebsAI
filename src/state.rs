@@ -10,4 +10,5 @@ pub struct AppState {
     pub ip_blacklist: Arc<RwLock<HashSet<String>>>,
     pub ip_whitelist: Arc<RwLock<HashSet<String>>>,
     pub sys: Arc<Mutex<System>>,
+    pub internet_enabled: Arc<RwLock<bool>>,
 }

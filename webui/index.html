@@ -43,6 +43,65 @@
         button { padding: 12px 24px; border-radius: 8px; border: none; background: var(--accent); color: var(--bg-main); font-weight: bold; font-size: 1rem; cursor: pointer; transition: background 0.2s; }
         button:hover { opacity: 0.9; }
         .theme-toggle { position: absolute; top: 20px; right: 20px; background: transparent; color: var(--text-main); padding: 5px; font-size: 1.2rem; }
+        
+        /* Internet Toggle Switch */
+        .internet-control { 
+            background: rgba(0,0,0,0.15); 
+            padding: 16px; 
+            border-radius: 8px; 
+            margin-bottom: 16px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between;
+            border: 2px solid rgba(127, 255, 212, 0.2);
+        }
+        .internet-control-label { 
+            font-weight: bold; 
+            color: var(--accent); 
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .internet-control-label small {
+            font-weight: normal;
+            font-size: 0.85em;
+            color: var(--text-main);
+            opacity: 0.8;
+        }
+        .toggle-switch { position: relative; display: inline-block; width: 60px; height: 30px; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider { 
+            position: absolute; 
+            cursor: pointer; 
+            top: 0; 
+            left: 0; 
+            right: 0; 
+            bottom: 0; 
+            background-color: #d32f2f; 
+            transition: 0.4s; 
+            border-radius: 30px;
+        }
+        .toggle-slider:before { 
+            position: absolute; 
+            content: ""; 
+            height: 22px; 
+            width: 22px; 
+            left: 4px; 
+            bottom: 4px; 
+            background-color: white; 
+            transition: 0.4s; 
+            border-radius: 50%;
+        }
+        input:checked + .toggle-slider { background-color: #4caf50; }
+        input:checked + .toggle-slider:before { transform: translateX(30px); }
+        .toggle-status { 
+            font-size: 0.9em; 
+            margin-left: 10px;
+            font-weight: bold;
+        }
+        .status-disabled { color: #d32f2f; }
+        .status-enabled { color: #4caf50; }
+        
         @media (max-width: 700px) { .container { margin: 16px; padding: 16px; } }
     </style>
 </head>
@@ -52,6 +111,7 @@
         <h1>Jeebs Club</h1>
         <div id="session"></div>
         <div class="status" id="statusMsg"></div>
+        <div id="internetControlBox" style="display:none;"></div>
         <div id="loginBox" style="margin-bottom:16px;"></div>
         <div id="chat"></div>
         <form id="promptForm">
@@ -129,6 +189,7 @@
                 showStatus('Not logged in.');
             }
             renderLoginBox();
+            loadInternetStatus();
         }
         fetchSession();
 
@@ -422,6 +483,74 @@
                     }
                     loadUsers();
                 }
+            }
+        }
+
+        // Internet Connectivity Control
+        async function loadInternetStatus() {
+            const internetBox = document.getElementById('internetControlBox');
+            
+            // Only show for admins
+            if (!loggedIn || !isAdmin) {
+                internetBox.style.display = 'none';
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/admin/internet/status');
+                if (res.ok) {
+                    const data = await res.json();
+                    internetBox.style.display = 'block';
+                    internetBox.innerHTML = `
+                        <div class="internet-control">
+                            <div class="internet-control-label">
+                                <span>🌐 AI Internet Access</span>
+                                <small>Control whether the AI can access the internet for research and learning</small>
+                            </div>
+                            <div style="display: flex; align-items: center;">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="internetToggle" ${data.enabled ? 'checked' : ''}>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <span class="toggle-status ${data.enabled ? 'status-enabled' : 'status-disabled'}">
+                                    ${data.enabled ? '✓ Enabled' : '✗ Disabled'}
+                                </span>
+                            </div>
+                        </div>
+                    `;
+
+                    // Attach event handler
+                    document.getElementById('internetToggle').onchange = async (e) => {
+                        const enabled = e.target.checked;
+                        const toggleStatus = e.target.parentElement.nextElementSibling;
+                        
+                        try {
+                            const updateRes = await fetch('/api/admin/internet/set', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ enabled })
+                            });
+                            
+                            if (updateRes.ok) {
+                                toggleStatus.className = `toggle-status ${enabled ? 'status-enabled' : 'status-disabled'}`;
+                                toggleStatus.textContent = enabled ? '✓ Enabled' : '✗ Disabled';
+                                showStatus(`Internet access ${enabled ? 'enabled' : 'disabled'} for AI`);
+                            } else {
+                                // Revert toggle on failure
+                                e.target.checked = !enabled;
+                                showStatus('Failed to update internet access', true);
+                            }
+                        } catch {
+                            // Revert toggle on failure
+                            e.target.checked = !enabled;
+                            showStatus('Network error updating internet access', true);
+                        }
+                    };
+                } else {
+                    internetBox.style.display = 'none';
+                }
+            } catch {
+                internetBox.style.display = 'none';
             }
         }
 

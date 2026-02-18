@@ -145,6 +145,9 @@ async fn main() -> std::io::Result<()> {
     // System Info
     let sys = System::new_all();
 
+    // Internet connectivity control (default: disabled for security)
+    let internet_enabled = Arc::new(RwLock::new(false));
+
     // Start web server in background
     let state = web::Data::new(AppState {
         db: db.clone(),
@@ -152,6 +155,7 @@ async fn main() -> std::io::Result<()> {
         ip_blacklist,
         ip_whitelist,
         sys: Arc::new(Mutex::new(sys)),
+        internet_enabled,
     });
     let secret_key = Key::generate();
 
@@ -229,6 +233,8 @@ async fn main() -> std::io::Result<()> {
 				.service(admin::add_whitelist_ip)
 				.service(admin::remove_whitelist_ip)
 				.service(admin::get_system_status)
+				.service(admin::get_internet_status)
+				.service(admin::set_internet_status)
 				.service(logging::get_logs)
 				.service(logging::clear_logs)
 				.service(logging::get_categories)
@@ -329,6 +335,7 @@ async fn main() -> std::io::Result<()> {
         ip_blacklist: Arc::new(RwLock::new(HashSet::new())),
         ip_whitelist: Arc::new(RwLock::new(HashSet::new())),
         sys: Arc::new(Mutex::new(System::new_all())),
+        internet_enabled: Arc::new(RwLock::new(false)),
     });
     // Run CLI in a separate thread so it doesn't block the web server startup
     std::thread::spawn(move || {
