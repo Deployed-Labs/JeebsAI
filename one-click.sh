@@ -10,9 +10,23 @@ DOMAIN=${DOMAIN:-""}
 EMAIL=${EMAIL:-""}
 DB_PATH=${DB_PATH:-"/var/lib/jeebs/jeebs.db"}
 FORCE=${FORCE:-""}
+UFW_ALLOW=${UFW_ALLOW:-"1"}
 
 if [[ $EUID -ne 0 ]]; then
   exec sudo -E "$0" "$@"
+fi
+
+if [[ -r /etc/os-release ]]; then
+  . /etc/os-release
+  if [[ "${ID:-}" != "ubuntu" && "${ID:-}" != "debian" ]]; then
+    echo "This script supports Ubuntu/Debian only. Detected: ${ID:-unknown}."
+    exit 1
+  fi
+fi
+
+if ! command -v systemctl >/dev/null 2>&1; then
+  echo "systemd is required. systemctl not found."
+  exit 1
 fi
 
 confirm_overwrite() {
@@ -33,6 +47,20 @@ confirm_overwrite() {
   fi
 }
 
+open_ufw_port() {
+  local port=$1
+
+  if [[ "$UFW_ALLOW" != "1" ]]; then
+    return 0
+  fi
+
+  if command -v ufw >/dev/null 2>&1; then
+    if ufw status | grep -q "Status: active"; then
+      ufw allow "$port" >/dev/null
+    fi
+  fi
+}
+
 apt-get update
 apt-get install -y \
   build-essential pkg-config libssl-dev sqlite3 git curl ca-certificates
@@ -48,6 +76,8 @@ fi
 if [[ -z "$DOMAIN" && -n "$EMAIL" ]]; then
   echo "EMAIL is set but DOMAIN is empty. Skipping SSL setup."
 fi
+
+open_ufw_port "$APP_PORT"
 
 if ! command -v rustup >/dev/null 2>&1; then
   curl https://sh.rustup.rs -sSf | sh -s -- -y
@@ -104,6 +134,8 @@ systemctl enable jeebs
 systemctl restart jeebs
 
 if [[ -n "$DOMAIN" && -n "$EMAIL" ]]; then
+  open_ufw_port 80
+  open_ufw_port 443
   confirm_overwrite /etc/nginx/sites-available/jeebs "nginx site"
   cat >/etc/nginx/sites-available/jeebs <<EOF
 server {
