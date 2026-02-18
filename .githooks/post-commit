@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Run the repo's version-bump script after every commit (local opt-in).
+# The script itself skips when the commit message is already a bump commit.
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)/scripts"
+"$SCRIPT_DIR"/bump_version_on_commit.sh || true

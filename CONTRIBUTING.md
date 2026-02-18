@@ -43,9 +43,19 @@ Thank you for your interest in contributing to JeebsAI! This document provides g
    ```bash
    # Copy the example environment file
    cp .env.example .env
-   
+
    # Edit .env if needed for local development
    ```
+
+4.1 **Install Git hooks (optional — recommended)**
+
+To enable the local git hook that automatically bumps the patch version on every commit (useful for single‑developer workflows), run:
+
+```bash
+./scripts/install-git-hooks.sh
+```
+
+The hook commits a bump (with `[skip ci]`) and will be skipped for bump commits themselves.
 
 5. **Build and run:**
    ```bash
