@@ -5,7 +5,31 @@
 
 set -e
 
-# 1. Build the project first
+# 1. Ensure Rust toolchain (install/update when needed) and build
+REQUIRED_RUST_MAJOR=1
+REQUIRED_RUST_MINOR=88
+
+echo "Checking Rust toolchain (requires >= ${REQUIRED_RUST_MAJOR}.${REQUIRED_RUST_MINOR})..."
+if command -v rustc >/dev/null 2>&1; then
+  ver=$(rustc --version | awk '{print $2}')
+  major=$(echo "$ver" | cut -d. -f1)
+  minor=$(echo "$ver" | cut -d. -f2)
+else
+  ver="0.0.0"
+  major=0
+  minor=0
+fi
+
+if [ "$major" -lt "$REQUIRED_RUST_MAJOR" ] || { [ "$major" -eq "$REQUIRED_RUST_MAJOR" ] && [ "$minor" -lt "$REQUIRED_RUST_MINOR" ]; }; then
+  echo "Rust $ver is too old or missing — installing rustup + Rust ${REQUIRED_RUST_MAJOR}.${REQUIRED_RUST_MINOR}+..."
+  curl https://sh.rustup.rs -sSf | sh -s -- -y
+  export PATH="$HOME/.cargo/bin:$PATH"
+  rustup toolchain install 1.88.0
+  rustup default 1.88.0
+else
+  echo "Found rustc $ver"
+fi
+
 echo "Building JeebsAI (Release)..."
 cargo build --release
 
