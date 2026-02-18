@@ -14,6 +14,8 @@ use rand_core::OsRng;
 use actix_multipart::Multipart;
 use futures_util::TryStreamExt;
 
+pub mod pgp;
+
 pub async fn ensure_admin_exists(db: &SqlitePool) {
     let key = "user:admin";
     match sqlx::query("SELECT 1 FROM jeebs_store WHERE key = ?").bind(key).fetch_optional(db).await {
@@ -48,6 +50,35 @@ pub async fn ensure_admin_exists(db: &SqlitePool) {
         },
         Ok(Some(_)) => {},
         Err(e) => eprintln!("Failed to check for admin user: {}", e),
+    }
+}
+
+pub async fn ensure_pgp_user(db: &SqlitePool, username: &str, email: &str, role: &str) {
+    let key = format!("user:{}", username);
+    match sqlx::query("SELECT 1 FROM jeebs_store WHERE key = ?").bind(&key).fetch_optional(db).await {
+        Ok(None) => {
+            // Create user without password - PGP authentication only
+            let user_json = json!({
+                "username": username,
+                "password": null,
+                "email": email,
+                "role": role,
+                "auth_type": "pgp"
+            });
+            
+            if let Ok(user_bytes) = serde_json::to_vec(&user_json) {
+                if let Err(e) = sqlx::query("INSERT INTO jeebs_store (key, value) VALUES (?, ?)")
+                    .bind(&key)
+                    .bind(user_bytes)
+                    .execute(db).await {
+                        eprintln!("Failed to create PGP user {}: {}", username, e);
+                        return;
+                    }
+                println!("PGP-only user account created: {}", username);
+            }
+        },
+        Ok(Some(_)) => {},
+        Err(e) => eprintln!("Failed to check for user {}: {}", username, e),
     }
 }
 
@@ -191,6 +222,14 @@ pub async fn login(
     if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?").bind(&user_key).fetch_optional(&data.db).await {
         let val: Vec<u8> = row.get(0);
         if let Ok(user_json) = serde_json::from_slice::<serde_json::Value>(&val) {
+            // Check if this is a PGP-only user
+            if user_json.get("auth_type").and_then(|v| v.as_str()) == Some("pgp") {
+                return HttpResponse::BadRequest().json(json!({
+                    "error": "This account requires PGP authentication",
+                    "use_pgp": true
+                }));
+            }
+            
             let stored_hash = user_json["password"].as_str().unwrap_or("");
             let parsed_hash = match PasswordHash::new(stored_hash) {
                 Ok(h) => h,
@@ -236,6 +275,143 @@ pub async fn login(
     }
 
     HttpResponse::Unauthorized().json(json!({"error": "Invalid credentials"}))
+}
+
+#[derive(Deserialize)]
+pub struct PgpLoginRequest {
+    pub username: String,
+    pub signed_message: String,
+    pub remember_me: Option<bool>,
+}
+
+#[post("/api/login_pgp")]
+pub async fn login_pgp(
+    data: web::Data<AppState>,
+    req: web::Json<PgpLoginRequest>,
+    session: Session,
+    http_req: HttpRequest,
+) -> impl Responder {
+    // Only allow PGP login for the 1090mb user
+    if req.username != "1090mb" {
+        return HttpResponse::BadRequest().json(json!({"error": "PGP authentication not enabled for this user"}));
+    }
+
+    // Extract IP for rate limiting
+    let ip = http_req.headers().get("x-forwarded-for")
+        .and_then(|h| h.to_str().ok())
+        .map(|s| s.split(',').next().unwrap_or(s).trim().to_string())
+        .or_else(|| http_req.peer_addr().map(|a| a.ip().to_string()))
+        .unwrap_or_else(|| "unknown".to_string());
+
+    let rate_limit_key = format!("ratelimit:login:{}", ip);
+    let now = Local::now().timestamp();
+
+    // Check Rate Limit
+    let mut attempts = 0;
+    if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?").bind(&rate_limit_key).fetch_optional(&data.db).await {
+        let val: Vec<u8> = row.get(0);
+        if let Ok(limit_json) = serde_json::from_slice::<serde_json::Value>(&val) {
+            attempts = limit_json["attempts"].as_u64().unwrap_or(0);
+            let last_attempt = limit_json["last_attempt"].as_i64().unwrap_or(0);
+
+            if attempts >= 5 {
+                if now - last_attempt < 15 * 60 {
+                    crate::logging::log(&data.db, "WARN", "AUTH", &format!("Rate limit exceeded for IP: {}", ip)).await;
+                    return HttpResponse::TooManyRequests().json(json!({"error": "Too many login attempts. Try again in 15 minutes."}));
+                } else {
+                    attempts = 0; // Reset after timeout
+                }
+            }
+        }
+    }
+
+    // Verify the PGP signature
+    let verified_message = match pgp::verify_signature(&req.signed_message) {
+        Ok(msg) => msg,
+        Err(e) => {
+            // Increment rate limit on failure
+            attempts += 1;
+            let limit_json = json!({
+                "attempts": attempts,
+                "last_attempt": now
+            });
+            if let Ok(val) = serde_json::to_vec(&limit_json) {
+                let _ = sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)")
+                    .bind(&rate_limit_key)
+                    .bind(val)
+                    .execute(&data.db).await;
+            }
+            
+            crate::logging::log(&data.db, "WARN", "AUTH", &format!("Failed PGP login attempt for {}: {}", req.username, e)).await;
+            return HttpResponse::Unauthorized().json(json!({"error": format!("PGP verification failed: {}", e)}));
+        }
+    };
+
+    // The signed message should contain a timestamp to prevent replay attacks
+    // Format: "LOGIN:username:timestamp"
+    let parts: Vec<&str> = verified_message.trim().split(':').collect();
+    if parts.len() != 3 || parts[0] != "LOGIN" || parts[1] != req.username {
+        attempts += 1;
+        let limit_json = json!({
+            "attempts": attempts,
+            "last_attempt": now
+        });
+        if let Ok(val) = serde_json::to_vec(&limit_json) {
+            let _ = sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)")
+                .bind(&rate_limit_key)
+                .bind(val)
+                .execute(&data.db).await;
+        }
+        
+        return HttpResponse::BadRequest().json(json!({"error": "Invalid message format"}));
+    }
+
+    // Check timestamp to prevent replay attacks (must be within 5 minutes in the past, allow small clock skew)
+    if let Ok(timestamp) = parts[2].parse::<i64>() {
+        let time_diff = now - timestamp;
+        // Reject if timestamp is more than 5 minutes old or more than 1 minute in the future
+        if time_diff > 300 || time_diff < -60 {
+            return HttpResponse::BadRequest().json(json!({"error": "Timestamp expired or invalid"}));
+        }
+    } else {
+        return HttpResponse::BadRequest().json(json!({"error": "Invalid timestamp"}));
+    }
+
+    // Verify user exists and has PGP authentication enabled
+    let user_key = format!("user:{}", req.username);
+    if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?").bind(&user_key).fetch_optional(&data.db).await {
+        let val: Vec<u8> = row.get(0);
+        if let Ok(user_json) = serde_json::from_slice::<serde_json::Value>(&val) {
+            if user_json.get("auth_type").and_then(|v| v.as_str()) != Some("pgp") {
+                return HttpResponse::BadRequest().json(json!({"error": "PGP authentication not enabled for this user"}));
+            }
+
+            // Login successful
+            if session.insert("username", &req.username).is_err() {
+                return HttpResponse::InternalServerError().json(json!({"error": "Session error"}));
+            }
+            let role = user_json["role"].as_str().unwrap_or("user");
+            if session.insert("is_admin", role == "admin").is_err() {
+                return HttpResponse::InternalServerError().json(json!({"error": "Session error"}));
+            }
+            
+            if req.remember_me.unwrap_or(false) {
+                let _ = session.renew();
+            }
+            
+            // Clear rate limit on success
+            let _ = sqlx::query("DELETE FROM jeebs_store WHERE key = ?").bind(&rate_limit_key).execute(&data.db).await;
+
+            crate::logging::log(&data.db, "INFO", "AUTH", &format!("User {} logged in via PGP", req.username)).await;
+
+            return HttpResponse::Ok().json(json!({
+                "username": req.username,
+                "is_admin": role == "admin"
+            }));
+        }
+    }
+
+    HttpResponse::Unauthorized().json(json!({"error": "User not found"}))
 }
 
 #[post("/api/logout")]
