@@ -3,6 +3,7 @@ use openpgp::parse::Parse;
 use openpgp::policy::StandardPolicy;
 use openpgp::cert::Cert;
 use std::io::Cursor;
+use once_cell::sync::Lazy;
 
 pub const ADMIN_PGP_PUBLIC_KEY: &str = r#"-----BEGIN PGP PUBLIC KEY BLOCK-----
 Version: openpgp-mobile
@@ -36,20 +37,22 @@ Tadii9qkpPDIcxSITjmhbzLQbcshC2rxxo2nGD4KOuEzys7hqlU+0Tx97gonl8bx
 =xnit
 -----END PGP PUBLIC KEY BLOCK-----"#;
 
+// Parse and cache the certificate once
+static ADMIN_CERT: Lazy<Cert> = Lazy::new(|| {
+    Cert::from_bytes(ADMIN_PGP_PUBLIC_KEY.as_bytes())
+        .expect("Failed to parse admin PGP public key")
+});
+
 /// Verify a signed message using the admin's PGP public key
 pub fn verify_signature(signed_message: &str) -> Result<String, String> {
     let policy = StandardPolicy::new();
-    
-    // Parse the public key
-    let cert = Cert::from_bytes(ADMIN_PGP_PUBLIC_KEY.as_bytes())
-        .map_err(|e| format!("Failed to parse public key: {}", e))?;
     
     // Parse the signed message
     let message_bytes = signed_message.as_bytes();
     let mut message_reader = Cursor::new(message_bytes);
     
-    // Verify the signature
-    let helper = Helper::new(&cert);
+    // Verify the signature using cached certificate
+    let helper = Helper::new(&ADMIN_CERT);
     let mut verifier = openpgp::parse::stream::VerifierBuilder::from_reader(&mut message_reader)
         .map_err(|e| format!("Failed to create verifier: {}", e))?
         .with_policy(&policy, None, helper)

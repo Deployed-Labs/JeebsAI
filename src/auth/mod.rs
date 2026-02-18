@@ -366,9 +366,11 @@ pub async fn login_pgp(
         return HttpResponse::BadRequest().json(json!({"error": "Invalid message format"}));
     }
 
-    // Check timestamp to prevent replay attacks (must be within 5 minutes)
+    // Check timestamp to prevent replay attacks (must be within 5 minutes in the past, allow small clock skew)
     if let Ok(timestamp) = parts[2].parse::<i64>() {
-        if (now - timestamp).abs() > 300 {
+        let time_diff = now - timestamp;
+        // Reject if timestamp is more than 5 minutes old or more than 1 minute in the future
+        if time_diff > 300 || time_diff < -60 {
             return HttpResponse::BadRequest().json(json!({"error": "Timestamp expired or invalid"}));
         }
     } else {
