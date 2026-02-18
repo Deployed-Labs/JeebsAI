@@ -78,8 +78,16 @@ jobs:
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
     
+    - name: Cache cargo audit binary
+      uses: actions/cache@v4
+      id: cache-cargo-audit
+      with:
+        path: ~/.cargo/bin/cargo-audit
+        key: ${{ runner.os }}-cargo-audit-0.18
+    
     - name: Install cargo-audit
-      run: cargo install cargo-audit
+      if: steps.cache-cargo-audit.outputs.cache-hit != 'true'
+      run: cargo install cargo-audit --vers 0.18
     
     - name: Run security audit
       run: cargo audit

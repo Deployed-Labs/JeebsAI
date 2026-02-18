@@ -97,7 +97,7 @@ Before the deployment workflow can run successfully, ensure your VPS has:
    
    Add this line (replace `your_user` with your actual username):
    ```
-   your_user ALL=(ALL) NOPASSWD: /bin/systemctl restart jeebs, /bin/systemctl status jeebs
+   your_user ALL=(ALL) NOPASSWD: /bin/systemctl restart jeebs, /bin/systemctl status jeebs, /bin/journalctl
    ```
 
 ## Testing the Workflows

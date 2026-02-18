@@ -48,45 +48,29 @@ jobs:
         VPS_USER: ${{ secrets.VPS_USER }}
         VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
       run: |
-        ssh $VPS_USER@$VPS_HOST << 'EOF'
-          cd $VPS_DEPLOY_PATH
-          
-          # Build the release binary
-          echo "Building release binary..."
-          cargo build --release
-          
-          # Restart the systemd service
-          echo "Restarting service..."
-          sudo systemctl restart jeebs
-          
-          # Wait a moment for the service to start
-          sleep 3
-          
-          # Check service status
-          sudo systemctl status jeebs --no-pager
-        EOF
+        ssh $VPS_USER@$VPS_HOST "cd $VPS_DEPLOY_PATH && \
+          echo 'Building release binary...' && \
+          cargo build --release && \
+          echo 'Restarting service...' && \
+          sudo systemctl restart jeebs && \
+          sleep 3 && \
+          sudo systemctl status jeebs --no-pager"
     
     - name: Verify deployment
       env:
         VPS_HOST: ${{ secrets.VPS_HOST }}
         VPS_USER: ${{ secrets.VPS_USER }}
-        VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
       run: |
-        ssh $VPS_USER@$VPS_HOST << 'EOF'
-          # Check if service is running
-          if systemctl is-active --quiet jeebs; then
-            echo "✅ Service is running successfully"
-            
-            # Show recent logs
-            echo "Recent logs:"
-            sudo journalctl -u jeebs -n 20 --no-pager
-          else
-            echo "❌ Service failed to start"
-            echo "Error logs:"
-            sudo journalctl -u jeebs -n 50 --no-pager
-            exit 1
-          fi
-        EOF
+        ssh $VPS_USER@$VPS_HOST "if systemctl is-active --quiet jeebs; then \
+          echo '✅ Service is running successfully' && \
+          echo 'Recent logs:' && \
+          sudo journalctl -u jeebs -n 20 --no-pager; \
+        else \
+          echo '❌ Service failed to start' && \
+          echo 'Error logs:' && \
+          sudo journalctl -u jeebs -n 50 --no-pager && \
+          exit 1; \
+        fi"
     
     - name: Notify deployment status
       if: always()
