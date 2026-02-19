@@ -3,6 +3,7 @@ use actix_web::{web, App, HttpServer};
 use actix_cors::Cors;
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
 use actix_web::cookie::Key;
+use actix_files::Files;
 use sqlx::SqlitePool;
 use std::env;
 use std::path::Path;
@@ -56,6 +57,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(SessionMiddleware::new(CookieSessionStore::default(), secret_key.clone()))
             .app_data(state.clone())
                 .service(auth::login_pgp)
+            .service(Files::new("/webui", "./webui").index_file("index.html"))
     })
     .bind(("127.0.0.1", port))?
     .run()
