@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
-use sqlx::SqlitePool;
+use sqlx::{Row, SqlitePool};
 use crate::state::AppState;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, sqlx::FromRow)]
 pub struct BrainNode {
     pub id: Option<i64>,
     pub key: String,
@@ -22,18 +22,22 @@ pub struct KnowledgeTriple {
 
 pub async fn search_knowledge(db: &SqlitePool, query: &str) -> Vec<BrainNode> {
     let pattern = format!("%{}%", query);
-    sqlx::query_as!(BrainNode, 
-        "SELECT id, key as 'key!', value as 'value!', label as 'label!', summary as 'summary!', created_at as 'created_at!' FROM brain WHERE key LIKE ?", 
-        pattern)
-        .fetch_all(db).await.unwrap_or_default()
+    sqlx::query_as::<_, BrainNode>(
+        "SELECT id, key, value, label, summary, created_at FROM brain WHERE key LIKE ?",
+    )
+    .bind(pattern)
+    .fetch_all(db)
+    .await
+    .unwrap_or_default()
 }
 
 async fn check_dejavu(prompt: &str, db: &SqlitePool) -> Option<String> {
-    match sqlx::query!("SELECT value FROM brain WHERE key = ? LIMIT 1", prompt)
+    match sqlx::query("SELECT value FROM brain WHERE key = ? LIMIT 1")
+        .bind(prompt)
         .fetch_optional(db)
         .await
     {
-        Ok(Some(row)) => Some(row.value),
+        Ok(Some(row)) => Some(row.get::<String, _>(0)),
         _ => None,
     }
 }
@@ -71,9 +75,11 @@ impl Cortex {
 impl Cortex {
     pub async fn seed_knowledge(db: &SqlitePool) {
         // Initial data for your AI brain
-        let _ = sqlx::query!("INSERT OR IGNORE INTO brain (key, value) VALUES (?, ?)", 
-            "hello", "Hello! I am JeebsAI, your personal assistant.")
-            .execute(db).await;
+        let _ = sqlx::query("INSERT OR IGNORE INTO brain (key, value) VALUES (?, ?)")
+            .bind("hello")
+            .bind("Hello! I am JeebsAI, your personal assistant.")
+            .execute(db)
+            .await;
         println!("Brain knowledge seeded.");
     }
 
