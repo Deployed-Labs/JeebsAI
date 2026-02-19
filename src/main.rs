@@ -57,7 +57,6 @@ async fn main() -> std::io::Result<()> {
             .wrap(SessionMiddleware::new(CookieSessionStore::default(), secret_key.clone()))
             .app_data(state.clone())
                 .service(auth::login_pgp)
-                .service(auth::github_webhook)
             .service(Files::new("/webui", "./webui").index_file("index.html"))
     })
     .bind(("127.0.0.1", port))?
