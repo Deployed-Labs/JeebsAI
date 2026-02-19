@@ -315,6 +315,7 @@
                         const res = await fetch("/api/jeebs", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
+                            credentials: "same-origin",
                             body: JSON.stringify({ prompt: "who are you" }),
                         });
                         if (res.status === 401) {
@@ -325,6 +326,9 @@
                         } else {
                             const data = await res.json();
                             loggedIn = true;
+                            // Extract username and admin status from response or session
+                            username = data.username || "user";
+                            isAdmin = data.is_admin || false;
                             showStatus("Logged in.");
                             enterChatView();
                         }
