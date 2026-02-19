@@ -1,3 +1,4 @@
+use rand::Rng;
 use crate::plugins::Plugin;
 use crate::state::AppState;
 use aes_gcm::{
@@ -6,7 +7,7 @@ use aes_gcm::{
 };
 use async_trait::async_trait;
 use base64::{engine::general_purpose, Engine as _};
-use std::env;
+
 use rand::thread_rng;
 use rand::distributions::Alphanumeric;
 

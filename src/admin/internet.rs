@@ -103,7 +103,7 @@ pub async fn set_internet_status(
             if req.enabled { "enabled" } else { "disabled" },
             username
         ),
-        Some(&username),
+        &username,
     )
     .await;
 

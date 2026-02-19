@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id, key as 'key!', value as 'value!', label as 'label!', summary as 'summary!', created_at as 'created_at!' FROM brain WHERE key LIKE ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Int64"
+      },
+      {
+        "name": "key!",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "value!",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "label!",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "summary!",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_at!",
+        "ordinal": 5,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "6b87e6b1bc57fa23956027ff3557daba3dbbc8f0e0e9477fb98b7255d52c3dca"
+}

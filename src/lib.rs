@@ -1,6 +1,5 @@
 pub mod admin;
 pub mod auth;
-pub mod brain;
 pub mod chat;
 pub mod cli;
 pub mod cortex;
