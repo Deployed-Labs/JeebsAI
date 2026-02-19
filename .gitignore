@@ -1,3 +1,28 @@
+# Rust build artifacts
+/target/
+
+# Editor/OS files
+.DS_Store
+/.vscode/
+
+# Environment files
+.env
+.env.local
+
+# Local database
+jeebs.db
+*.sqlite
+
+# Logs and backups
+/logs/
+/backups/
+
+# Node / frontend
+/node_modules/
+
+# Temporary files
+*.tmp
+*.swp
 # Rust build artifacts (can be very large)
 /target
 

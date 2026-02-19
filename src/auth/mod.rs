@@ -1,6 +1,6 @@
-use actix_web::{web, HttpResponse, Responder, HttpRequest, post};
+use actix_web::{web, HttpResponse, Responder, post};
 use actix_session::Session;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::json;
 use crate::state::AppState;
 use sqlx::Row;
@@ -9,33 +9,10 @@ use chrono::Utc;
 mod pgp;
 
 #[derive(Deserialize)]
-pub struct LoginRequest {
-    pub username: String,
-    pub password: String,
-}
-
-#[derive(Deserialize)]
-pub struct RegisterRequest {
-    pub username: String,
-    pub password: String,
-}
-
-#[derive(Deserialize)]
 pub struct PgpLoginRequest {
     pub username: String,
     pub signed_message: String,
     pub remember_me: Option<bool>,
-}
-
-#[post("/api/login")]
-pub async fn login(
-    _data: web::Data<AppState>,
-    _req: web::Json<LoginRequest>,
-    _session: Session,
-) -> impl Responder {
-    // Password-based logins have been removed. All accounts must use PGP-based
-    // authentication. Respond with a clear indicator so clients can switch flows.
-    HttpResponse::BadRequest().json(json!({"error": "Password login disabled. Use PGP authentication", "use_pgp": true}))
 }
 
 #[post("/api/login_pgp")]

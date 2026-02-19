@@ -417,6 +417,31 @@ This project uses GitHub Actions for continuous integration and deployment:
 For detailed information on setting up and using the CI/CD pipelines, see [.github/GITHUB_ACTIONS_SETUP.md](.github/GITHUB_ACTIONS_SETUP.md).
 
 ## Troubleshooting
+ 
+## Authentication
+
+- **Method:** PGP-clearsign based login using the `/api/login_pgp` endpoint.
+- **How to login:** Create a message in the exact format `LOGIN:<username>:<unix_ts>` (for example `LOGIN:1090mb:1650000000`), then clearsign it with your PGP private key (for example `gpg --clearsign --armor message.txt`). Paste the full clearsigned output into the web UI PGP login box or POST JSON to `/api/login_pgp` like:
+
+```json
+{"signed_message": "-----BEGIN PGP SIGNED MESSAGE-----\n..."}
+```
+
+- **Timestamp window:** The server accepts signed messages with a timestamp within 5 minutes of the server clock. If your clock is skewed, signatures will be rejected.
+- **Admin detection:** A user is treated as admin when the username is `1090mb` or the user's store entry has `role: "admin"`.
+- **Cookies / sessions:** Sessions are stored using `actix-session` cookies. The frontend must send credentials (`credentials: 'same-origin'`) when calling login endpoints so the session cookie is set.
+- **Troubleshooting 401s:** If you get HTTP 401 on login, check server logs with `sudo journalctl -u jeebs -f` for signature verification errors. Verify the signed message format, timestamp freshness, and that the signed output includes your PGP signature.
+
+## Deploy notes
+
+- If local `cargo build` fails due to host toolchain/LLVM mismatches, build on the target VPS instead using the provided `deploy_jeebs.sh` script. Example (non-interactive):
+
+```bash
+FORCE=true ./deploy_jeebs.sh /root/JeebsAI main true
+```
+
+This will clone/pull the repository on the VPS, build the release binary there, and restart the service so runtime behavior can be verified.
+
 
 ### Service won't start
 ```bash
