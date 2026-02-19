@@ -4,10 +4,22 @@ use actix_cors::Cors;
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
 use actix_web::cookie::Key;
 use sqlx::SqlitePool;
+use std::env;
+use std::path::Path;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let database_url = "sqlite:///root/JeebsAI/jeebs.db";
+    let database_url = env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:./jeebs.db".to_string());
+
+    // Ensure the SQLite directory exists if using a file path
+    if let Some(path_str) = database_url.strip_prefix("sqlite:") {
+        let db_path = path_str.trim_start_matches('/');
+        let path = Path::new(db_path);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).ok();
+        }
+    }
+
     let pool: SqlitePool = sqlx::sqlite::SqlitePoolOptions::new()
         .connect(database_url)
         .await
