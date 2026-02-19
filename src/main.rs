@@ -29,7 +29,6 @@ async fn main() -> std::io::Result<()> {
             .wrap(Cors::permissive()) // This allows your phone to connect
             .wrap(SessionMiddleware::new(CookieSessionStore::default(), secret_key.clone()))
             .app_data(state.clone())
-                .service(auth::login)
                 .service(auth::login_pgp)
     })
     .bind(("127.0.0.1", 8080))?
