@@ -80,14 +80,16 @@ cargo build --release
 
 # 2. Gather Configuration
 SERVICE_NAME="jeebs"
-ENV_FILE_PATH="/etc/jeebs/config.env"
+ENV_FILE_PATH="/etc/jeebs.env"
 CURRENT_USER=$(whoami)
 # This line gets the absolute path of the directory where the script is located.
 WORK_DIR=$(cd "$(dirname "$0")" && pwd)
 EXEC_PATH="$WORK_DIR/target/release/jeebs"
 
 # If running via sudo, try to detect the actual user who invoked sudo
-if [ "$CURRENT_USER" == "root" ] && [ -n "$SUDO_USER" ]; then
+if [ "$CURRENT_USER" == "root" ]; then
+    TARGET_USER="root"
+elif [ -n "$SUDO_USER" ]; then
     TARGET_USER="$SUDO_USER"
 else
     TARGET_USER="$CURRENT_USER"
@@ -123,10 +125,11 @@ echo "Checking for environment file at $ENV_FILE_PATH..."
 if [ ! -f "$ENV_FILE_PATH" ]; then
     echo "Environment file not found. Creating a default one..."
     sudo mkdir -p "$(dirname "$ENV_FILE_PATH")"
+    sudo mkdir -p /var/lib/jeebs
     # Create a default environment file with common variables
     echo "# Environment variables for JeebsAI
 PORT=8080
-DATABASE_URL=sqlite:jeebs.db
+DATABASE_URL=sqlite:/var/lib/jeebs/jeebs.db
 # RUST_LOG=info,actix_web=info # Uncomment to set log levels
 " | sudo tee "$ENV_FILE_PATH" > /dev/null
     echo "Default environment file created. You can edit it at $ENV_FILE_PATH."

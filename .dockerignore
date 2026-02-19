@@ -1,11 +1,2 @@
-target
-**/target
-.git
-.github
-*.db
-*.db-shm
-*.db-wal
-.vscode
-node_modules
-.env
-.DS_Store
+# Docker support removed.
+# This file is intentionally left as a placeholder to avoid accidental use.

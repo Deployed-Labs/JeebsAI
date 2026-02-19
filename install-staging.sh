@@ -8,12 +8,14 @@ set -e
 # Configuration
 SERVICE_NAME="jeebs-staging"
 APP_DIR="/opt/jeebs-staging"
-ENV_FILE_PATH="/etc/jeebs-staging/config.env"
+ENV_FILE_PATH="/etc/jeebs-staging.env"
 STAGING_PORT=8081
 
 # Detect User
 CURRENT_USER=$(whoami)
-if [ "$CURRENT_USER" == "root" ] && [ -n "$SUDO_USER" ]; then
+if [ "$CURRENT_USER" == "root" ]; then
+    TARGET_USER="root"
+elif [ -n "$SUDO_USER" ]; then
     TARGET_USER="$SUDO_USER"
 else
     TARGET_USER="$CURRENT_USER"
@@ -35,12 +37,18 @@ sudo chown -R "$TARGET_USER:$TARGET_USER" "$APP_DIR"
 
 # 2. Create Environment File
 echo "Checking for environment file at $ENV_FILE_PATH..."
+LEGACY_ENV_FILE="/etc/jeebs-staging/config.env"
+if [ -f "$LEGACY_ENV_FILE" ] && [ ! -f "$ENV_FILE_PATH" ]; then
+    echo "Migrating legacy env file from $LEGACY_ENV_FILE to $ENV_FILE_PATH..."
+    sudo cp "$LEGACY_ENV_FILE" "$ENV_FILE_PATH"
+fi
 if [ ! -f "$ENV_FILE_PATH" ]; then
     echo "Creating default staging environment file..."
     sudo mkdir -p "$(dirname "$ENV_FILE_PATH")"
+    sudo mkdir -p /var/lib/jeebs-staging
     echo "# Environment variables for JeebsAI Staging
 PORT=$STAGING_PORT
-DATABASE_URL=sqlite:jeebs.db
+DATABASE_URL=sqlite:/var/lib/jeebs-staging/jeebs.db
 # RUST_LOG=info,actix_web=info
 " | sudo tee "$ENV_FILE_PATH" > /dev/null
     echo "Created $ENV_FILE_PATH"

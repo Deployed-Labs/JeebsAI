@@ -1,18 +1,3 @@
-[Unit]
-Description=JeebsAI (Docker Compose)
-Requires=docker.service
-After=docker.service network-online.target
-
-[Service]
-Type=oneshot
-WorkingDirectory=/opt/jeebs
-EnvironmentFile=-/etc/jeebs/.env
-# Pull images and start containers (service remains active after command exits)
-ExecStart=/usr/bin/docker compose -f /opt/jeebs/docker-compose.production.yml pull --quiet
-ExecStart=/usr/bin/docker compose -f /opt/jeebs/docker-compose.production.yml up -d
-ExecStop=/usr/bin/docker compose -f /opt/jeebs/docker-compose.production.yml down
-RemainAfterExit=yes
-TimeoutStartSec=300
-
-[Install]
-WantedBy=multi-user.target
+# Docker support removed.
+# This unit file is intentionally left as a placeholder.
+# Use `jeebs.service` for non-Docker systemd runs.

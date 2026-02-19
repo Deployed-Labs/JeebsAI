@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 Type=simple
-User=jeebs
-Group=jeebs
+User=root
+Group=root
 WorkingDirectory=/var/lib/jeebs
 EnvironmentFile=/etc/jeebs.env
 ExecStart=/usr/local/bin/jeebs

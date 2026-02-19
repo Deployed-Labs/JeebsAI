@@ -4,7 +4,7 @@ IFS=$'\n\t'
 
 REPO_URL=${REPO_URL:-"https://github.com/Deployed-Labs/JeebsAI.git"}
 APP_DIR=${APP_DIR:-"/opt/jeebs"}
-APP_USER=${APP_USER:-"jeebs"}
+APP_USER=${APP_USER:-"root"}
 APP_PORT=${APP_PORT:-"8080"}
 DOMAIN=${DOMAIN:-""}
 EMAIL=${EMAIL:-""}
@@ -120,27 +120,46 @@ if ! command -v rustup >/dev/null 2>&1; then
   source /root/.cargo/env
 fi
 
-if ! id -u "$APP_USER" >/dev/null 2>&1; then
-  useradd -r -m -d "$APP_DIR" -s /usr/sbin/nologin "$APP_USER"
+if [[ "$APP_USER" != "root" ]]; then
+  if ! id -u "$APP_USER" >/dev/null 2>&1; then
+    useradd -r -m -d "$APP_DIR" -s /usr/sbin/nologin "$APP_USER"
+  fi
 fi
 
 mkdir -p "$APP_DIR"
-chown -R "$APP_USER":"$APP_USER" "$APP_DIR"
-
-if [[ -d "$APP_DIR/.git" ]]; then
-  sudo -u "$APP_USER" git -C "$APP_DIR" fetch --all
-  sudo -u "$APP_USER" git -C "$APP_DIR" reset --hard origin/main
-else
-  sudo -u "$APP_USER" git clone "$REPO_URL" "$APP_DIR"
+if [[ "$APP_USER" != "root" ]]; then
+  chown -R "$APP_USER":"$APP_USER" "$APP_DIR"
 fi
 
-sudo -u "$APP_USER" bash -lc "cd '$APP_DIR' && cargo build --release"
+if [[ -d "$APP_DIR/.git" ]]; then
+  if [[ "$APP_USER" == "root" ]]; then
+    git -C "$APP_DIR" fetch --all
+    git -C "$APP_DIR" reset --hard origin/main
+  else
+    sudo -u "$APP_USER" git -C "$APP_DIR" fetch --all
+    sudo -u "$APP_USER" git -C "$APP_DIR" reset --hard origin/main
+  fi
+else
+  if [[ "$APP_USER" == "root" ]]; then
+    git clone "$REPO_URL" "$APP_DIR"
+  else
+    sudo -u "$APP_USER" git clone "$REPO_URL" "$APP_DIR"
+  fi
+fi
 
-mkdir -p /etc/jeebs /var/lib/jeebs
-chown -R "$APP_USER":"$APP_USER" /var/lib/jeebs
+if [[ "$APP_USER" == "root" ]]; then
+  bash -lc "cd '$APP_DIR' && cargo build --release"
+else
+  sudo -u "$APP_USER" bash -lc "cd '$APP_DIR' && cargo build --release"
+fi
 
-confirm_overwrite /etc/jeebs/config.env "config file"
-cat >/etc/jeebs/config.env <<EOF
+mkdir -p /var/lib/jeebs
+if [[ "$APP_USER" != "root" ]]; then
+  chown -R "$APP_USER":"$APP_USER" /var/lib/jeebs
+fi
+
+confirm_overwrite /etc/jeebs.env "config file"
+cat >/etc/jeebs.env <<EOF
 PORT=$APP_PORT
 DATABASE_URL=sqlite:$DB_PATH
 RUST_LOG=info
@@ -157,7 +176,7 @@ Type=simple
 User=$APP_USER
 WorkingDirectory=$APP_DIR
 ExecStart=$APP_DIR/target/release/jeebs
-EnvironmentFile=-/etc/jeebs/config.env
+EnvironmentFile=-/etc/jeebs.env
 Restart=always
 RestartSec=5
 

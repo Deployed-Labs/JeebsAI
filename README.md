@@ -1,4 +1,3 @@
-
 # JeebsAI
 
 JeebsAI is a modular Rust-based AI assistant with a web UI and persistent storage.
@@ -75,7 +74,7 @@ chmod +x install.sh
 The `install.sh` script will:
 - Build the release binary
 - Create a systemd service file
-- Set up environment configuration at `/etc/jeebs/config.env`
+- Set up environment configuration at `/etc/jeebs.env`
 - Enable and start the service automatically
 
 #### One-Click Deploy (all-in-one)
@@ -89,7 +88,7 @@ IFS=$'\n\t'
 
 REPO_URL=${REPO_URL:-"https://github.com/Deployed-Labs/JeebsAI.git"}
 APP_DIR=${APP_DIR:-"/opt/jeebs"}
-APP_USER=${APP_USER:-"jeebs"}
+APP_USER=${APP_USER:-"root"}
 APP_PORT=${APP_PORT:-"8080"}
 DOMAIN=${DOMAIN:-""}
 EMAIL=${EMAIL:-""}
@@ -158,8 +157,8 @@ sudo -u "$APP_USER" bash -lc "cd '$APP_DIR' && cargo build --release"
 mkdir -p /etc/jeebs /var/lib/jeebs
 chown -R "$APP_USER":"$APP_USER" /var/lib/jeebs
 
-confirm_overwrite /etc/jeebs/config.env "config file"
-cat >/etc/jeebs/config.env <<EOF
+confirm_overwrite /etc/jeebs.env "config file"
+cat >/etc/jeebs.env <<EOF
 PORT=$APP_PORT
 DATABASE_URL=sqlite:$DB_PATH
 RUST_LOG=info
@@ -176,7 +175,7 @@ Type=simple
 User=$APP_USER
 WorkingDirectory=$APP_DIR
 ExecStart=$APP_DIR/target/release/jeebs
-EnvironmentFile=-/etc/jeebs/config.env
+EnvironmentFile=-/etc/jeebs.env
 Restart=always
 RestartSec=5
 
@@ -271,21 +270,21 @@ If you prefer manual installation, follow these steps:
 
 5. **Initialize the database:**
    ```bash
-   sqlite3 jeebs.db < 20240101000000_initial_setup.sql
+   sqlite3 /var/lib/jeebs/jeebs.db < 20240101000000_initial_setup.sql
    ```
 
 ## Configuration
 
 ### Environment Variables
 
-Edit `/etc/jeebs/config.env` to configure the application:
+Edit `/etc/jeebs.env` to configure the application:
 
 ```bash
 # Server configuration
 PORT=8080
 
 # Database configuration
-DATABASE_URL=sqlite:jeebs.db
+DATABASE_URL=sqlite:/var/lib/jeebs/jeebs.db
 
 # Logging (optional)
 # RUST_LOG=info,actix_web=info
@@ -470,47 +469,6 @@ sudo netstat -tlnp | grep 8080
 # Or use:
 sudo lsof -i :8080
 ```
-
-### Local development with Docker Compose (recommended) ⚙️
-
-You can run Jeebs in a live-development container (source mounted, automatic rebuilds).
-
-- Use the standalone dev compose file:
-
-  ```sh
-  docker compose -f docker-compose.dev.yml up --build
-  ```
-  - Runs `cargo watch -x run` inside the container for automatic rebuild & restart.
-  - Source is mounted into the container; changes trigger a restart.
-
-- Or use the override file (already included) which works with the main compose file:
-
-  ```sh
-  docker compose up --build
-  ```
-  (the `docker-compose.override.yml` mounts your source and runs `cargo watch`)
-
-Notes:
-- Persistent DB is stored in the `data` Docker volume (mounted to `/data`).
-- For faster iteration, `./target` is mounted into the container to reuse artifacts.
-- Healthcheck pings `/` (the web UI); `/health` requires an authenticated admin session.
-
-Quick cleanup:
-- Reset DB: stop containers then `docker volume rm <project>_data` (or remove the `data/` folder if you bind-mounted it).
-
-### Docker (production)
-
-Run the release container with a persistent data volume:
-
-```sh
-docker compose up --build -d
-```
-
-Notes:
-- The container exposes port `8080` by default.
-- SQLite data lives in the `data` Docker volume mounted at `/data`.
-- Update `.env` to override `DATABASE_URL` or `RUST_LOG`.
-
 
 ## Contributing
 

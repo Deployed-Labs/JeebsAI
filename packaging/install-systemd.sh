@@ -19,11 +19,8 @@ fi
 
 install -m 755 target/release/jeebs "$BIN_PATH"
 
-useradd --system --no-create-home --shell /usr/sbin/nologin --user-group jeebs 2>/dev/null || true
-
 mkdir -p /var/lib/jeebs/plugins
 cp -r webui /var/lib/jeebs/webui 2>/dev/null || true
-chown -R jeebs:jeebs /var/lib/jeebs || true
 
 # Install environment file if one does not already exist
 if [ ! -f /etc/jeebs.env ]; then

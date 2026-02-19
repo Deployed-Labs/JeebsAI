@@ -18,7 +18,7 @@ Relevant merge commits on main:
 - cb1dc18 Merge pull request #18 from Deployed-Labs:copilot/optimize-code-performance
 - b3a072f Resolve all merge conflicts from branch merges into main
 - 7a7a216 Merge branch 'deploy/automation' into main
-- 9501a0f Merge refactor/prep — CI & docker fixes
+- 9501a0f Merge refactor/prep — CI fixes
 - 25254be Merge pull request #14 from Deployed-Labs/staging
 - d8f53e2 Merge pull request #13 from Deployed-Labs/dev
 - badbbe3 Merge pull request #12 from Deployed-Labs/staging
