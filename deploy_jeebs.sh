@@ -51,7 +51,17 @@ if ! command -v cargo >/dev/null 2>&1; then
   export PATH="$HOME/.cargo/bin:$PATH"
 fi
 
+# Prefer sccache if available to speed up rebuilds
+if command -v sccache >/dev/null 2>&1; then
+  export RUSTC_WRAPPER="$(command -v sccache)"
+  echo "Using sccache at $RUSTC_WRAPPER"
+else
+  echo "sccache not found; install with 'cargo install sccache' for faster builds."
+fi
+
 export DATABASE_URL="${DATABASE_URL:-sqlite:jeebs.db}"
+# Build using SQLX offline metadata to avoid needing a live DB during compile
+export SQLX_OFFLINE=1
 
 echo "Building release..."
 cargo build --release

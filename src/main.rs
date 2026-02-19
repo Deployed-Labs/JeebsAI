@@ -3,12 +3,20 @@ use actix_web::{web, App, HttpServer};
 use actix_cors::Cors;
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
 use actix_web::cookie::Key;
+use sqlx::SqlitePool;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let database_url = "sqlite:///root/JeebsAI/jeebs.db";
-    let pool = sqlx::sqlite::SqlitePoolOptions::new()
-        .connect(database_url).await.expect("DB Fail");
+    let pool: SqlitePool = sqlx::sqlite::SqlitePoolOptions::new()
+        .connect(database_url)
+        .await
+        .expect("DB Fail");
+
+    // Apply any pending migrations at startup so offline-built binaries catch up when DB is available.
+    if let Err(e) = sqlx::migrate!("./migrations").run(&pool).await {
+        eprintln!("Failed to run migrations: {e}");
+    }
 
     let state = web::Data::new(AppState {
         db: pool,

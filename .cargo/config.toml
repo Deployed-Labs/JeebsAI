@@ -1,0 +1,17 @@
+[build]
+target-dir = "target"
+
+[profile.release]
+# Speed up release builds during iteration
+incremental = true
+codegen-units = 16
+lto = "off"
+
+[profile.dev]
+# Keep debug builds snappy (default incremental=true)
+incremental = true
+codegen-units = 16
+
+[env]
+# Uncomment to enable sccache if installed:
+# RUSTC_WRAPPER = "sccache"
