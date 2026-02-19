@@ -7,6 +7,9 @@ use sqlx::Row;
 use chrono::Utc;
 
 mod pgp;
+mod webhook;
+
+pub use webhook::github_webhook;
 
 #[derive(Deserialize)]
 pub struct PgpLoginRequest {
