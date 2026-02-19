@@ -1,205 +1,354 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jeebs Club</title>
-    <style>
-        :root {
-            --bg-main: #181c24;
-            --bg-card: #23283a;
-            --text-main: #f3f3f3;
-            --accent: #7fffd4;
-            --msg-user: #7fffd4;
-            --msg-jeebs: #ffd700;
-            --input-bg: #23283a;
-        }
-        body.light-mode {
-            --bg-main: #f4f4f9;
-            --bg-card: #ffffff;
-            --text-main: #333;
-            --accent: #00796b;
-            --msg-user: #00796b;
-            --msg-jeebs: #f57c00;
-            --input-bg: #f0f0f0;
-        }
-        body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg-main); color: var(--text-main); margin: 0; transition: background 0.3s, color 0.3s; }
-        .container { max-width: 600px; margin: 60px auto; background: var(--bg-card); border-radius: 16px; box-shadow: 0 4px 32px #0008; padding: 32px; position: relative; }
-        .status { margin-bottom: 12px; min-height: 24px; color: var(--accent); text-align: center; font-size: 1.05em; }
-        .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid var(--accent); border-radius: 50%; border-top: 3px solid var(--bg-card); animation: spin 1s linear infinite; vertical-align: middle; margin-left: 8px; }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-        form { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
-        form input, form button { margin-bottom: 4px; }
-        #loginBox form, #loginBox > form { flex-direction: column; align-items: stretch; gap: 6px; }
-        #loginBox input, #loginBox button { width: 100%; }
-        h1 { text-align: center; color: var(--accent); }
-        #chat { min-height: 300px; margin-bottom: 24px; padding: 16px; background: rgba(0,0,0,0.1); border-radius: 8px; overflow-y: auto; }
-        .msg { margin: 8px 0; }
-        .user { color: var(--msg-user); }
-        .jeebs { color: var(--msg-jeebs); }
-        form { display: flex; gap: 8px; }
-        input { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid transparent; font-size: 1rem; background: var(--input-bg); color: var(--text-main); }
-        input:focus { outline: none; border-color: var(--accent); }
-        button { padding: 12px 24px; border-radius: 8px; border: none; background: var(--accent); color: var(--bg-main); font-weight: bold; font-size: 1rem; cursor: pointer; transition: background 0.2s; }
-        button:hover { opacity: 0.9; }
-        .theme-toggle { position: absolute; top: 20px; right: 20px; background: transparent; color: var(--text-main); padding: 5px; font-size: 1.2rem; }
-        
-        /* Internet Toggle Switch */
-        .internet-control { 
-            background: rgba(0,0,0,0.15); 
-            padding: 16px; 
-            border-radius: 8px; 
-            margin-bottom: 16px; 
-            display: flex; 
-            align-items: center; 
-            justify-content: space-between;
-            border: 2px solid rgba(127, 255, 212, 0.2);
-        }
-        .internet-control-label { 
-            font-weight: bold; 
-            color: var(--accent); 
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-        .internet-control-label small {
-            font-weight: normal;
-            font-size: 0.85em;
-            color: var(--text-main);
-            opacity: 0.8;
-        }
-        .toggle-switch { position: relative; display: inline-block; width: 60px; height: 30px; }
-        .toggle-switch input { opacity: 0; width: 0; height: 0; }
-        .toggle-slider { 
-            position: absolute; 
-            cursor: pointer; 
-            top: 0; 
-            left: 0; 
-            right: 0; 
-            bottom: 0; 
-            background-color: #d32f2f; 
-            transition: 0.4s; 
-            border-radius: 30px;
-        }
-        .toggle-slider:before { 
-            position: absolute; 
-            content: ""; 
-            height: 22px; 
-            width: 22px; 
-            left: 4px; 
-            bottom: 4px; 
-            background-color: white; 
-            transition: 0.4s; 
-            border-radius: 50%;
-        }
-        input:checked + .toggle-slider { background-color: #4caf50; }
-        input:checked + .toggle-slider:before { transform: translateX(30px); }
-        .toggle-status { 
-            font-size: 0.9em; 
-            margin-left: 10px;
-            font-weight: bold;
-        }
-        .status-disabled { color: #d32f2f; }
-        .status-enabled { color: #4caf50; }
-        
-        @media (max-width: 700px) { .container { margin: 16px; padding: 16px; } }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
-        <h1>Jeebs Club</h1>
-        <div id="session"></div>
-        <div class="status" id="statusMsg"></div>
-        <div id="internetControlBox" style="display:none;"></div>
-        <div id="loginBox" style="margin-bottom:16px;"></div>
-        <div id="chat"></div>
-        <form id="promptForm">
-            <input type="text" id="promptInput" placeholder="Ask Jeebs anything..." autocomplete="off" required />
-            <button type="submit">Send</button>
-        </form>
-        <div id="adminTrainBox"></div>
-    </div>
-    <script>
-        const chat = document.getElementById('chat');
-        const form = document.getElementById('promptForm');
-        const input = document.getElementById('promptInput');
-        const sessionDiv = document.getElementById('session');
-
-        let loggedIn = false;
-        let username = null;
-        let isAdmin = false;
-        const statusMsg = document.getElementById('statusMsg');
-
-        // Theme Init
-        if (localStorage.getItem('theme') === 'light') document.body.classList.add('light-mode');
-        function toggleTheme() {
-            document.body.classList.toggle('light-mode');
-            localStorage.setItem('theme', document.body.classList.contains('light-mode') ? 'light' : 'dark');
-        }
-
-        // View Switcher
-        window.showView = function(viewName) {
-            ['login', 'register', 'reset', 'verify'].forEach(v => {
-                const el = document.getElementById('view-' + v);
-                if (el) el.style.display = (v === viewName) ? 'block' : 'none';
-            });
-        };
-
-        function showStatus(msg, isError = false) {
-            statusMsg.textContent = msg;
-            statusMsg.style.color = isError ? '#ff6b6b' : 'var(--accent)';
-        }
-        function showSpinner(msg) {
-            statusMsg.innerHTML = msg + ' <span class="spinner"></span>';
-            statusMsg.style.color = 'var(--accent)';
-        }
-
-        async function fetchSession() {
-            showSpinner('Checking session...');
-            // Try to get session cookie (for demo, just show if present)
-            const cookies = document.cookie.split(';').map(c => c.trim());
-            const sid = cookies.find(c => c.startsWith('actix-session='));
-            sessionDiv.textContent = sid ? 'Session: ' + sid.substring(14, 50) + '...' : 'Session: (none)';
-            // Try to get login state
-            if (sid) {
-                try {
-                    const res = await fetch('/api/jeebs', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ prompt: 'who are you' })
-                    });
-                    if (res.status === 401) {
-                        loggedIn = false;
-                        username = null;
-                        isAdmin = false;
-                        showStatus('Not logged in.');
-                    } else {
-                        const data = await res.json();
-                        loggedIn = true;
-                        showStatus('Logged in.');
-                    }
-                } catch {
-                    showStatus('Could not connect to server.', true);
-                }
-            } else {
-                loggedIn = false;
-                username = null;
-                isAdmin = false;
-                showStatus('Not logged in.');
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Jeebs Club</title>
+        <style>
+            :root {
+                --bg-main: #181c24;
+                --bg-card: #23283a;
+                --text-main: #f3f3f3;
+                --accent: #7fffd4;
+                --msg-user: #7fffd4;
+                --msg-jeebs: #ffd700;
+                --input-bg: #23283a;
             }
-            renderLoginBox();
-            loadInternetStatus();
-        }
-        fetchSession();
+            body.light-mode {
+                --bg-main: #f4f4f9;
+                --bg-card: #ffffff;
+                --text-main: #333;
+                --accent: #00796b;
+                --msg-user: #00796b;
+                --msg-jeebs: #f57c00;
+                --input-bg: #f0f0f0;
+            }
+            body {
+                font-family: "Segoe UI", Arial, sans-serif;
+                background: var(--bg-main);
+                color: var(--text-main);
+                margin: 0;
+                transition:
+                    background 0.3s,
+                    color 0.3s;
+            }
+            .container {
+                max-width: 600px;
+                margin: 60px auto;
+                background: var(--bg-card);
+                border-radius: 16px;
+                box-shadow: 0 4px 32px #0008;
+                padding: 32px;
+                position: relative;
+            }
+            .status {
+                margin-bottom: 12px;
+                min-height: 24px;
+                color: var(--accent);
+                text-align: center;
+                font-size: 1.05em;
+            }
+            .spinner {
+                display: inline-block;
+                width: 18px;
+                height: 18px;
+                border: 3px solid var(--accent);
+                border-radius: 50%;
+                border-top: 3px solid var(--bg-card);
+                animation: spin 1s linear infinite;
+                vertical-align: middle;
+                margin-left: 8px;
+            }
+            @keyframes spin {
+                100% {
+                    transform: rotate(360deg);
+                }
+            }
+            form {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                margin-bottom: 8px;
+            }
+            form input,
+            form button {
+                margin-bottom: 4px;
+            }
+            #loginBox form,
+            #loginBox > form {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 6px;
+            }
+            #loginBox input,
+            #loginBox button {
+                width: 100%;
+            }
+            h1 {
+                text-align: center;
+                color: var(--accent);
+            }
+            #chat {
+                min-height: 300px;
+                margin-bottom: 24px;
+                padding: 16px;
+                background: rgba(0, 0, 0, 0.1);
+                border-radius: 8px;
+                overflow-y: auto;
+            }
+            .msg {
+                margin: 8px 0;
+            }
+            .user {
+                color: var(--msg-user);
+            }
+            .jeebs {
+                color: var(--msg-jeebs);
+            }
+            form {
+                display: flex;
+                gap: 8px;
+            }
+            input {
+                flex: 1;
+                padding: 12px;
+                border-radius: 8px;
+                border: 1px solid transparent;
+                font-size: 1rem;
+                background: var(--input-bg);
+                color: var(--text-main);
+            }
+            input:focus {
+                outline: none;
+                border-color: var(--accent);
+            }
+            button {
+                padding: 12px 24px;
+                border-radius: 8px;
+                border: none;
+                background: var(--accent);
+                color: var(--bg-main);
+                font-weight: bold;
+                font-size: 1rem;
+                cursor: pointer;
+                transition: background 0.2s;
+            }
+            button:hover {
+                opacity: 0.9;
+            }
+            .theme-toggle {
+                position: absolute;
+                top: 20px;
+                right: 20px;
+                background: transparent;
+                color: var(--text-main);
+                padding: 5px;
+                font-size: 1.2rem;
+            }
 
-        function renderLoginBox() {
-            const box = document.getElementById('loginBox');
-            box.innerHTML = '';
-            const adminTrainBox = document.getElementById('adminTrainBox');
-            adminTrainBox.innerHTML = '';
-            if (!loggedIn) {
-                box.innerHTML = `
+            /* Internet Toggle Switch */
+            .internet-control {
+                background: rgba(0, 0, 0, 0.15);
+                padding: 16px;
+                border-radius: 8px;
+                margin-bottom: 16px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                border: 2px solid rgba(127, 255, 212, 0.2);
+            }
+            .internet-control-label {
+                font-weight: bold;
+                color: var(--accent);
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+            }
+            .internet-control-label small {
+                font-weight: normal;
+                font-size: 0.85em;
+                color: var(--text-main);
+                opacity: 0.8;
+            }
+            .toggle-switch {
+                position: relative;
+                display: inline-block;
+                width: 60px;
+                height: 30px;
+            }
+            .toggle-switch input {
+                opacity: 0;
+                width: 0;
+                height: 0;
+            }
+            .toggle-slider {
+                position: absolute;
+                cursor: pointer;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: #d32f2f;
+                transition: 0.4s;
+                border-radius: 30px;
+            }
+            .toggle-slider:before {
+                position: absolute;
+                content: "";
+                height: 22px;
+                width: 22px;
+                left: 4px;
+                bottom: 4px;
+                background-color: white;
+                transition: 0.4s;
+                border-radius: 50%;
+            }
+            input:checked + .toggle-slider {
+                background-color: #4caf50;
+            }
+            input:checked + .toggle-slider:before {
+                transform: translateX(30px);
+            }
+            .toggle-status {
+                font-size: 0.9em;
+                margin-left: 10px;
+                font-weight: bold;
+            }
+            .status-disabled {
+                color: #d32f2f;
+            }
+            .status-enabled {
+                color: #4caf50;
+            }
+
+            @media (max-width: 700px) {
+                .container {
+                    margin: 16px;
+                    padding: 16px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+            <h1>Jeebs Club</h1>
+            <div id="session"></div>
+            <div class="status" id="statusMsg"></div>
+            <div id="internetControlBox" style="display: none"></div>
+            <div id="loginBox" style="margin-bottom: 16px"></div>
+            <div id="chat"></div>
+            <form id="promptForm">
+                <input
+                    type="text"
+                    id="promptInput"
+                    placeholder="Ask Jeebs anything..."
+                    autocomplete="off"
+                    required
+                />
+                <button type="submit">Send</button>
+            </form>
+            <div id="adminTrainBox"></div>
+        </div>
+        <script>
+            const chat = document.getElementById("chat");
+            const form = document.getElementById("promptForm");
+            const input = document.getElementById("promptInput");
+            const sessionDiv = document.getElementById("session");
+
+            let loggedIn = false;
+            let username = null;
+            let isAdmin = false;
+            const statusMsg = document.getElementById("statusMsg");
+
+            // Theme Init
+            if (localStorage.getItem("theme") === "light")
+                document.body.classList.add("light-mode");
+            function toggleTheme() {
+                document.body.classList.toggle("light-mode");
+                localStorage.setItem(
+                    "theme",
+                    document.body.classList.contains("light-mode")
+                        ? "light"
+                        : "dark",
+                );
+            }
+
+            // View Switcher
+            window.showView = function (viewName) {
+                ["login", "register", "reset", "verify"].forEach((v) => {
+                    const el = document.getElementById("view-" + v);
+                    if (el)
+                        el.style.display = v === viewName ? "block" : "none";
+                });
+            };
+
+            function showStatus(msg, isError = false) {
+                statusMsg.textContent = msg;
+                statusMsg.style.color = isError ? "#ff6b6b" : "var(--accent)";
+            }
+            function showSpinner(msg) {
+                statusMsg.innerHTML = msg + ' <span class="spinner"></span>';
+                statusMsg.style.color = "var(--accent)";
+            }
+
+            function enterChatView() {
+                if (chat) {
+                    chat.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
+                if (input) {
+                    input.focus();
+                }
+            }
+
+            async function fetchSession() {
+                showSpinner("Checking session...");
+                // Try to get session cookie (for demo, just show if present)
+                const cookies = document.cookie.split(";").map((c) => c.trim());
+                const sid = cookies.find((c) => c.startsWith("actix-session="));
+                sessionDiv.textContent = sid
+                    ? "Session: " + sid.substring(14, 50) + "..."
+                    : "Session: (none)";
+                // Try to get login state
+                if (sid) {
+                    try {
+                        const res = await fetch("/api/jeebs", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ prompt: "who are you" }),
+                        });
+                        if (res.status === 401) {
+                            loggedIn = false;
+                            username = null;
+                            isAdmin = false;
+                            showStatus("Not logged in.");
+                        } else {
+                            const data = await res.json();
+                            loggedIn = true;
+                            showStatus("Logged in.");
+                            enterChatView();
+                        }
+                    } catch {
+                        showStatus("Could not connect to server.", true);
+                    }
+                } else {
+                    loggedIn = false;
+                    username = null;
+                    isAdmin = false;
+                    showStatus("Not logged in.");
+                }
+                renderLoginBox();
+                loadInternetStatus();
+            }
+            fetchSession();
+
+            function renderLoginBox() {
+                const box = document.getElementById("loginBox");
+                box.innerHTML = "";
+                const adminTrainBox = document.getElementById("adminTrainBox");
+                adminTrainBox.innerHTML = "";
+                if (!loggedIn) {
+                    box.innerHTML = `
                 <div id="view-login">
                     <form id="loginForm" style="margin-bottom:8px;">
                         <input type="text" id="loginUser" placeholder="Username" required />
@@ -256,112 +405,174 @@
                     </div>
                 </div>
                 `;
-                document.getElementById('loginForm').onsubmit = async (e) => {
-                    e.preventDefault();
-                    showSpinner('Logging in...');
-                    const usernameVal = document.getElementById('loginUser').value;
-                    const passwordVal = document.getElementById('loginPass').value;
-                    const rememberVal = document.getElementById('rememberMe').checked;
-                    try {
-                        const res = await fetch('/api/api/api/api/login', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ username: usernameVal, password: passwordVal, remember_me: rememberVal })
-                        });
-                        if (res.ok) {
-                            const data = await res.json();
-                            loggedIn = true;
-                            username = data.username;
-                            isAdmin = data.is_admin;
-                            showStatus('Login successful!');
-                            fetchSession();
-                        } else {
-                            const data = await res.json();
-                            showStatus('Login failed: ' + (data.error || 'Unknown error'), true);
+                    document.getElementById("loginForm").onsubmit = async (
+                        e,
+                    ) => {
+                        e.preventDefault();
+                        showSpinner("Logging in...");
+                        const usernameVal =
+                            document.getElementById("loginUser").value;
+                        const passwordVal =
+                            document.getElementById("loginPass").value;
+                        const rememberVal =
+                            document.getElementById("rememberMe").checked;
+                        try {
+                            const res = await fetch("/api/api/api/api/login", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    username: usernameVal,
+                                    password: passwordVal,
+                                    remember_me: rememberVal,
+                                }),
+                            });
+                            if (res.ok) {
+                                const data = await res.json();
+                                loggedIn = true;
+                                username = data.username;
+                                isAdmin = data.is_admin;
+                                showStatus("Login successful!");
+                                enterChatView();
+                                fetchSession();
+                            } else {
+                                const data = await res.json();
+                                showStatus(
+                                    "Login failed: " +
+                                        (data.error || "Unknown error"),
+                                    true,
+                                );
+                            }
+                        } catch {
+                            showStatus("Login failed: network error", true);
                         }
-                    } catch {
-                        showStatus('Login failed: network error', true);
-                    }
-                };
-                document.getElementById('registerForm').onsubmit = async (e) => {
-                    e.preventDefault();
-                    showSpinner('Registering...');
-                    const usernameVal = document.getElementById('regUser').value;
-                    const passwordVal = document.getElementById('regPass').value;
-                    const emailVal = document.getElementById('regEmail').value;
-                    try {
-                        const res = await fetch('/api/register', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ username: usernameVal, password: passwordVal, email: emailVal })
-                        });
-                        if (res.ok) {
-                            showStatus('Registration successful! Check your email for a verification token (see server log).');
-                        } else {
-                            const data = await res.json();
-                            showStatus('Registration failed: ' + (data.error || 'Unknown error'), true);
+                    };
+                    document.getElementById("registerForm").onsubmit = async (
+                        e,
+                    ) => {
+                        e.preventDefault();
+                        showSpinner("Registering...");
+                        const usernameVal =
+                            document.getElementById("regUser").value;
+                        const passwordVal =
+                            document.getElementById("regPass").value;
+                        const emailVal =
+                            document.getElementById("regEmail").value;
+                        try {
+                            const res = await fetch("/api/register", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    username: usernameVal,
+                                    password: passwordVal,
+                                    email: emailVal,
+                                }),
+                            });
+                            if (res.ok) {
+                                showStatus(
+                                    "Registration successful! Check your email for a verification token (see server log).",
+                                );
+                            } else {
+                                const data = await res.json();
+                                showStatus(
+                                    "Registration failed: " +
+                                        (data.error || "Unknown error"),
+                                    true,
+                                );
+                            }
+                        } catch {
+                            showStatus(
+                                "Registration failed: network error",
+                                true,
+                            );
                         }
-                    } catch {
-                        showStatus('Registration failed: network error', true);
-                    }
-                };
-                document.getElementById('resetForm').onsubmit = async (e) => {
-                    e.preventDefault();
-                    showSpinner('Requesting password reset...');
-                    const usernameVal = document.getElementById('resetUser').value;
-                    const emailVal = document.getElementById('resetEmail').value;
-                    try {
-                        const res = await fetch('/api/request_reset', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ username: usernameVal, email: emailVal })
-                        });
-                        if (res.ok) {
-                            showStatus('Reset token sent! Check your email (see server log).');
-                        } else {
-                            const data = await res.json();
-                            showStatus('Reset failed: ' + (data.error || 'Unknown error'), true);
+                    };
+                    document.getElementById("resetForm").onsubmit = async (
+                        e,
+                    ) => {
+                        e.preventDefault();
+                        showSpinner("Requesting password reset...");
+                        const usernameVal =
+                            document.getElementById("resetUser").value;
+                        const emailVal =
+                            document.getElementById("resetEmail").value;
+                        try {
+                            const res = await fetch("/api/request_reset", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    username: usernameVal,
+                                    email: emailVal,
+                                }),
+                            });
+                            if (res.ok) {
+                                showStatus(
+                                    "Reset token sent! Check your email (see server log).",
+                                );
+                            } else {
+                                const data = await res.json();
+                                showStatus(
+                                    "Reset failed: " +
+                                        (data.error || "Unknown error"),
+                                    true,
+                                );
+                            }
+                        } catch {
+                            showStatus("Reset failed: network error", true);
                         }
-                    } catch {
-                        showStatus('Reset failed: network error', true);
-                    }
-                };
-                document.getElementById('verifyForm').onsubmit = async (e) => {
-                    e.preventDefault();
-                    showSpinner('Verifying email...');
-                    const usernameVal = document.getElementById('verifyUser').value;
-                    const tokenVal = document.getElementById('verifyToken').value;
-                    try {
-                        const res = await fetch('/api/verify_email', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ username: usernameVal, token: tokenVal, new_password: '' })
-                        });
-                        if (res.ok) {
-                            showStatus('Email verified! You can now log in.');
-                        } else {
-                            const data = await res.json();
-                            showStatus('Verification failed: ' + (data.error || 'Unknown error'), true);
+                    };
+                    document.getElementById("verifyForm").onsubmit = async (
+                        e,
+                    ) => {
+                        e.preventDefault();
+                        showSpinner("Verifying email...");
+                        const usernameVal =
+                            document.getElementById("verifyUser").value;
+                        const tokenVal =
+                            document.getElementById("verifyToken").value;
+                        try {
+                            const res = await fetch("/api/verify_email", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    username: usernameVal,
+                                    token: tokenVal,
+                                    new_password: "",
+                                }),
+                            });
+                            if (res.ok) {
+                                showStatus(
+                                    "Email verified! You can now log in.",
+                                );
+                            } else {
+                                const data = await res.json();
+                                showStatus(
+                                    "Verification failed: " +
+                                        (data.error || "Unknown error"),
+                                    true,
+                                );
+                            }
+                        } catch {
+                            showStatus(
+                                "Verification failed: network error",
+                                true,
+                            );
                         }
-                    } catch {
-                        showStatus('Verification failed: network error', true);
-                    }
-                };
-            } else {
-                box.innerHTML = `
-                    <span>Logged in as <b>${username || 'user'}</b>${isAdmin ? ' (admin)' : ''}</span> 
+                    };
+                } else {
+                    box.innerHTML = `
+                    <span>Logged in as <b>${username || "user"}</b>${isAdmin ? " (admin)" : ""}</span>
                     <a href="/profile.html" style="margin:0 10px; color:var(--accent);">Profile</a>
                     <button id="logoutBtn">Logout</button>`;
-                document.getElementById('logoutBtn').onclick = async () => {
-                    await fetch('/api/logout', { method: 'POST' });
-                    loggedIn = false;
-                    username = null;
-                    isAdmin = false;
-                    fetchSession();
-                };
-                // Admin UI
-                if (isAdmin) {
-                    adminTrainBox.innerHTML = `
+                    document.getElementById("logoutBtn").onclick = async () => {
+                        await fetch("/api/logout", { method: "POST" });
+                        loggedIn = false;
+                        username = null;
+                        isAdmin = false;
+                        fetchSession();
+                    };
+                    // Admin UI
+                    if (isAdmin) {
+                        adminTrainBox.innerHTML = `
                         <div style="margin-bottom: 16px; text-align: center; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
                             <a href="/admin_dashboard.html" style="background: var(--bg-card); border: 1px solid var(--accent); color: var(--accent); padding: 8px 16px; text-decoration: none; border-radius: 6px; font-weight: bold; transition: all 0.2s;">Dashboard</a>
                             <a href="/logs.html" style="background: var(--bg-card); border: 1px solid #ffd700; color: #ffd700; padding: 8px 16px; text-decoration: none; border-radius: 6px; font-weight: bold; transition: all 0.2s;">Logs</a>
@@ -376,132 +587,216 @@
                         <div id="trainStatus" style="margin-top:8px; min-height:24px;"></div>
                         <div id="adminUserBox" style="margin-top:24px;"></div>
                     `;
-                    document.getElementById('adminTrainForm').onsubmit = async (e) => {
-                        e.preventDefault();
-                        const url = document.getElementById('trainUrl').value.trim();
-                        const trainStatus = document.getElementById('trainStatus');
-                        trainStatus.innerHTML = 'Training... <span class="spinner"></span>';
-                        try {
-                            const res = await fetch('/api/admin/train', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ url })
-                            });
-                            if (res.ok) {
-                                const data = await res.json();
-                                trainStatus.textContent = `Trained on: ${data.label}`;
-                            } else {
-                                const data = await res.json();
-                                trainStatus.textContent = 'Training failed: ' + (data.error || 'Unknown error');
-                                trainStatus.style.color = '#ff6b6b';
-                            }
-                        } catch {
-                            trainStatus.textContent = 'Training failed: network error';
-                            trainStatus.style.color = '#ff6b6b';
-                        }
-                    };
+                        document.getElementById("adminTrainForm").onsubmit =
+                            async (e) => {
+                                e.preventDefault();
+                                const url = document
+                                    .getElementById("trainUrl")
+                                    .value.trim();
+                                const trainStatus =
+                                    document.getElementById("trainStatus");
+                                trainStatus.innerHTML =
+                                    'Training... <span class="spinner"></span>';
+                                try {
+                                    const res = await fetch(
+                                        "/api/admin/train",
+                                        {
+                                            method: "POST",
+                                            headers: {
+                                                "Content-Type":
+                                                    "application/json",
+                                            },
+                                            body: JSON.stringify({ url }),
+                                        },
+                                    );
+                                    if (res.ok) {
+                                        const data = await res.json();
+                                        trainStatus.textContent = `Trained on: ${data.label}`;
+                                    } else {
+                                        const data = await res.json();
+                                        trainStatus.textContent =
+                                            "Training failed: " +
+                                            (data.error || "Unknown error");
+                                        trainStatus.style.color = "#ff6b6b";
+                                    }
+                                } catch {
+                                    trainStatus.textContent =
+                                        "Training failed: network error";
+                                    trainStatus.style.color = "#ff6b6b";
+                                }
+                            };
 
-                    // Admin user management UI
-                    const adminUserBox = document.getElementById('adminUserBox');
-                    adminUserBox.innerHTML = '<span style="color:var(--accent); font-weight:bold;">User Management:</span> <span id="userStatus"></span><div id="userList"></div>';
-                    const userStatus = document.getElementById('userStatus');
-                    const userList = document.getElementById('userList');
-                    async function loadUsers() {
-                        userStatus.textContent = 'Loading...';
-                        try {
-                            const res = await fetch('/api/admin/users');
-                            if (res.ok) {
-                                const users = await res.json();
-                                userList.innerHTML = users.map(u => `
+                        // Admin user management UI
+                        const adminUserBox =
+                            document.getElementById("adminUserBox");
+                        adminUserBox.innerHTML =
+                            '<span style="color:var(--accent); font-weight:bold;">User Management:</span> <span id="userStatus"></span><div id="userList"></div>';
+                        const userStatus =
+                            document.getElementById("userStatus");
+                        const userList = document.getElementById("userList");
+                        async function loadUsers() {
+                            userStatus.textContent = "Loading...";
+                            try {
+                                const res = await fetch("/api/admin/users");
+                                if (res.ok) {
+                                    const users = await res.json();
+                                    userList.innerHTML = users
+                                        .map(
+                                            (u) => `
                                     <div style="margin:8px 0; background:var(--bg-card); padding:8px; border-radius:6px; display:flex; align-items:center; gap:10px;">
                                         <div style="flex-grow:1;">
                                             <b>${u.username}</b> (${u.email})
                                             <span style="color:#aaa; font-size:0.9em;">Role: ${u.role}</span>
                                         </div>
-                                        ${u.username !== 'admin' ? `
+                                        ${
+                                            u.username !== "admin"
+                                                ? `
                                             <select class="roleSelect" data-user="${u.username}" style="padding:4px; border-radius:4px;">
-                                                <option value="user" ${u.role === 'user' ? 'selected' : ''}>User</option>
-                                                <option value="moderator" ${u.role === 'moderator' ? 'selected' : ''}>Moderator</option>
-                                                <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option>
+                                                <option value="user" ${u.role === "user" ? "selected" : ""}>User</option>
+                                                <option value="moderator" ${u.role === "moderator" ? "selected" : ""}>Moderator</option>
+                                                <option value="admin" ${u.role === "admin" ? "selected" : ""}>Admin</option>
                                             </select>
                                             <button data-user="${u.username}" class="resetPassBtn" style="padding:4px 8px; font-size:0.8em;">Reset Pass</button>
                                             <button data-user="${u.username}" class="deleteUserBtn" style="padding:4px 8px; font-size:0.8em; background:#d9534f;">Delete</button>
-                                        ` : '<span style="color:#ffd700;">[Root]</span>'}
+                                        `
+                                                : '<span style="color:#ffd700;">[Root]</span>'
+                                        }
                                     </div>
-                                `).join('');
-                                userStatus.textContent = '';
-                                // Attach delete/reset handlers
-                                userList.querySelectorAll('.deleteUserBtn').forEach(btn => {
-                                    btn.onclick = async () => {
-                                        if (!confirm('Delete user ' + btn.dataset.user + '?')) return;
-                                        userStatus.textContent = 'Deleting...';
-                                        const res = await fetch('/api/admin/user/' + btn.dataset.user, { method: 'DELETE' });
-                                        if (res.ok) {
-                                            userStatus.textContent = 'User deleted.';
-                                            loadUsers();
-                                        } else {
-                                            userStatus.textContent = 'Delete failed.';
-                                        }
-                                    };
-                                });
-                                userList.querySelectorAll('.resetPassBtn').forEach(btn => {
-                                    btn.onclick = async () => {
-                                        const newPass = prompt('Enter new password for ' + btn.dataset.user + ':');
-                                        if (!newPass) return;
-                                        userStatus.textContent = 'Resetting password...';
-                                        const res = await fetch('/api/admin/user/reset_password', {
-                                            method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ username: btn.dataset.user, new_password: newPass, token: '' })
+                                `,
+                                        )
+                                        .join("");
+                                    userStatus.textContent = "";
+                                    // Attach delete/reset handlers
+                                    userList
+                                        .querySelectorAll(".deleteUserBtn")
+                                        .forEach((btn) => {
+                                            btn.onclick = async () => {
+                                                if (
+                                                    !confirm(
+                                                        "Delete user " +
+                                                            btn.dataset.user +
+                                                            "?",
+                                                    )
+                                                )
+                                                    return;
+                                                userStatus.textContent =
+                                                    "Deleting...";
+                                                const res = await fetch(
+                                                    "/api/admin/user/" +
+                                                        btn.dataset.user,
+                                                    { method: "DELETE" },
+                                                );
+                                                if (res.ok) {
+                                                    userStatus.textContent =
+                                                        "User deleted.";
+                                                    loadUsers();
+                                                } else {
+                                                    userStatus.textContent =
+                                                        "Delete failed.";
+                                                }
+                                            };
                                         });
-                                        if (res.ok) {
-                                            userStatus.textContent = 'Password reset.';
-                                        } else {
-                                            userStatus.textContent = 'Reset failed.';
-                                        }
-                                    };
-                                });
-                                userList.querySelectorAll('.roleSelect').forEach(sel => {
-                                    sel.onchange = async () => {
-                                        const newRole = sel.value;
-                                        userStatus.textContent = 'Updating role...';
-                                        const res = await fetch('/api/admin/user/role', {
-                                            method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ username: sel.dataset.user, role: newRole })
+                                    userList
+                                        .querySelectorAll(".resetPassBtn")
+                                        .forEach((btn) => {
+                                            btn.onclick = async () => {
+                                                const newPass = prompt(
+                                                    "Enter new password for " +
+                                                        btn.dataset.user +
+                                                        ":",
+                                                );
+                                                if (!newPass) return;
+                                                userStatus.textContent =
+                                                    "Resetting password...";
+                                                const res = await fetch(
+                                                    "/api/admin/user/reset_password",
+                                                    {
+                                                        method: "POST",
+                                                        headers: {
+                                                            "Content-Type":
+                                                                "application/json",
+                                                        },
+                                                        body: JSON.stringify({
+                                                            username:
+                                                                btn.dataset
+                                                                    .user,
+                                                            new_password:
+                                                                newPass,
+                                                            token: "",
+                                                        }),
+                                                    },
+                                                );
+                                                if (res.ok) {
+                                                    userStatus.textContent =
+                                                        "Password reset.";
+                                                } else {
+                                                    userStatus.textContent =
+                                                        "Reset failed.";
+                                                }
+                                            };
                                         });
-                                        if (res.ok) userStatus.textContent = 'Role updated.';
-                                        else userStatus.textContent = 'Update failed.';
-                                    };
-                                });
-                            } else {
-                                userStatus.textContent = 'Failed to load users.';
+                                    userList
+                                        .querySelectorAll(".roleSelect")
+                                        .forEach((sel) => {
+                                            sel.onchange = async () => {
+                                                const newRole = sel.value;
+                                                userStatus.textContent =
+                                                    "Updating role...";
+                                                const res = await fetch(
+                                                    "/api/admin/user/role",
+                                                    {
+                                                        method: "POST",
+                                                        headers: {
+                                                            "Content-Type":
+                                                                "application/json",
+                                                        },
+                                                        body: JSON.stringify({
+                                                            username:
+                                                                sel.dataset
+                                                                    .user,
+                                                            role: newRole,
+                                                        }),
+                                                    },
+                                                );
+                                                if (res.ok)
+                                                    userStatus.textContent =
+                                                        "Role updated.";
+                                                else
+                                                    userStatus.textContent =
+                                                        "Update failed.";
+                                            };
+                                        });
+                                } else {
+                                    userStatus.textContent =
+                                        "Failed to load users.";
+                                }
+                            } catch {
+                                userStatus.textContent =
+                                    "Failed to load users.";
                             }
-                        } catch {
-                            userStatus.textContent = 'Failed to load users.';
                         }
+                        loadUsers();
                     }
-                    loadUsers();
                 }
             }
-        }
 
-        // Internet Connectivity Control
-        async function loadInternetStatus() {
-            const internetBox = document.getElementById('internetControlBox');
-            
-            // Only show for admins
-            if (!loggedIn || !isAdmin) {
-                internetBox.style.display = 'none';
-                return;
-            }
+            // Internet Connectivity Control
+            async function loadInternetStatus() {
+                const internetBox =
+                    document.getElementById("internetControlBox");
 
-            try {
-                const res = await fetch('/api/admin/internet/status');
-                if (res.ok) {
-                    const data = await res.json();
-                    internetBox.style.display = 'block';
-                    internetBox.innerHTML = `
+                // Only show for admins
+                if (!loggedIn || !isAdmin) {
+                    internetBox.style.display = "none";
+                    return;
+                }
+
+                try {
+                    const res = await fetch("/api/admin/internet/status");
+                    if (res.ok) {
+                        const data = await res.json();
+                        internetBox.style.display = "block";
+                        internetBox.innerHTML = `
                         <div class="internet-control">
                             <div class="internet-control-label">
                                 <span>🌐 AI Internet Access</span>
@@ -509,92 +804,111 @@
                             </div>
                             <div style="display: flex; align-items: center;">
                                 <label class="toggle-switch">
-                                    <input type="checkbox" id="internetToggle" ${data.enabled ? 'checked' : ''}>
+                                    <input type="checkbox" id="internetToggle" ${data.enabled ? "checked" : ""}>
                                     <span class="toggle-slider"></span>
                                 </label>
-                                <span class="toggle-status ${data.enabled ? 'status-enabled' : 'status-disabled'}">
-                                    ${data.enabled ? '✓ Enabled' : '✗ Disabled'}
+                                <span class="toggle-status ${data.enabled ? "status-enabled" : "status-disabled"}">
+                                    ${data.enabled ? "✓ Enabled" : "✗ Disabled"}
                                 </span>
                             </div>
                         </div>
                     `;
 
-                    // Attach event handler
-                    document.getElementById('internetToggle').onchange = async (e) => {
-                        const enabled = e.target.checked;
-                        const toggleStatus = e.target.parentElement.nextElementSibling;
-                        
-                        try {
-                            const updateRes = await fetch('/api/admin/internet/set', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ enabled })
-                            });
-                            
-                            if (updateRes.ok) {
-                                toggleStatus.className = `toggle-status ${enabled ? 'status-enabled' : 'status-disabled'}`;
-                                toggleStatus.textContent = enabled ? '✓ Enabled' : '✗ Disabled';
-                                showStatus(`Internet access ${enabled ? 'enabled' : 'disabled'} for AI`);
-                            } else {
-                                // Revert toggle on failure
-                                e.target.checked = !enabled;
-                                showStatus('Failed to update internet access', true);
-                            }
-                        } catch {
-                            // Revert toggle on failure
-                            e.target.checked = !enabled;
-                            showStatus('Network error updating internet access', true);
-                        }
-                    };
-                } else {
-                    internetBox.style.display = 'none';
+                        // Attach event handler
+                        document.getElementById("internetToggle").onchange =
+                            async (e) => {
+                                const enabled = e.target.checked;
+                                const toggleStatus =
+                                    e.target.parentElement.nextElementSibling;
+
+                                try {
+                                    const updateRes = await fetch(
+                                        "/api/admin/internet/set",
+                                        {
+                                            method: "POST",
+                                            headers: {
+                                                "Content-Type":
+                                                    "application/json",
+                                            },
+                                            body: JSON.stringify({ enabled }),
+                                        },
+                                    );
+
+                                    if (updateRes.ok) {
+                                        toggleStatus.className = `toggle-status ${enabled ? "status-enabled" : "status-disabled"}`;
+                                        toggleStatus.textContent = enabled
+                                            ? "✓ Enabled"
+                                            : "✗ Disabled";
+                                        showStatus(
+                                            `Internet access ${enabled ? "enabled" : "disabled"} for AI`,
+                                        );
+                                    } else {
+                                        // Revert toggle on failure
+                                        e.target.checked = !enabled;
+                                        showStatus(
+                                            "Failed to update internet access",
+                                            true,
+                                        );
+                                    }
+                                } catch {
+                                    // Revert toggle on failure
+                                    e.target.checked = !enabled;
+                                    showStatus(
+                                        "Network error updating internet access",
+                                        true,
+                                    );
+                                }
+                            };
+                    } else {
+                        internetBox.style.display = "none";
+                    }
+                } catch {
+                    internetBox.style.display = "none";
                 }
-            } catch {
-                internetBox.style.display = 'none';
             }
-        }
 
-        function addMsg(text, who) {
-            const div = document.createElement('div');
-            div.className = 'msg ' + who;
-            div.textContent = (who === 'user' ? 'You: ' : 'Jeebs: ') + text;
-            chat.appendChild(div);
-            chat.scrollTop = chat.scrollHeight;
-        }
-
-        form.onsubmit = async (e) => {
-            e.preventDefault();
-            if (!loggedIn) {
-                showStatus('Please log in first!', true);
-                return;
+            function addMsg(text, who) {
+                const div = document.createElement("div");
+                div.className = "msg " + who;
+                div.textContent = (who === "user" ? "You: " : "Jeebs: ") + text;
+                chat.appendChild(div);
+                chat.scrollTop = chat.scrollHeight;
             }
-            const prompt = input.value.trim();
-            if (!prompt) return;
-            addMsg(prompt, 'user');
-            input.value = '';
-            addMsg('...', 'jeebs');
-            showSpinner('Jeebs is thinking...');
-            try {
-                const res = await fetch('/api/jeebs', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt })
-                });
-                if (res.status === 401) {
-                    chat.lastChild.textContent = 'Jeebs: (not logged in)';
-                    showStatus('Not logged in.', true);
-                    fetchSession();
+
+            form.onsubmit = async (e) => {
+                e.preventDefault();
+                if (!loggedIn) {
+                    showStatus("Please log in first!", true);
                     return;
                 }
-                const data = await res.json();
-                chat.lastChild.textContent = 'Jeebs: ' + data.response;
-                showStatus('');
-                fetchSession();
-            } catch {
-                chat.lastChild.textContent = 'Jeebs: (error connecting to server)';
-                showStatus('Could not connect to server.', true);
-            }
-        };
-    </script>
-</body>
+                const prompt = input.value.trim();
+                if (!prompt) return;
+                addMsg(prompt, "user");
+                input.value = "";
+                addMsg("...", "jeebs");
+                showSpinner("Jeebs is thinking...");
+                try {
+                    const res = await fetch("/api/jeebs", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ prompt }),
+                    });
+                    if (res.status === 401) {
+                        chat.lastChild.textContent = "Jeebs: (not logged in)";
+                        showStatus("Not logged in.", true);
+                        fetchSession();
+                        return;
+                    }
+                    const data = await res.json();
+                    chat.lastChild.textContent = "Jeebs: " + data.response;
+                    showStatus("");
+                    fetchSession();
+                } catch {
+                    chat.lastChild.textContent =
+                        "Jeebs: (error connecting to server)";
+                    showStatus("Could not connect to server.", true);
+                }
+            };
+        </script>
+    </body>
 </html>
