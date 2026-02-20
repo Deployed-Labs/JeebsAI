@@ -421,7 +421,7 @@
                         const rememberVal =
                             document.getElementById("rememberMe").checked;
                         try {
-                            const res = await fetch("/api/api/api/api/login", {
+                            const res = await fetch("/api/login", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({
