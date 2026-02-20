@@ -203,6 +203,19 @@
                 border: 1px solid rgba(83, 216, 251, 0.35);
             }
 
+            .ghost-link {
+                display: inline-flex;
+                align-items: center;
+                border-radius: 12px;
+                padding: 10px 14px;
+                font: inherit;
+                font-weight: 600;
+                text-decoration: none;
+                background: rgba(83, 216, 251, 0.12);
+                color: var(--accent);
+                border: 1px solid rgba(83, 216, 251, 0.35);
+            }
+
             .muted {
                 color: var(--muted);
                 font-size: 0.86rem;
@@ -439,6 +452,14 @@
                 <div class="chat-header">
                     <div class="chat-meta" id="chatMeta"></div>
                     <div class="row">
+                        <a
+                            id="adminControlsLink"
+                            class="ghost-link"
+                            href="/admin_dashboard.html"
+                            style="display: none"
+                        >
+                            Admin Controls
+                        </a>
                         <button id="copyTokenBtn" class="ghost" type="button">
                             Copy Token
                         </button>
@@ -483,6 +504,8 @@
             const chatMeta = document.getElementById("chatMeta");
             const tokenBox = document.getElementById("tokenBox");
             const promptInput = document.getElementById("promptInput");
+            const adminControlsLink =
+                document.getElementById("adminControlsLink");
 
             function setStatus(message, level = "info") {
                 statusBar.textContent = message || "";
@@ -529,6 +552,7 @@
                     authPanel.style.display = "block";
                     chatPanel.classList.remove("show");
                     statusChip.textContent = "Not logged in";
+                    adminControlsLink.style.display = "none";
                     return;
                 }
 
@@ -539,6 +563,9 @@
                 tokenBox.textContent = state.token
                     ? `Token: ${state.token}`
                     : "Token missing from session response.";
+                adminControlsLink.style.display = state.isAdmin
+                    ? "inline-flex"
+                    : "none";
                 promptInput.focus();
             }
 
