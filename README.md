@@ -7,10 +7,17 @@ JeebsAI is a modular Rust-based AI assistant with a web UI and persistent storag
 
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
+  - [Installation Matrix](#installation-matrix)
+  - [Prebuilt Binary](#prebuilt-binary)
+  - [Release Tarball](#release-tarball)
+  - [Debian / Ubuntu Package (.deb)](#debian--ubuntu-package-deb)
+  - [Docker](#docker)
+  - [One-Click VPS Install](#one-click-vps-install)
   - [Local Development](#local-development)
   - [VPS Production Deployment](#vps-production-deployment)
 - [Configuration](#configuration)
 - [Usage](#usage)
+- [Plugins](#plugins)
 - [Project Structure](#project-structure)
 - [Development](#development)
 - [Contributing](#contributing)
@@ -22,22 +29,172 @@ JeebsAI is a modular Rust-based AI assistant with a web UI and persistent storag
 - Rust 1.70+ and Cargo
 - SQLite 3
 
+### System Build Dependencies
+Required to compile on Ubuntu/Debian:
+```bash
+sudo apt update && sudo apt install -y \
+  build-essential clang pkg-config libssl-dev sqlite3 \
+  nettle-dev libgpg-error-dev libgcrypt-dev
+```
+
 ### VPS Production Deployment
 - Ubuntu/Debian-based VPS (recommended)
-- Rust 1.70+ and Cargo
+- Rust 1.70+ and Cargo (only needed when building from source)
 - SQLite 3
 - Nginx (for reverse proxy)
 - Certbot (for SSL/TLS certificates)
 - systemd (for process management)
 
-### System Dependencies
-Install required system packages on Ubuntu/Debian:
+## Installation
+
+### Installation Matrix
+
+| Method | Platform | Requires Rust? | Notes |
+|---|---|---|---|
+| [Prebuilt binary](#prebuilt-binary) | Linux x86_64, macOS | No | Fastest way to get started |
+| [Release tarball](#release-tarball) | Linux x86_64 | No | Binary + systemd setup in one archive |
+| [.deb package](#debian--ubuntu-package-deb) | Debian / Ubuntu | No | `apt`-friendly; sets up systemd service |
+| [Docker](#docker) | Any OS with Docker | No | Isolated; easiest to update |
+| [One-click VPS install](#one-click-vps-install) | Ubuntu / Debian VPS | Auto-installed | All-in-one from source |
+| [Local development](#local-development) | Any | Yes | For contributors |
+
+---
+
+### Prebuilt Binary
+
+Download the latest binary for your platform from the [Releases page](https://github.com/Deployed-Labs/JeebsAI/releases):
+
 ```bash
-sudo apt update
-sudo apt install -y build-essential pkg-config libssl-dev sqlite3 nginx certbot python3-certbot-nginx
+# Linux x86_64
+curl -fsSL https://github.com/Deployed-Labs/JeebsAI/releases/latest/download/jeebs-linux-x86_64 \
+  -o jeebs && chmod +x jeebs && ./jeebs
+
+# macOS Apple Silicon (aarch64)
+curl -fsSL https://github.com/Deployed-Labs/JeebsAI/releases/latest/download/jeebs-macos-aarch64 \
+  -o jeebs && chmod +x jeebs && ./jeebs
+
+# macOS Intel (x86_64)
+curl -fsSL https://github.com/Deployed-Labs/JeebsAI/releases/latest/download/jeebs-macos-x86_64 \
+  -o jeebs && chmod +x jeebs && ./jeebs
 ```
 
-## Installation
+The binary reads configuration from environment variables or `/etc/jeebs.env`. See [Configuration](#configuration) for details.
+
+---
+
+### Release Tarball
+
+The tarball bundles the Linux binary, systemd service file, environment example, and an install script.
+
+```bash
+# Download the latest tarball
+TAG=$(curl -s https://api.github.com/repos/Deployed-Labs/JeebsAI/releases/latest \
+  | grep '"tag_name"' | cut -d'"' -f4)
+curl -fsSL "https://github.com/Deployed-Labs/JeebsAI/releases/download/${TAG}/jeebs-${TAG}-linux-x86_64.tar.gz" \
+  | tar -xz
+
+# Install (sets up binary + systemd service)
+cd "jeebs-${TAG}-linux-x86_64"
+sudo ./install.sh
+```
+
+After installation:
+- Binary: `/usr/local/bin/jeebs`
+- Config:  `/etc/jeebs.env`
+- Logs:    `sudo journalctl -u jeebs -f`
+
+---
+
+### Debian / Ubuntu Package (.deb)
+
+Download the `.deb` from the [Releases page](https://github.com/Deployed-Labs/JeebsAI/releases) and install with `apt`:
+
+```bash
+TAG=$(curl -s https://api.github.com/repos/Deployed-Labs/JeebsAI/releases/latest \
+  | grep '"tag_name"' | cut -d'"' -f4)
+curl -fsSLO "https://github.com/Deployed-Labs/JeebsAI/releases/download/${TAG}/jeebs_${TAG#v}_amd64.deb"
+sudo apt install ./jeebs_${TAG#v}_amd64.deb
+```
+
+The package:
+- Installs the binary to `/usr/local/bin/jeebs`
+- Installs and enables the systemd service automatically
+- Creates `/etc/jeebs.env` from the example if it does not exist
+
+---
+
+### Docker
+
+#### Pull the published image
+
+```bash
+docker pull ghcr.io/deployed-labs/jeebsai:latest
+docker run -d \
+  --name jeebs \
+  -p 8080:8080 \
+  -v jeebs-data:/var/lib/jeebs \
+  ghcr.io/deployed-labs/jeebsai:latest
+```
+
+#### docker compose (recommended)
+
+```bash
+# Clone the repository (only needed for the compose file)
+git clone https://github.com/Deployed-Labs/JeebsAI.git && cd JeebsAI
+
+# Start JeebsAI
+docker compose up -d
+
+# View logs
+docker compose logs -f jeebs
+```
+
+#### Production docker compose
+
+```bash
+# Copy environment file and customise
+sudo cp packaging/jeebs.env.example /etc/jeebs.env
+sudo nano /etc/jeebs.env
+
+# Start with production overrides (binds only to localhost)
+docker compose -f docker-compose.production.yml up -d
+```
+
+#### Build image locally
+
+```bash
+docker build -t jeebsai .
+docker run -d -p 8080:8080 -v jeebs-data:/var/lib/jeebs jeebsai
+```
+
+#### Updating
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+---
+
+### One-Click VPS Install
+
+Installs Rust, builds JeebsAI, and configures systemd on a fresh Ubuntu/Debian VPS:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Deployed-Labs/JeebsAI/main/one-click.sh | sudo bash
+```
+
+With optional overrides:
+
+```bash
+APP_DIR=/opt/jeebs APP_USER=jeebs APP_PORT=8080 \
+  DOMAIN=example.com EMAIL=admin@example.com \
+  sudo -E bash one-click.sh
+
+# Non-interactive overwrite of existing config/systemd/nginx files:
+FORCE=1 sudo bash one-click.sh
+```
+
+---
 
 ### Local Development
 
@@ -55,174 +212,9 @@ sudo apt install -y build-essential pkg-config libssl-dev sqlite3 nginx certbot 
 3. **Access the web UI:**
    - Development server: [http://localhost:8080](http://localhost:8080)
 
+---
+
 ### VPS Production Deployment
-
-#### Quick Installation
-
-Use the provided installation script to automatically set up JeebsAI as a systemd service:
-
-```bash
-# Clone the repository
-git clone https://github.com/Deployed-Labs/JeebsAI.git
-cd JeebsAI
-
-# Run the installation script (requires sudo)
-chmod +x install.sh
-./install.sh
-```
-
-The `install.sh` script will:
-- Build the release binary
-- Create a systemd service file
-- Set up environment configuration at `/etc/jeebs.env`
-- Enable and start the service automatically
-
-#### One-Click Deploy (all-in-one)
-
-Paste this script on a fresh Ubuntu/Debian VPS to install Rust, build, and run JeebsAI as a systemd service in one go:
-
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-IFS=$'\n\t'
-
-REPO_URL=${REPO_URL:-"https://github.com/Deployed-Labs/JeebsAI.git"}
-APP_DIR=${APP_DIR:-"/opt/jeebs"}
-APP_USER=${APP_USER:-"root"}
-APP_PORT=${APP_PORT:-"8080"}
-DOMAIN=${DOMAIN:-""}
-EMAIL=${EMAIL:-""}
-DB_PATH=${DB_PATH:-"/var/lib/jeebs/jeebs.db"}
-FORCE=${FORCE:-""}
-
-if [[ $EUID -ne 0 ]]; then
-   exec sudo -E "$0" "$@"
-fi
-
-confirm_overwrite() {
-   local target_path=$1
-   local label=$2
-
-   if [[ -e "$target_path" && -z "$FORCE" ]]; then
-      if [[ -t 0 ]]; then
-         read -r -p "$label exists at $target_path. Overwrite? [y/N] " reply
-      else
-         reply=""
-      fi
-
-      if [[ ! "$reply" =~ ^[Yy]$ ]]; then
-         echo "Aborting to avoid overwriting $label."
-         exit 1
-      fi
-   fi
-}
-
-apt-get update
-apt-get install -y \
-   build-essential pkg-config libssl-dev sqlite3 git curl ca-certificates
-
-if [[ -n "$DOMAIN" ]]; then
-   apt-get install -y nginx certbot python3-certbot-nginx
-fi
-
-if [[ -n "$DOMAIN" && -z "$EMAIL" ]]; then
-   echo "DOMAIN is set but EMAIL is empty. Skipping SSL setup."
-fi
-
-if [[ -z "$DOMAIN" && -n "$EMAIL" ]]; then
-   echo "EMAIL is set but DOMAIN is empty. Skipping SSL setup."
-fi
-
-if ! command -v rustup >/dev/null 2>&1; then
-   curl https://sh.rustup.rs -sSf | sh -s -- -y
-   source /root/.cargo/env
-fi
-
-if ! id -u "$APP_USER" >/dev/null 2>&1; then
-   useradd -r -m -d "$APP_DIR" -s /usr/sbin/nologin "$APP_USER"
-fi
-
-mkdir -p "$APP_DIR"
-chown -R "$APP_USER":"$APP_USER" "$APP_DIR"
-
-if [[ -d "$APP_DIR/.git" ]]; then
-   sudo -u "$APP_USER" git -C "$APP_DIR" fetch --all
-   sudo -u "$APP_USER" git -C "$APP_DIR" reset --hard origin/main
-else
-   sudo -u "$APP_USER" git clone "$REPO_URL" "$APP_DIR"
-fi
-
-sudo -u "$APP_USER" bash -lc "cd '$APP_DIR' && cargo build --release"
-
-mkdir -p /etc/jeebs /var/lib/jeebs
-chown -R "$APP_USER":"$APP_USER" /var/lib/jeebs
-
-confirm_overwrite /etc/jeebs.env "config file"
-cat >/etc/jeebs.env <<EOF
-PORT=$APP_PORT
-DATABASE_URL=sqlite:$DB_PATH
-RUST_LOG=info
-EOF
-
-confirm_overwrite /etc/systemd/system/jeebs.service "systemd unit"
-cat >/etc/systemd/system/jeebs.service <<EOF
-[Unit]
-Description=JeebsAI Server
-After=network.target
-
-[Service]
-Type=simple
-User=$APP_USER
-WorkingDirectory=$APP_DIR
-ExecStart=$APP_DIR/target/release/jeebs
-EnvironmentFile=-/etc/jeebs.env
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-systemctl daemon-reload
-systemctl enable jeebs
-systemctl restart jeebs
-
-if [[ -n "$DOMAIN" && -n "$EMAIL" ]]; then
-   confirm_overwrite /etc/nginx/sites-available/jeebs "nginx site"
-   cat >/etc/nginx/sites-available/jeebs <<EOF
-server {
-   listen 80;
-   server_name $DOMAIN;
-
-   location / {
-      proxy_pass http://127.0.0.1:$APP_PORT;
-      proxy_set_header Host \$host;
-      proxy_set_header X-Real-IP \$remote_addr;
-      proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-      proxy_set_header X-Forwarded-Proto \$scheme;
-   }
-}
-EOF
-
-   ln -sf /etc/nginx/sites-available/jeebs /etc/nginx/sites-enabled/jeebs
-   nginx -t
-   systemctl reload nginx
-   certbot --nginx -d "$DOMAIN" -m "$EMAIL" --agree-tos --non-interactive
-fi
-
-echo "JeebsAI is up on port $APP_PORT"
-systemctl --no-pager status jeebs
-```
-
-Usage (single line, optional overrides):
-
-```bash
-chmod +x one-click.sh
-APP_DIR=/opt/jeebs APP_USER=jeebs APP_PORT=8080 DOMAIN=example.com EMAIL=admin@example.com ./one-click.sh
-
-# For non-interactive overwrite of existing config/systemd/nginx files:
-FORCE=1 ./one-click.sh
-```
 
 #### Manual Installation Steps
 
@@ -235,13 +227,8 @@ If you prefer manual installation, follow these steps:
 
 2. **Set up the systemd service:**
    ```bash
-   # Copy the service template
    sudo cp jeebs.service /etc/systemd/system/jeebs.service
-   
-   # Edit the service file with your actual paths and username
-   sudo nano /etc/systemd/system/jeebs.service
-   
-   # Enable and start the service
+   sudo nano /etc/systemd/system/jeebs.service  # update paths/user
    sudo systemctl daemon-reload
    sudo systemctl enable jeebs
    sudo systemctl start jeebs
@@ -249,18 +236,10 @@ If you prefer manual installation, follow these steps:
 
 3. **Configure Nginx reverse proxy:**
    ```bash
-   # Copy the nginx configuration
    sudo cp jeebs.nginx /etc/nginx/sites-available/jeebs
-   
-   # Edit the configuration with your domain
-   sudo nano /etc/nginx/sites-available/jeebs
-   
-   # Enable the site
+   sudo nano /etc/nginx/sites-available/jeebs  # set your domain
    sudo ln -s /etc/nginx/sites-available/jeebs /etc/nginx/sites-enabled/
-   
-   # Test configuration and reload
-   sudo nginx -t
-   sudo systemctl reload nginx
+   sudo nginx -t && sudo systemctl reload nginx
    ```
 
 4. **Set up SSL with Certbot:**
@@ -354,6 +333,15 @@ sudo systemctl start jeebs
 - **Local development:** http://localhost:8080
 - **Production (with Nginx):** https://your_domain.com
 
+## Plugins
+
+JeebsAI supports language-agnostic plugins via subprocess execution. Each plugin lives in its own directory under `plugins/` and communicates over stdin/stdout using JSON.
+
+See [plugins/README.md](plugins/README.md) for:
+- The plugin JSON contract
+- How to install, write, and remove plugins
+- Supported runner types (Python, Node.js, executable)
+
 ## Project Structure
 
 - `src/`
@@ -362,11 +350,15 @@ sudo systemctl start jeebs
 	- `brain/` — Knowledge graph and training logic
 	- `auth/` — Authentication, registration, and password reset
 - `webui/` — Web user interface (HTML, JS, CSS)
+- `plugins/` — Language-agnostic plugin examples and documentation
+- `packaging/` — Deployment packaging files (systemd unit, env example, installers)
 - `install.sh` — Automated installation script for VPS deployment
+- `one-click.sh` — All-in-one install script for fresh VPS
 - `start.sh` — Manual startup script
 - `backup.sh` — Database backup script
-- `jeebs.service` — systemd service template
+- `jeebs.service` — systemd service template (VPS reference copy)
 - `jeebs.nginx` — Nginx reverse proxy configuration template
+- `Dockerfile` — Multi-stage Docker image definition
 
 ## Modularity
 
@@ -411,6 +403,8 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
 This project uses GitHub Actions for continuous integration and deployment:
 
 - **CI Pipeline:** Automatically runs tests, linting, and security checks on every push and pull request
+- **Release Pipeline:** Triggered on version tags (`v*`); builds Linux and macOS binaries, a release tarball, and a `.deb` package, then publishes them as a GitHub Release
+- **Docker Pipeline:** Triggered on version tags (`v*`); builds and pushes the Docker image to `ghcr.io/deployed-labs/jeebsai`
 - **Deployment Pipeline:** Automatically deploys to production VPS on merges to the `main` branch
 
 For detailed information on setting up and using the CI/CD pipelines, see [.github/GITHUB_ACTIONS_SETUP.md](.github/GITHUB_ACTIONS_SETUP.md).
@@ -449,7 +443,18 @@ sudo systemctl status jeebs
 sudo journalctl -u jeebs -n 50
 
 # Verify the binary exists
+ls -l /usr/local/bin/jeebs
+# or for source installs:
 ls -l /path/to/JeebsAI/target/release/jeebs
+```
+
+### Docker container won't start
+```bash
+# Check container logs
+docker compose logs jeebs
+
+# Inspect the running container
+docker compose ps
 ```
 
 ### Database issues

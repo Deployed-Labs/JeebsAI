@@ -1,3 +1,24 @@
-# Docker support removed.
-# This file is intentionally left as a placeholder to avoid accidental use.
-# Use the non-Docker install/service workflow instead.
+services:
+  jeebs:
+    image: ghcr.io/deployed-labs/jeebsai:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - jeebs-data:/var/lib/jeebs
+    environment:
+      PORT: "8080"
+      DATABASE_URL: "sqlite:/var/lib/jeebs/jeebs.db"
+      RUST_LOG: "info"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8080'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  jeebs-data:

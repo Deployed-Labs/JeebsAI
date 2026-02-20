@@ -1,0 +1,12 @@
+#!/bin/sh
+set -e
+
+# Install default environment file if not already present
+if [ ! -f /etc/jeebs.env ]; then
+    install -m 640 /usr/share/doc/jeebs/jeebs.env.example /etc/jeebs.env
+fi
+
+# Create data directory
+mkdir -p /var/lib/jeebs/plugins
+
+#DEBHELPER#

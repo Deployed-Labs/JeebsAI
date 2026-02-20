@@ -7,54 +7,178 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
-  release:
-    name: Release (${{ matrix.os }})
+  build:
+    name: Build (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
+          - name: linux-x86_64
+            os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             binary_path: target/x86_64-unknown-linux-gnu/release/jeebs
-            binary_name: jeebs
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            binary_path: target/x86_64-pc-windows-msvc/release/jeebs.exe
-            binary_name: jeebs.exe
+          - name: macos-aarch64
+            os: macos-latest
+            target: aarch64-apple-darwin
+            binary_path: target/aarch64-apple-darwin/release/jeebs
+          - name: macos-x86_64
+            os: macos-13
+            target: x86_64-apple-darwin
+            binary_path: target/x86_64-apple-darwin/release/jeebs
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential clang pkg-config libssl-dev sqlite3 \
+            nettle-dev libgpg-error-dev libgcrypt-dev
+
+      - name: Install system dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install nettle
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
 
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-registry-
+
       - name: Build release binary
         run: cargo build --release --target ${{ matrix.target }}
 
+      - name: Rename binary
+        shell: bash
+        run: cp "${{ matrix.binary_path }}" "jeebs-${{ matrix.name }}"
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.name }}
+          path: jeebs-${{ matrix.name }}
+
+  tarball:
+    name: Package tarball (Linux)
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Linux binary
+        uses: actions/download-artifact@v4
+        with:
+          name: binary-linux-x86_64
+
+      - name: Create release tarball
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          DIRNAME="jeebs-${TAG}-linux-x86_64"
+          mkdir -p "${DIRNAME}"
+          cp jeebs-linux-x86_64 "${DIRNAME}/jeebs"
+          chmod +x "${DIRNAME}/jeebs"
+          cp packaging/jeebs.service "${DIRNAME}/"
+          cp packaging/jeebs.env.example "${DIRNAME}/"
+          cp packaging/install-release.sh "${DIRNAME}/install.sh"
+          chmod +x "${DIRNAME}/install.sh"
+          tar -czf "${DIRNAME}.tar.gz" "${DIRNAME}"
+
+      - name: Upload tarball artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tarball-linux-x86_64
+          path: jeebs-*-linux-x86_64.tar.gz
+
+  deb:
+    name: Build .deb package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential clang pkg-config libssl-dev sqlite3 \
+            nettle-dev libgpg-error-dev libgcrypt-dev
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-registry-
+
+      - name: Cache cargo-deb binary
+        uses: actions/cache@v4
+        id: cache-cargo-deb
+        with:
+          path: ~/.cargo/bin/cargo-deb
+          key: cargo-deb-v2-${{ runner.os }}
+
+      - name: Install cargo-deb
+        if: steps.cache-cargo-deb.outputs.cache-hit != 'true'
+        run: cargo install cargo-deb
+
+      - name: Build .deb package
+        run: cargo deb
+
+      - name: Upload .deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb-package
+          path: target/debian/*.deb
+
+  release:
+    name: Create GitHub Release
+    needs: [build, tarball, deb]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
       - name: Build changelog
         id: changelog
-        if: matrix.os == 'ubuntu-latest'
         uses: mikepenz/release-changelog-builder-action@v4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create release (Linux)
-        if: matrix.os == 'ubuntu-latest'
+      - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           body: ${{ steps.changelog.outputs.changelog }}
-          files: ${{ matrix.binary_path }}
+          files: |
+            artifacts/binary-linux-x86_64/jeebs-linux-x86_64
+            artifacts/binary-macos-aarch64/jeebs-macos-aarch64
+            artifacts/binary-macos-x86_64/jeebs-macos-x86_64
+            artifacts/tarball-linux-x86_64/*.tar.gz
+            artifacts/deb-package/*.deb
 
       - name: Bump version for next release
-        if: matrix.os == 'ubuntu-latest'
         run: |
           set -euo pipefail
-          # Read current version from Cargo.toml
           current=$(sed -n 's/^version = "\([0-9]\+\.[0-9]\+\.[0-9]\+\)"/\1/p' Cargo.toml | head -n1)
           IFS='.' read -r major minor patch <<< "$current"
           patch=$((patch + 1))
@@ -67,9 +191,3 @@ jobs:
           git add Cargo.toml VERSION || true
           git commit -m "chore(release): bump version to v$next" || echo "No version changes to commit"
           git push origin main || echo "Failed to push version bump; check permissions"
-
-      - name: Upload release asset (Windows)
-        if: matrix.os == 'windows-latest'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ${{ matrix.binary_path }}

@@ -44,3 +44,20 @@ actix-files = "0.6.10"
 actix-governor = "0.10.0"
 actix-cors = "0.7.1"
 # Force update: deduplicated dependencies
+
+[package.metadata.deb]
+maintainer = "Deployed Labs <dev@deployed.ai>"
+copyright = "2024, Deployed Labs"
+extended-description = "JeebsAI is a modular Rust-based AI assistant with a web UI and persistent storage."
+depends = "$auto, libsqlite3-0, libnettle8, libgpg-error0, libgcrypt20"
+section = "net"
+priority = "optional"
+assets = [
+  ["target/release/jeebs", "usr/local/bin/jeebs", "755"],
+  ["packaging/jeebs.service", "lib/systemd/system/jeebs.service", "644"],
+  ["packaging/jeebs.env.example", "usr/share/doc/jeebs/jeebs.env.example", "644"],
+  ["packaging/install-release.sh", "usr/share/doc/jeebs/install-release.sh", "755"],
+]
+conf-files = ["/etc/jeebs.env"]
+maintainer-scripts = "packaging/debian/"
+systemd-units = { enable = true }

@@ -1,3 +1,13 @@
-# Docker support removed.
-# This file is intentionally left as a placeholder to avoid accidental use.
-# Use the non-Docker install/service workflow instead.
+services:
+  jeebs:
+    image: ghcr.io/deployed-labs/jeebsai:latest
+    restart: always
+    env_file:
+      - /etc/jeebs.env
+    volumes:
+      - jeebs-data:/var/lib/jeebs
+    ports:
+      - "127.0.0.1:8080:8080"
+
+volumes:
+  jeebs-data:

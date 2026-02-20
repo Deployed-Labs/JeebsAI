@@ -1,2 +1,6 @@
-# Docker support removed.
-# This file is intentionally left as a placeholder to avoid accidental use.
+target/
+.git/
+*.md
+backups/
+*.db
+*.log
