@@ -10,6 +10,7 @@ pub mod language_learning;
 pub mod logging;
 pub mod plugins;
 pub mod proposals;
+pub mod question_learning;
 pub mod security;
 pub mod server;
 pub mod state;

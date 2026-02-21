@@ -1,0 +1,229 @@
+
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║   ✅ TRAINING MODE AUTO-RUN & TOGGLE - READY TO DEPLOY ✅   ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+
+
+YOUR REQUEST - FULFILLED:
+═══════════════════════════════════════════════════════════════
+
+✅ Training mode auto-runs when JeebsAI starts
+✅ On/off toggle in admin dashboard
+✅ Uses same style as Internet toggle
+✅ Emergency pause/resume capability
+
+
+WHAT'S IMPLEMENTED:
+═══════════════════════════════════════════════════════════════
+
+🤖 AUTO-RUN ON STARTUP
+   • Training mode enabled by default
+   • Automatically starts when JeebsAI boots
+   • No manual configuration needed
+   • Just works™
+
+🎚️ ADMIN DASHBOARD TOGGLE
+   • Green (🟢 RUNNING) when learning
+   • Red (🔴 STOPPED) when paused
+   • One-click toggle button
+   • Confirmation dialog for safety
+   • Auto-refreshes every 5 seconds
+   • Styled like Internet Access toggle
+
+
+DASHBOARD APPEARANCE:
+═══════════════════════════════════════════════════════════════
+
+New section next to Internet Access:
+
+  ┌─────────────────────────────────────────┐
+  │        🤖 Training Mode                 │
+  │   🟢 RUNNING      [TOGGLE]              │
+  │   (learns from web & chat)              │
+  └─────────────────────────────────────────┘
+
+When stopped:
+
+  ┌─────────────────────────────────────────┐
+  │        🤖 Training Mode                 │
+  │   🔴 STOPPED      [TOGGLE]              │
+  │   (learns from web & chat)              │
+  └─────────────────────────────────────────┘
+
+
+HOW IT WORKS:
+═══════════════════════════════════════════════════════════════
+
+STARTUP:
+
+  1. JeebsAI starts
+  2. Training mode default: enabled=true
+  3. Autonomous training worker spawns
+  4. Research cycles begin automatically
+  5. Dashboard shows 🟢 RUNNING
+
+TOGGLE OFF (Emergency):
+
+  1. Click TOGGLE in dashboard
+  2. Confirm to stop training
+  3. Training gracefully exits
+  4. Dashboard shows 🔴 STOPPED
+  5. Can resume anytime with TOGGLE
+
+NORMAL FLOW:
+
+  Boot → Training auto-runs → Research cycles
+    ↓
+  User can pause with TOGGLE → Resume with TOGGLE
+
+
+CODE CHANGES:
+═══════════════════════════════════════════════════════════════
+
+src/cortex.rs:
+  Changed: enabled: false → true
+  Effect: Training auto-runs on startup
+
+webui/admin_dashboard.html:
+  Added: Training Mode section
+  Added: loadTrainingStatus() function
+  Added: toggleTrainingMode() function
+  Modified: Bootstrap and refresh loop
+  Result: Toggle appears in dashboard
+
+
+FILES MODIFIED:
+═══════════════════════════════════════════════════════════════
+
+✅ src/cortex.rs
+   Changed default training state to enabled=true
+
+✅ webui/admin_dashboard.html
+   Added Training Mode toggle section
+   Added JavaScript functions
+   Integrated into bootstrap
+
+
+DEPLOY NOW:
+═══════════════════════════════════════════════════════════════
+
+STEP 1 - Push to GitHub:
+
+  bash go_training_toggle.sh
+
+  This will:
+  • Stage all changes
+  • Commit with message
+  • Push to GitHub
+
+STEP 2 - Deploy on VPS:
+
+  bash update.sh
+
+  This will:
+  • Pull latest code
+  • Rebuild JeebsAI
+  • Restart service
+  • Training auto-runs!
+
+STEP 3 - Verify:
+
+  Open admin dashboard
+  Look for: 🤖 Training Mode
+  Should see: 🟢 RUNNING
+  Try clicking: TOGGLE button
+
+
+USE CASES:
+═══════════════════════════════════════════════════════════════
+
+🚀 Normal Operation:
+   Start JeebsAI → Training auto-runs → Learning happens
+   Status: 🟢 RUNNING (nothing to do)
+
+🆘 Emergency Stop:
+   Something wrong → Click TOGGLE → Training stops
+   Status: 🔴 STOPPED (safe to investigate)
+
+🔧 Maintenance:
+   Need to do work → TOGGLE off → Do work → TOGGLE on
+   Status: Flexible on/off as needed
+
+🧪 Testing:
+   Testing without learning → TOGGLE off → Run tests
+   Status: Can test cleanly without learning interfering
+
+
+SAFETY FEATURES:
+═══════════════════════════════════════════════════════════════
+
+✅ Confirmation Dialog
+   Won't accidentally toggle
+
+✅ Graceful Shutdown
+   No forced service restart needed
+
+✅ Persistent State
+   Remembered across VPS restarts
+
+✅ Dashboard Feedback
+   Immediate visual confirmation
+
+✅ Auto-Refresh
+   Status updates every 5 seconds
+
+
+EXAMPLE INTERACTION:
+═══════════════════════════════════════════════════════════════
+
+User opens admin dashboard:
+
+  ✅ Sees: 🟢 RUNNING indicator
+  ✅ Training is learning automatically
+  ✅ No action needed
+
+User realizes something is wrong:
+
+  ✅ Clicks TOGGLE button
+  ✅ Sees confirmation dialog
+  ✅ Confirms to STOP training
+  ✅ Status changes to 🔴 STOPPED
+  ✅ Training gracefully exits
+  ✅ Jeebs continues running
+  ✅ Safe to investigate
+
+After fixing issue:
+
+  ✅ Clicks TOGGLE button again
+  ✅ Sees confirmation dialog
+  ✅ Confirms to START training
+  ✅ Status changes to 🟢 RUNNING
+  ✅ Training resumes
+  ✅ Back to normal operation
+
+
+BENEFITS:
+═══════════════════════════════════════════════════════════════
+
+✅ Jeebs learns automatically (set and forget)
+✅ User always in control (can pause anytime)
+✅ Emergency stop available (safety first)
+✅ Familiar UI (like Internet toggle)
+✅ Simple and intuitive (one click)
+✅ Safe operations (no forcing restarts)
+✅ Clear feedback (status indicators)
+
+
+═══════════════════════════════════════════════════════════════
+
+✅ READY TO DEPLOY!
+
+Run: bash go_training_toggle.sh
+
+Then: bash update.sh on VPS
+
+Result: Training auto-runs with toggle control! 🤖🎚️
+
+═══════════════════════════════════════════════════════════════
