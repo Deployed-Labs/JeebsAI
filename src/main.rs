@@ -100,6 +100,7 @@ async fn main() -> std::io::Result<()> {
             .service(cortex::run_training_now)
             .service(cortex::visualize_brain)
             .service(cortex::get_logic_graph)
+            .service(cortex::admin_crawl_random)
             .service(admin::status::get_system_status)
             .service(admin::sessions::get_active_sessions)
             .service(admin::sessions::terminate_session)

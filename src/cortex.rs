@@ -2294,6 +2294,19 @@ async fn crawl_and_store(
     })
 }
 
+fn random_crawl_candidates() -> Vec<&'static str> {
+    vec![
+        "https://en.wikipedia.org/wiki/Special:Random",
+        "https://developer.mozilla.org/en-US/docs/Web/JavaScript",
+        "https://www.rust-lang.org/learn",
+        "https://www.bbc.com/news",
+        "https://www.nasa.gov/",
+        "https://news.ycombinator.com/",
+        "https://www.sciencedaily.com/",
+        "https://stackoverflow.blog/",
+    ]
+}
+
 #[post("/api/admin/crawl")]
 pub async fn admin_crawl(
     session: Session,
@@ -2338,6 +2351,68 @@ pub async fn admin_crawl(
             "error": err
         })),
     }
+}
+
+#[post("/api/admin/crawl/random")]
+pub async fn admin_crawl_random(
+    session: Session,
+    state: web::Data<AppState>,
+    query: web::Query<RandomCrawlQuery>,
+) -> impl Responder {
+    if !crate::auth::is_root_admin_session(&session) {
+        return HttpResponse::Forbidden()
+            .json(json!({"error": "Restricted to 1090mb admin account"}));
+    }
+
+    let depth = query.depth.unwrap_or(1).clamp(1, 3);
+    let mut rng = rand::thread_rng();
+    let mut candidates = random_crawl_candidates();
+    candidates.shuffle(&mut rng);
+
+    crate::logging::log(
+        &state.db,
+        "INFO",
+        "crawler",
+        &format!(
+            "Admin requested random crawl (depth={depth}, candidates={})",
+            candidates.len()
+        ),
+    )
+    .await;
+
+    let mut attempts = Vec::new();
+    for candidate in candidates {
+        match crawl_and_store(state.get_ref(), candidate, depth).await {
+            Ok(summary) => {
+                return HttpResponse::Ok().json(json!({
+                    "ok": true,
+                    "random": true,
+                    "selected_url": summary.start_url,
+                    "message": format!(
+                        "Random crawl complete from {}. Visited {} page(s), stored {} node(s), discovered {} link(s).",
+                        summary.start_url, summary.pages_visited, summary.pages_stored, summary.links_followed
+                    ),
+                    "max_depth": summary.max_depth,
+                    "pages_visited": summary.pages_visited,
+                    "pages_stored": summary.pages_stored,
+                    "links_followed": summary.links_followed,
+                    "attempts": attempts
+                }));
+            }
+            Err(err) => {
+                attempts.push(json!({
+                    "url": candidate,
+                    "error": err
+                }));
+            }
+        }
+    }
+
+    HttpResponse::BadGateway().json(json!({
+        "ok": false,
+        "error": "Random crawl failed for all candidate websites.",
+        "attempts": attempts
+    }))
 }
 
 #[post("/api/brain/search")]

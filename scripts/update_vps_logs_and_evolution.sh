@@ -192,6 +192,7 @@ SQL
   check_route "$port" "/api/admin/evolution/updates"
   check_route "$port" "/api/admin/evolution/status"
   check_route "$port" "/api/admin/training/status"
+  check_route "$port" "/api/admin/crawl/random"
   check_route "$port" "/webui/evolution.html"
 
   if [[ -n "$db_path" ]]; then
