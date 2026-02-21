@@ -48,12 +48,31 @@ pub struct RandomCrawlQuery {
 }
 
 #[derive(Debug, Serialize)]
+struct NodeWritePreview {
+    node_id: String,
+    label: String,
+    summary: String,
+    source_url: String,
+}
+
+#[derive(Debug, Serialize)]
 struct CrawlSummary {
     start_url: String,
     max_depth: u8,
     pages_visited: usize,
     pages_stored: usize,
     links_followed: usize,
+    stored_nodes: Vec<NodeWritePreview>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct TrainingLearnedItem {
+    node_id: String,
+    title: String,
+    summary: String,
+    source_url: String,
+    topic: String,
+    source_type: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -67,6 +86,10 @@ struct TrainingModeState {
     total_nodes_written: u64,
     last_topics: Vec<String>,
     last_error: Option<String>,
+    #[serde(default)]
+    last_websites: Vec<String>,
+    #[serde(default)]
+    last_learned_items: Vec<TrainingLearnedItem>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -86,6 +109,8 @@ struct TrainingCycleReport {
     topics: Vec<String>,
     nodes_written: usize,
     errors: Vec<String>,
+    websites_scraped: Vec<String>,
+    learned_items: Vec<TrainingLearnedItem>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -143,7 +168,7 @@ struct LearnedFact {
 const MAX_HISTORY_TURNS: usize = 24;
 const MAX_HISTORY_CHARS_PER_TURN: usize = 600;
 const TRAINING_STATE_KEY: &str = "training:mode:state";
-const DEFAULT_TRAINING_INTERVAL_SECS: u64 = 300;
+const DEFAULT_TRAINING_INTERVAL_SECS: u64 = 60;
 
 fn history_key(user_id: &str) -> String {
     format!("chat:history:{user_id}")
@@ -794,6 +819,8 @@ fn training_state_default() -> TrainingModeState {
         total_nodes_written: 0,
         last_topics: Vec::new(),
         last_error: None,
+        last_websites: Vec::new(),
+        last_learned_items: Vec::new(),
     }
 }
 
@@ -1027,7 +1054,7 @@ async fn query_wikipedia_docs(
 async fn store_external_learning_doc(
     db: &SqlitePool,
     doc: &ExternalLearningDoc,
-) -> Result<(), sqlx::Error> {
+) -> Result<String, sqlx::Error> {
     let normalized_url = doc.url.trim();
     let node_id = format!("train:{}", blake3::hash(normalized_url.as_bytes()).to_hex());
     let payload = serde_json::to_vec(&json!({
@@ -1065,7 +1092,7 @@ async fn store_external_learning_doc(
     .execute(db)
     .await;
 
-    Ok(())
+    Ok(node_id)
 }
 
 async fn run_training_cycle(state: &AppState) -> TrainingCycleReport {
@@ -1073,6 +1100,8 @@ async fn run_training_cycle(state: &AppState) -> TrainingCycleReport {
         topics: Vec::new(),
         nodes_written: 0,
         errors: Vec::new(),
+        websites_scraped: Vec::new(),
+        learned_items: Vec::new(),
     };
 
     if !*state.internet_enabled.read().unwrap() {
@@ -1098,17 +1127,75 @@ async fn run_training_cycle(state: &AppState) -> TrainingCycleReport {
         }
     };
 
+    let crawl_depth = env::var("TRAINING_MODE_CRAWL_DEPTH")
+        .ok()
+        .and_then(|raw| raw.parse::<u8>().ok())
+        .map(|value| value.clamp(1, 3))
+        .unwrap_or(1);
+    let random_site_count = env::var("TRAINING_MODE_RANDOM_SITES_PER_CYCLE")
+        .ok()
+        .and_then(|raw| raw.parse::<usize>().ok())
+        .map(|value| value.clamp(1, 5))
+        .unwrap_or(2);
+
+    let random_sites = {
+        let mut rng = rand::thread_rng();
+        let mut sites = random_crawl_candidates();
+        sites.shuffle(&mut rng);
+        sites
+            .into_iter()
+            .take(random_site_count)
+            .collect::<Vec<_>>()
+    };
+    for site in random_sites {
+        match crawl_and_store(state, site, crawl_depth).await {
+            Ok(summary) => {
+                report.websites_scraped.push(summary.start_url.clone());
+                report.nodes_written += summary.pages_stored;
+                for node in summary.stored_nodes.into_iter().take(8) {
+                    report.learned_items.push(TrainingLearnedItem {
+                        node_id: node.node_id,
+                        title: node.label,
+                        summary: node.summary,
+                        source_url: node.source_url,
+                        topic: "random_web_crawl".to_string(),
+                        source_type: "crawl".to_string(),
+                    });
+                }
+            }
+            Err(err) => report.errors.push(format!("random site '{site}': {err}")),
+        }
+    }
+
     for topic in topics {
         match query_wikipedia_docs(&client, &topic, 2).await {
             Ok(docs) => {
                 for doc in docs {
-                    if store_external_learning_doc(&state.db, &doc).await.is_ok() {
-                        report.nodes_written += 1;
+                    match store_external_learning_doc(&state.db, &doc).await {
+                        Ok(node_id) => {
+                            report.nodes_written += 1;
+                            report.learned_items.push(TrainingLearnedItem {
+                                node_id,
+                                title: doc.title.clone(),
+                                summary: doc.summary.clone(),
+                                source_url: doc.url.clone(),
+                                topic: doc.topic.clone(),
+                                source_type: "wikipedia".to_string(),
+                            });
+                        }
+                        Err(err) => report.errors.push(format!(
+                            "failed to store learned doc '{}': {err}",
+                            doc.title
+                        )),
                     }
                 }
             }
             Err(err) => report.errors.push(format!("topic '{topic}': {err}")),
         }
+    }
+
+    if report.learned_items.len() > 24 {
+        report.learned_items.truncate(24);
     }
 
     report
@@ -1137,6 +1224,8 @@ pub fn spawn_autonomous_training(state: web::Data<AppState>) {
                     .total_nodes_written
                     .saturating_add(report.nodes_written as u64);
                 mode.last_topics = report.topics.clone();
+                mode.last_websites = report.websites_scraped.clone();
+                mode.last_learned_items = report.learned_items.clone();
                 mode.last_error = report.errors.first().cloned();
                 mode.updated_at = Local::now().to_rfc3339();
                 mode.updated_by = "autonomous_worker".to_string();
@@ -1147,8 +1236,9 @@ pub fn spawn_autonomous_training(state: web::Data<AppState>) {
                     "INFO",
                     "training_mode",
                     &format!(
-                        "Training cycle complete. topics={} nodes_written={} errors={}",
+                        "Training cycle complete. topics={} websites={} nodes_written={} errors={}",
                         report.topics.len(),
+                        report.websites_scraped.len(),
                         report.nodes_written,
                         report.errors.len()
                     ),
@@ -1908,6 +1998,8 @@ pub async fn admin_train(session: Session, state: web::Data<AppState>) -> impl R
         .total_nodes_written
         .saturating_add(report.nodes_written as u64);
     training_state.last_topics = report.topics.clone();
+    training_state.last_websites = report.websites_scraped.clone();
+    training_state.last_learned_items = report.learned_items.clone();
     training_state.last_error = report.errors.first().cloned();
     training_state.updated_at = Local::now().to_rfc3339();
     training_state.updated_by = actor;
@@ -2001,6 +2093,35 @@ pub async fn set_training_mode(
             ),
         )
         .await;
+
+        let report = run_training_cycle(state.get_ref()).await;
+        training.last_cycle_at = Some(Local::now().to_rfc3339());
+        training.total_cycles = training.total_cycles.saturating_add(1);
+        training.total_topics_processed = training
+            .total_topics_processed
+            .saturating_add(report.topics.len() as u64);
+        training.total_nodes_written = training
+            .total_nodes_written
+            .saturating_add(report.nodes_written as u64);
+        training.last_topics = report.topics.clone();
+        training.last_websites = report.websites_scraped.clone();
+        training.last_learned_items = report.learned_items.clone();
+        training.last_error = report.errors.first().cloned();
+        training.updated_at = Local::now().to_rfc3339();
+        training.updated_by = actor;
+
+        if let Err(err) = save_training_state(&state.db, &training).await {
+            return HttpResponse::InternalServerError()
+                .json(json!({"error": format!("failed to save training mode: {err}")}));
+        }
+
+        return HttpResponse::Ok().json(json!({
+            "ok": true,
+            "enabled": req.enabled,
+            "internet_enabled": *state.internet_enabled.read().unwrap(),
+            "report": report,
+            "training": training
+        }));
     }
 
     HttpResponse::Ok().json(json!({
@@ -2035,6 +2156,8 @@ pub async fn run_training_now(session: Session, state: web::Data<AppState>) -> i
         .total_nodes_written
         .saturating_add(report.nodes_written as u64);
     training_state.last_topics = report.topics.clone();
+    training_state.last_websites = report.websites_scraped.clone();
+    training_state.last_learned_items = report.learned_items.clone();
     training_state.last_error = report.errors.first().cloned();
     training_state.updated_at = Local::now().to_rfc3339();
     training_state.updated_by = actor;
@@ -2179,13 +2302,58 @@ fn extract_followable_links(
     links
 }
 
+struct ParsedCrawlPage {
+    title: String,
+    summary: String,
+    excerpt: String,
+    next_links: Vec<reqwest::Url>,
+}
+
+fn parse_crawl_page(
+    html: &str,
+    current: &reqwest::Url,
+    root_host: &str,
+    already_seen: &HashSet<String>,
+    depth: u8,
+    depth_limit: u8,
+) -> ParsedCrawlPage {
+    const MAX_LINKS_PER_PAGE: usize = 20;
+
+    let document = scraper::Html::parse_document(html);
+    let title = extract_title(&document, current.as_str());
+    let full_text = extract_page_text(&document);
+    let summary = if full_text.is_empty() {
+        format!("Crawled {}", current.as_str())
+    } else {
+        truncate_chars(&full_text, 800)
+    };
+    let excerpt = truncate_chars(&full_text, 5000);
+    let next_links = if depth < depth_limit {
+        extract_followable_links(
+            &document,
+            current,
+            root_host,
+            already_seen,
+            MAX_LINKS_PER_PAGE,
+        )
+    } else {
+        Vec::new()
+    };
+
+    ParsedCrawlPage {
+        title,
+        summary,
+        excerpt,
+        next_links,
+    }
+}
+
 async fn crawl_and_store(
     state: &AppState,
     start_url: &str,
     depth_limit: u8,
 ) -> Result<CrawlSummary, String> {
     const MAX_PAGES: usize = 25;
-    const MAX_LINKS_PER_PAGE: usize = 20;
 
     let start = reqwest::Url::parse(start_url).map_err(|e| format!("Invalid URL: {e}"))?;
     if !matches!(start.scheme(), "http" | "https") {
@@ -2210,6 +2378,7 @@ async fn crawl_and_store(
     let mut visited: HashSet<String> = HashSet::new();
     let mut pages_stored = 0usize;
     let mut links_followed = 0usize;
+    let mut stored_nodes: Vec<NodeWritePreview> = Vec::new();
 
     while let Some((current, depth)) = queue.pop_front() {
         if visited.len() >= MAX_PAGES {
@@ -2245,15 +2414,7 @@ async fn crawl_and_store(
             Err(_) => continue,
         };
 
-        let document = scraper::Html::parse_document(&html);
-        let title = extract_title(&document, current.as_str());
-        let full_text = extract_page_text(&document);
-        let summary = if full_text.is_empty() {
-            format!("Crawled {}", current.as_str())
-        } else {
-            truncate_chars(&full_text, 800)
-        };
-        let excerpt = truncate_chars(&full_text, 5000);
+        let parsed = parse_crawl_page(&html, &current, &root_host, &visited, depth, depth_limit);
 
         let node_id = format!(
             "crawl:{}",
@@ -2263,8 +2424,8 @@ async fn crawl_and_store(
             "source": "crawler",
             "url": current.as_str(),
             "normalized_url": normalized_current,
-            "title": title,
-            "excerpt": excerpt,
+            "title": parsed.title,
+            "excerpt": parsed.excerpt,
             "crawled_at": Local::now().to_rfc3339(),
             "depth": depth
         }))
@@ -2275,8 +2436,8 @@ async fn crawl_and_store(
              VALUES (?, ?, ?, ?, ?)",
         )
         .bind(&node_id)
-        .bind(&title)
-        .bind(&summary)
+        .bind(&parsed.title)
+        .bind(&parsed.summary)
         .bind(payload)
         .bind(Local::now().to_rfc3339())
         .execute(&state.db)
@@ -2284,8 +2445,17 @@ async fn crawl_and_store(
         .is_ok()
         {
             pages_stored += 1;
+            stored_nodes.push(NodeWritePreview {
+                node_id: node_id.clone(),
+                label: parsed.title.clone(),
+                summary: parsed.summary.clone(),
+                source_url: current.as_str().to_string(),
+            });
+            if stored_nodes.len() > 16 {
+                stored_nodes.remove(0);
+            }
 
-            let subject = truncate_chars(&title, 120);
+            let subject = truncate_chars(&parsed.title, 120);
             let object = truncate_chars(current.as_str(), 300);
             let _ = sqlx::query(
                 "INSERT OR REPLACE INTO knowledge_triples (subject, predicate, object, confidence, created_at)
@@ -2300,16 +2470,9 @@ async fn crawl_and_store(
             .await;
         }
 
-        if depth < depth_limit {
-            let links = extract_followable_links(
-                &document,
-                &current,
-                &root_host,
-                &visited,
-                MAX_LINKS_PER_PAGE,
-            );
-            links_followed += links.len();
-            for link in links {
+        if !parsed.next_links.is_empty() {
+            links_followed += parsed.next_links.len();
+            for link in parsed.next_links {
                 queue.push_back((link, depth + 1));
             }
         }
@@ -2321,6 +2484,7 @@ async fn crawl_and_store(
         pages_visited: visited.len(),
         pages_stored,
         links_followed,
+        stored_nodes,
     })
 }
 
@@ -2374,7 +2538,8 @@ pub async fn admin_crawl(
             "max_depth": summary.max_depth,
             "pages_visited": summary.pages_visited,
             "pages_stored": summary.pages_stored,
-            "links_followed": summary.links_followed
+            "links_followed": summary.links_followed,
+            "stored_nodes": summary.stored_nodes
         })),
         Err(err) => HttpResponse::BadRequest().json(json!({
             "ok": false,
@@ -2426,6 +2591,7 @@ pub async fn admin_crawl_random(
                     "pages_visited": summary.pages_visited,
                     "pages_stored": summary.pages_stored,
                     "links_followed": summary.links_followed,
+                    "stored_nodes": summary.stored_nodes,
                     "attempts": attempts
                 }));
             }

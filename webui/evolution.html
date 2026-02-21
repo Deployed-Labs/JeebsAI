@@ -254,6 +254,25 @@
                 style="margin-top: 8px; font-size: 0.85rem; color: #b0bec5"
             ></div>
             <div
+                id="training-websites"
+                style="margin-top: 8px; font-size: 0.85rem; color: #b0bec5"
+            ></div>
+            <div
+                id="training-learned"
+                style="
+                    margin-top: 10px;
+                    max-height: 220px;
+                    overflow-y: auto;
+                    border: 1px solid var(--border);
+                    border-radius: 4px;
+                    padding: 8px;
+                    background: rgba(0, 0, 0, 0.12);
+                    font-size: 0.85rem;
+                "
+            >
+                No learned node writes yet.
+            </div>
+            <div
                 style="
                     margin-top: 10px;
                     display: flex;
@@ -265,7 +284,7 @@
                     Enable Training
                 </button>
                 <button class="btn-deny" onclick="setTrainingMode(false)">
-                    Disable Training
+                    Stop Training Now
                 </button>
                 <button class="btn-resolve" onclick="runTrainingNow()">
                     Run Training Now
@@ -487,6 +506,8 @@
                 const cycles = document.getElementById("training-cycles");
                 const nodes = document.getElementById("training-nodes");
                 const topics = document.getElementById("training-topics");
+                const websites = document.getElementById("training-websites");
+                const learned = document.getElementById("training-learned");
 
                 if (!trainingStatus) {
                     updatedAt.textContent = "";
@@ -495,6 +516,8 @@
                     cycles.textContent = "Cycles: -";
                     nodes.textContent = "Nodes written: -";
                     topics.textContent = "";
+                    websites.textContent = "";
+                    learned.textContent = "No learned node writes yet.";
                     return;
                 }
 
@@ -509,10 +532,43 @@
                 cycles.textContent = `Cycles: ${training.total_cycles ?? 0}`;
                 nodes.textContent = `Nodes written: ${training.total_nodes_written ?? 0}`;
                 const lastTopics = training.last_topics || [];
+                const intervalSeconds = trainingStatus.interval_seconds ?? 60;
                 topics.textContent =
                     lastTopics.length > 0
-                        ? `Last training topics: ${lastTopics.join(", ")}`
-                        : "Last training topics: none";
+                        ? `Last training topics: ${lastTopics.join(", ")} (every ${intervalSeconds}s while enabled)`
+                        : `Last training topics: none (every ${intervalSeconds}s while enabled)`;
+
+                const lastWebsites = training.last_websites || [];
+                websites.textContent =
+                    lastWebsites.length > 0
+                        ? `Websites scraped this cycle: ${lastWebsites.join(", ")}`
+                        : "Websites scraped this cycle: none";
+
+                const learnedItems = training.last_learned_items || [];
+                if (learnedItems.length === 0) {
+                    learned.textContent = "No learned node writes yet.";
+                } else {
+                    learned.innerHTML = learnedItems
+                        .slice(0, 20)
+                        .map((item) => {
+                            const sourceType = item.source_type || "unknown";
+                            const title = escapeHtml(item.title || "Untitled");
+                            const summary = escapeHtml(item.summary || "");
+                            const sourceUrl = escapeHtml(item.source_url || "");
+                            const nodeId = escapeHtml(item.node_id || "");
+                            const topic = escapeHtml(item.topic || "");
+                            return `
+                                <div style="padding:8px; border-bottom:1px solid var(--border);">
+                                    <div><strong>${title}</strong> <span style="opacity:0.7;">(${sourceType})</span></div>
+                                    <div style="opacity:0.85; margin-top:3px;">${summary}</div>
+                                    <div style="opacity:0.7; margin-top:3px;">Topic: ${topic}</div>
+                                    <div style="opacity:0.7; margin-top:2px;">Node: ${nodeId}</div>
+                                    <div style="margin-top:2px;"><a href="${sourceUrl}" target="_blank" style="color:#90caf9;">${sourceUrl}</a></div>
+                                </div>
+                            `;
+                        })
+                        .join("");
+                }
             }
 
             async function loadTrainingStatus() {
@@ -547,7 +603,18 @@
                     );
                     return;
                 }
-                setStatus(`Training mode ${enabled ? "enabled" : "disabled"}.`);
+                const payload = await res.json();
+                const internetEnabled = payload?.internet_enabled === true;
+                if (enabled) {
+                    const nodesWritten = payload?.report?.nodes_written ?? 0;
+                    const websitesScraped =
+                        payload?.report?.websites_scraped?.length ?? 0;
+                    setStatus(
+                        `Training mode enabled. Internet is ${internetEnabled ? "enabled" : "disabled"}. Initial cycle: ${websitesScraped} website(s), ${nodesWritten} node(s).`,
+                    );
+                } else {
+                    setStatus("Training mode stopped.");
+                }
                 loadTrainingStatus();
             }
 
@@ -569,8 +636,10 @@
                 }
                 const payload = await res.json();
                 const nodesWritten = payload?.report?.nodes_written ?? 0;
+                const websitesScraped =
+                    payload?.report?.websites_scraped?.length ?? 0;
                 setStatus(
-                    `Training cycle completed. Nodes written: ${nodesWritten}.`,
+                    `Training cycle completed. Websites scraped: ${websitesScraped}. Nodes written: ${nodesWritten}.`,
                 );
                 loadTrainingStatus();
             }
