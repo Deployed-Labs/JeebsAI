@@ -9,10 +9,12 @@ use csv::Writer;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqlitePool};
+use std::sync::Mutex;
 use std::sync::OnceLock;
 use tokio::sync::broadcast;
 use tokio_stream::wrappers::BroadcastStream;
-use std::sync::Mutex;
+
+const MAX_LOG_MESSAGE_LEN: usize = 4096;
 
 #[derive(Serialize, Clone, sqlx::FromRow)]
 pub struct LogEntry {
@@ -41,7 +43,7 @@ pub fn get_log_buffer() -> &'static Mutex<Vec<String>> {
 }
 
 pub async fn init(db: &SqlitePool) {
-    sqlx::query(
+    if let Err(err) = sqlx::query(
         "CREATE TABLE IF NOT EXISTS system_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             timestamp TEXT NOT NULL,
@@ -52,12 +54,32 @@ pub async fn init(db: &SqlitePool) {
     )
     .execute(db)
     .await
-    .expect("Failed to initialize logging table");
+    {
+        eprintln!("[WARN] Failed to initialize logging table: {err}");
+    }
 }
 
-pub async fn log(db: &SqlitePool, level: &str, category: &str, message: &str) {
-    let timestamp = Local::now().to_rfc3339();
-    let res = sqlx::query(
+fn truncate_message(message: &str) -> String {
+    if message.chars().count() <= MAX_LOG_MESSAGE_LEN {
+        return message.to_string();
+    }
+
+    let mut out = String::with_capacity(MAX_LOG_MESSAGE_LEN + 32);
+    for ch in message.chars().take(MAX_LOG_MESSAGE_LEN) {
+        out.push(ch);
+    }
+    out.push_str("... [truncated]");
+    out
+}
+
+async fn insert_log_row(
+    db: &SqlitePool,
+    timestamp: &str,
+    level: &str,
+    category: &str,
+    message: &str,
+) -> Result<i64, sqlx::Error> {
+    let result = sqlx::query(
         "INSERT INTO system_logs (timestamp, level, category, message) VALUES (?, ?, ?, ?)",
     )
     .bind(timestamp)
@@ -65,23 +87,49 @@ pub async fn log(db: &SqlitePool, level: &str, category: &str, message: &str) {
     .bind(category)
     .bind(message)
     .execute(db)
-    .await;
+    .await?;
 
-    if let Ok(r) = res {
-        let entry = LogEntry {
-            id: r.last_insert_rowid(),
-            timestamp: Local::now().to_rfc3339(),
-            level: level.to_string(),
-            category: category.to_string(),
-            message: message.to_string(),
-        };
-        // push to in-memory buffer (bounded)
-        if let Ok(mut buf) = get_log_buffer().lock() {
-            buf.push(format!("{} [{}] {}: {}", entry.timestamp, entry.category, entry.level, entry.message));
-            let len = buf.len();
-            if len > 1000 { buf.drain(0..(len - 1000)); }
+    Ok(result.last_insert_rowid())
+}
+
+pub async fn log(db: &SqlitePool, level: &str, category: &str, message: &str) {
+    let timestamp = Local::now().to_rfc3339();
+    let message = truncate_message(message);
+    let mut insert_result = insert_log_row(db, &timestamp, level, category, &message).await;
+
+    // Recover automatically if older deployments call log() before initialization/migration.
+    if let Err(err) = &insert_result {
+        if err.to_string().contains("no such table: system_logs") {
+            init(db).await;
+            insert_result = insert_log_row(db, &timestamp, level, category, &message).await;
         }
-        let _ = get_broadcaster().send(entry);
+    }
+
+    match insert_result {
+        Ok(id) => {
+            let entry = LogEntry {
+                id,
+                timestamp: timestamp.clone(),
+                level: level.to_string(),
+                category: category.to_string(),
+                message,
+            };
+            // push to in-memory buffer (bounded)
+            if let Ok(mut buf) = get_log_buffer().lock() {
+                buf.push(format!(
+                    "{} [{}] {}: {}",
+                    entry.timestamp, entry.category, entry.level, entry.message
+                ));
+                let len = buf.len();
+                if len > 1000 {
+                    buf.drain(0..(len - 1000));
+                }
+            }
+            let _ = get_broadcaster().send(entry);
+        }
+        Err(err) => {
+            eprintln!("[WARN] Failed to persist system log entry: {err}");
+        }
     }
 }
 

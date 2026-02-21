@@ -1,131 +1,366 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jeebs Evolution</title>
-    <style>
-        :root {
-            --bg-main: #1a1a1a;
-            --bg-card: #2a2a2a;
-            --text-main: #eee;
-            --border: #444;
-            --accent: #2e7d32;
-        }
-        body.light-mode {
-            --bg-main: #f4f4f9;
-            --bg-card: #ffffff;
-            --text-main: #333;
-            --border: #ccc;
-            --accent: #4caf50;
-        }
-        body { font-family: sans-serif; background: var(--bg-main); color: var(--text-main); padding: 20px; transition: background 0.3s, color 0.3s; }
-        .header { display: flex; justify-content: space-between; align-items: center; }
-        .theme-toggle { background: transparent; border: 1px solid var(--border); color: var(--text-main); padding: 5px 10px; cursor: pointer; border-radius: 4px; }
-        .update-card { background: var(--bg-card); border: 1px solid var(--border); padding: 15px; margin-bottom: 15px; border-radius: 5px; }
-        .update-header { display: flex; justify-content: space-between; align-items: center; }
-        .status { padding: 3px 8px; border-radius: 3px; font-size: 0.8em; text-transform: uppercase; }
-        .status.pending { background: #d4a017; color: #000; }
-        .status.applied { background: #2e7d32; color: #fff; }
-        .status.denied { background: #c62828; color: #fff; }
-        .status.rolled_back { background: #555; color: #fff; }
-        .status.resolved { background: #607d8b; color: #fff; }
-        .severity { padding: 3px 8px; border-radius: 3px; font-size: 0.8em; margin-right: 5px; text-transform: uppercase; font-weight: bold; }
-        .severity.low { background: #1b5e20; color: #a5d6a7; border: 1px solid #2e7d32; }
-        .severity.medium { background: #e65100; color: #ffcc80; border: 1px solid #ef6c00; }
-        .severity.high { background: #b71c1c; color: #ef9a9a; border: 1px solid #c62828; }
-        pre { background: #000; padding: 10px; overflow-x: auto; }
-        button { cursor: pointer; padding: 5px 10px; margin-right: 5px; border: none; border-radius: 3px; }
-        .btn-apply { background: #2e7d32; color: white; }
-        .btn-deny { background: #c62828; color: white; }
-        .btn-resolve { background: #607d8b; color: white; }
-        .btn-rollback { background: #f57c00; color: white; }
-        .notification-banner { background: #b71c1c; color: white; padding: 10px; margin-bottom: 15px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; animation: flash 2s infinite alternate; }
-        @keyframes flash { from { border: 1px solid #b71c1c; } to { border: 1px solid #ff5252; box-shadow: 0 0 10px #ff5252; } }
-        select { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border); padding: 5px; border-radius: 3px; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>Evolution Proposals</h1>
-        <button class="theme-toggle" onclick="toggleTheme()">🌓 Theme</button>
-    </div>
-    <div id="notifications-area"></div>
-    <div style="margin-bottom: 15px;">
-        <label for="statusFilter">Filter:</label>
-        <select id="statusFilter" onchange="renderUpdates()">
-            <option value="all">All</option>
-            <option value="pending">Pending</option>
-            <option value="applied">Applied</option>
-            <option value="denied">Denied</option>
-            <option value="resolved">Resolved</option>
-            <option value="rolled_back">Rolled Back</option>
-        </select>
-    </div>
-    <div id="updates-list">Loading...</div>
-
-    <script>
-        let allUpdates = [];
-        let userRole = '';
-
-        // Theme Init
-        if (localStorage.getItem('theme') === 'light') document.body.classList.add('light-mode');
-        function toggleTheme() {
-            document.body.classList.toggle('light-mode');
-            localStorage.setItem('theme', document.body.classList.contains('light-mode') ? 'light' : 'dark');
-        }
-
-        async function loadUpdates() {
-            const res = await fetch('/api/admin/evolution/updates');
-            if (!res.ok) {
-                document.getElementById('updates-list').innerText = 'Access Denied. You do not have permission to view this page.';
-                return;
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Jeebs Evolution</title>
+        <style>
+            :root {
+                --bg-main: #1a1a1a;
+                --bg-card: #2a2a2a;
+                --text-main: #eee;
+                --border: #444;
+                --accent: #2e7d32;
             }
-            const data = await res.json();
-            allUpdates = data.updates;
-            userRole = data.role;
-            loadNotifications();
-            renderUpdates();
-        }
+            body.light-mode {
+                --bg-main: #f4f4f9;
+                --bg-card: #ffffff;
+                --text-main: #333;
+                --border: #ccc;
+                --accent: #4caf50;
+            }
+            body {
+                font-family: sans-serif;
+                background: var(--bg-main);
+                color: var(--text-main);
+                padding: 20px;
+                transition:
+                    background 0.3s,
+                    color 0.3s;
+            }
+            .header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .theme-toggle {
+                background: transparent;
+                border: 1px solid var(--border);
+                color: var(--text-main);
+                padding: 5px 10px;
+                cursor: pointer;
+                border-radius: 4px;
+            }
+            .update-card {
+                background: var(--bg-card);
+                border: 1px solid var(--border);
+                padding: 15px;
+                margin-bottom: 15px;
+                border-radius: 5px;
+            }
+            .update-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .status {
+                padding: 3px 8px;
+                border-radius: 3px;
+                font-size: 0.8em;
+                text-transform: uppercase;
+            }
+            .status.pending {
+                background: #d4a017;
+                color: #000;
+            }
+            .status.applied {
+                background: #2e7d32;
+                color: #fff;
+            }
+            .status.denied {
+                background: #c62828;
+                color: #fff;
+            }
+            .status.rolled_back {
+                background: #555;
+                color: #fff;
+            }
+            .status.resolved {
+                background: #607d8b;
+                color: #fff;
+            }
+            .severity {
+                padding: 3px 8px;
+                border-radius: 3px;
+                font-size: 0.8em;
+                margin-right: 5px;
+                text-transform: uppercase;
+                font-weight: bold;
+            }
+            .severity.low {
+                background: #1b5e20;
+                color: #a5d6a7;
+                border: 1px solid #2e7d32;
+            }
+            .severity.medium {
+                background: #e65100;
+                color: #ffcc80;
+                border: 1px solid #ef6c00;
+            }
+            .severity.high {
+                background: #b71c1c;
+                color: #ef9a9a;
+                border: 1px solid #c62828;
+            }
+            pre {
+                background: #000;
+                padding: 10px;
+                overflow-x: auto;
+            }
+            button {
+                cursor: pointer;
+                padding: 5px 10px;
+                margin-right: 5px;
+                border: none;
+                border-radius: 3px;
+            }
+            .btn-apply {
+                background: #2e7d32;
+                color: white;
+            }
+            .btn-deny {
+                background: #c62828;
+                color: white;
+            }
+            .btn-resolve {
+                background: #607d8b;
+                color: white;
+            }
+            .btn-rollback {
+                background: #f57c00;
+                color: white;
+            }
+            .notification-banner {
+                background: #b71c1c;
+                color: white;
+                padding: 10px;
+                margin-bottom: 15px;
+                border-radius: 5px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                animation: flash 2s infinite alternate;
+            }
+            @keyframes flash {
+                from {
+                    border: 1px solid #b71c1c;
+                }
+                to {
+                    border: 1px solid #ff5252;
+                    box-shadow: 0 0 10px #ff5252;
+                }
+            }
+            select {
+                background: var(--bg-card);
+                color: var(--text-main);
+                border: 1px solid var(--border);
+                padding: 5px;
+                border-radius: 3px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>Evolution Proposals</h1>
+            <button class="theme-toggle" onclick="toggleTheme()">
+                🌓 Theme
+            </button>
+        </div>
+        <div id="notifications-area"></div>
+        <div
+            style="
+                margin-bottom: 15px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                flex-wrap: wrap;
+            "
+        >
+            <label for="statusFilter" style="margin: 0">Filter:</label>
+            <select id="statusFilter" onchange="renderUpdates()">
+                <option value="all">All</option>
+                <option value="pending">Pending</option>
+                <option value="applied">Applied</option>
+                <option value="denied">Denied</option>
+                <option value="resolved">Resolved</option>
+                <option value="rolled_back">Rolled Back</option>
+            </select>
+            <button class="btn-apply" onclick="brainstormUpdate()">
+                Brainstorm Update
+            </button>
+            <button class="btn-resolve" onclick="loadUpdates()">Refresh</button>
+            <a
+                href="/webui/admin_dashboard.html"
+                style="
+                    color: var(--text-main);
+                    text-decoration: none;
+                    margin-left: auto;
+                "
+                >Back to Admin</a
+            >
+        </div>
+        <div
+            id="status-message"
+            style="margin-bottom: 12px; min-height: 20px; color: #90caf9"
+        ></div>
+        <div id="updates-list">Loading...</div>
 
-        function renderUpdates() {
-            const filter = document.getElementById('statusFilter').value;
-            const updates = filter === 'all' ? allUpdates : allUpdates.filter(u => u.status === filter);
-            const container = document.getElementById('updates-list');
-            container.innerHTML = '';
+        <script>
+            const ROOT_ADMIN_USERNAME = "1090mb";
+            const TOKEN_KEY = "jeebs_auth_token";
+            let allUpdates = [];
+            let userRole = "";
+            let rootAdminAuthorized = false;
 
-            if (updates.length === 0) {
-                container.innerHTML = '<p>No updates found.</p>';
-                return;
+            // Theme Init
+            if (localStorage.getItem("theme") === "light")
+                document.body.classList.add("light-mode");
+            function toggleTheme() {
+                document.body.classList.toggle("light-mode");
+                localStorage.setItem(
+                    "theme",
+                    document.body.classList.contains("light-mode")
+                        ? "light"
+                        : "dark",
+                );
             }
 
-            updates.forEach(u => {
-                const card = document.createElement('div');
-                card.className = 'update-card';
-                
-                let actions = '';
-                if (userRole === 'admin') {
-                    if (u.status === 'pending') {
-                        actions = `
+            function authHeaders(contentTypeJson = false) {
+                const headers = contentTypeJson
+                    ? { "Content-Type": "application/json" }
+                    : {};
+                const token = localStorage.getItem(TOKEN_KEY);
+                if (token) headers["Authorization"] = `Bearer ${token}`;
+                return headers;
+            }
+
+            function setStatus(message, isError = false) {
+                const status = document.getElementById("status-message");
+                status.textContent = message || "";
+                status.style.color = isError ? "#ef9a9a" : "#90caf9";
+            }
+
+            async function parseErrorMessage(res, fallback) {
+                try {
+                    const payload = await res.json();
+                    if (payload && payload.error) return payload.error;
+                    if (payload && payload.message) return payload.message;
+                } catch {}
+                try {
+                    const text = await res.text();
+                    if (text) return text;
+                } catch {}
+                return fallback;
+            }
+
+            async function ensureRootAdminAccess() {
+                try {
+                    const res = await fetch("/api/auth/status", {
+                        credentials: "same-origin",
+                        headers: authHeaders(),
+                    });
+                    if (!res.ok) {
+                        window.location.replace("/webui/index.html");
+                        return false;
+                    }
+
+                    const auth = await res.json();
+                    const allowed =
+                        auth.logged_in === true &&
+                        auth.is_admin === true &&
+                        auth.username === ROOT_ADMIN_USERNAME;
+                    if (!allowed) {
+                        window.location.replace("/webui/index.html");
+                        return false;
+                    }
+
+                    rootAdminAuthorized = true;
+                    return true;
+                } catch {
+                    window.location.replace("/webui/index.html");
+                    return false;
+                }
+            }
+
+            async function loadUpdates() {
+                if (!rootAdminAuthorized) return;
+
+                const res = await fetch("/api/admin/evolution/updates", {
+                    credentials: "same-origin",
+                    headers: authHeaders(),
+                });
+                if (!res.ok) {
+                    const message = await parseErrorMessage(
+                        res,
+                        "Failed to load evolution updates.",
+                    );
+                    setStatus(message, true);
+                    document.getElementById("updates-list").innerText =
+                        "Access Denied. You do not have permission to view this page.";
+                    return;
+                }
+                const data = await res.json();
+                allUpdates = data.updates;
+                userRole = data.role;
+                setStatus(`Loaded ${allUpdates.length} evolution proposal(s).`);
+                loadNotifications();
+                renderUpdates();
+            }
+
+            function renderUpdates() {
+                const filter = document.getElementById("statusFilter").value;
+                const updates =
+                    filter === "all"
+                        ? allUpdates
+                        : allUpdates.filter((u) => u.status === filter);
+                const container = document.getElementById("updates-list");
+                container.innerHTML = "";
+
+                if (updates.length === 0) {
+                    container.innerHTML = "<p>No updates found.</p>";
+                    return;
+                }
+
+                updates.forEach((u) => {
+                    const card = document.createElement("div");
+                    card.className = "update-card";
+
+                    let actions = "";
+                    if (userRole === "admin") {
+                        if (u.status === "pending") {
+                            actions = `
                             <button class="btn-apply" onclick="applyUpdate('${u.id}')">Apply</button>
                             <button class="btn-deny" onclick="denyUpdate('${u.id}')">Deny</button>
                             <button class="btn-resolve" onclick="resolveUpdate('${u.id}')">Resolve</button>
                         `;
-                    } else if (u.status === 'applied') {
-                        actions = `<button class="btn-rollback" onclick="rollbackUpdate('${u.id}')">Rollback</button>`;
+                        } else if (u.status === "applied") {
+                            actions = `<button class="btn-rollback" onclick="rollbackUpdate('${u.id}')">Rollback</button>`;
+                        }
                     }
-                }
 
-                let changesHtml = u.changes.map(c => `<div><strong>${c.path}</strong><pre>${escapeHtml(c.new_content)}</pre></div>`).join('');
+                    let changesHtml = u.changes
+                        .map(
+                            (c) =>
+                                `<div><strong>${c.path}</strong><pre>${escapeHtml(c.new_content)}</pre></div>`,
+                        )
+                        .join("");
 
-                const severityClass = u.severity ? u.severity.toLowerCase() : 'low';
-                const severityLabel = u.severity || 'Low';
-                
-                let commentsHtml = u.comments && u.comments.length > 0 
-                    ? u.comments.map(c => `<div style="background:#333; padding:5px; margin:2px 0; font-size:0.9em; border-radius:3px;"><strong>${escapeHtml(c.author)}</strong>: ${escapeHtml(c.content)}</div>`).join('')
-                    : '<div style="color:#777; font-style:italic; font-size:0.9em;">No comments yet.</div>';
+                    const severityClass = u.severity
+                        ? u.severity.toLowerCase()
+                        : "low";
+                    const severityLabel = u.severity || "Low";
 
-                let commentForm = `
+                    let commentsHtml =
+                        u.comments && u.comments.length > 0
+                            ? u.comments
+                                  .map(
+                                      (c) =>
+                                          `<div style="background:#333; padding:5px; margin:2px 0; font-size:0.9em; border-radius:3px;"><strong>${escapeHtml(c.author)}</strong>: ${escapeHtml(c.content)}</div>`,
+                                  )
+                                  .join("")
+                            : '<div style="color:#777; font-style:italic; font-size:0.9em;">No comments yet.</div>';
+
+                    let commentForm = `
                     <div style="margin-top:10px; border-top:1px solid #444; padding-top:10px;">
                         <div style="margin-bottom:5px;">${commentsHtml}</div>
                         <div style="display:flex;">
@@ -135,7 +370,7 @@
                     </div>
                 `;
 
-                card.innerHTML = `
+                    card.innerHTML = `
                     <div class="update-header">
                         <h2>${escapeHtml(u.title)}</h2>
                         <div>
@@ -153,77 +388,192 @@
                     ${commentForm}
                     <div style="margin-top: 10px;">${actions}</div>
                 `;
-                container.appendChild(card);
-            });
-        }
+                    container.appendChild(card);
+                });
+            }
 
-        async function loadNotifications() {
-            if (userRole !== 'admin') return;
-            const res = await fetch('/api/admin/notifications');
-            if (res.ok) {
-                const notifs = await res.json();
-                const area = document.getElementById('notifications-area');
-                area.innerHTML = notifs.map(n => `
+            async function loadNotifications() {
+                if (userRole !== "admin") return;
+                const res = await fetch("/api/admin/notifications", {
+                    credentials: "same-origin",
+                    headers: authHeaders(),
+                });
+                if (res.ok) {
+                    const notifs = await res.json();
+                    const area = document.getElementById("notifications-area");
+                    area.innerHTML = notifs
+                        .map(
+                            (n) => `
                     <div class="notification-banner">
                         <span><strong>ALERT:</strong> ${escapeHtml(n.message)}</span>
                         <button onclick="dismissNotification('${n.id}')" style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.5);">Dismiss</button>
                     </div>
-                `).join('');
+                `,
+                        )
+                        .join("");
+                }
             }
-        }
 
-        async function dismissNotification(id) {
-            await fetch(`/api/admin/notification/${id}`, { method: 'DELETE' });
-            loadNotifications();
-        }
+            async function dismissNotification(id) {
+                const res = await fetch(`/api/admin/notification/${id}`, {
+                    method: "DELETE",
+                    credentials: "same-origin",
+                    headers: authHeaders(),
+                });
+                if (!res.ok) {
+                    setStatus(
+                        await parseErrorMessage(
+                            res,
+                            "Failed to dismiss notification.",
+                        ),
+                        true,
+                    );
+                    return;
+                }
+                loadNotifications();
+            }
 
-        async function applyUpdate(id) {
-            if (!confirm('Apply this update?')) return;
-            await fetch(`/api/admin/evolution/apply/${id}`, { method: 'POST' });
-            loadUpdates();
-        }
+            async function applyUpdate(id) {
+                if (!confirm("Apply this update?")) return;
+                const res = await fetch(`/api/admin/evolution/apply/${id}`, {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: authHeaders(),
+                });
+                if (!res.ok) {
+                    setStatus(
+                        await parseErrorMessage(res, "Failed to apply update."),
+                        true,
+                    );
+                    return;
+                }
+                setStatus("Update applied.");
+                loadUpdates();
+            }
 
-        async function denyUpdate(id) {
-            if (!confirm('Deny this update?')) return;
-            await fetch(`/api/admin/evolution/deny/${id}`, { method: 'POST' });
-            loadUpdates();
-        }
+            async function denyUpdate(id) {
+                if (!confirm("Deny this update?")) return;
+                const res = await fetch(`/api/admin/evolution/deny/${id}`, {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: authHeaders(),
+                });
+                if (!res.ok) {
+                    setStatus(
+                        await parseErrorMessage(res, "Failed to deny update."),
+                        true,
+                    );
+                    return;
+                }
+                setStatus("Update denied.");
+                loadUpdates();
+            }
 
-        async function resolveUpdate(id) {
-            if (!confirm('Mark this update as resolved (manual fix/ignored)?')) return;
-            await fetch(`/api/admin/evolution/resolve/${id}`, { method: 'POST' });
-            loadUpdates();
-        }
+            async function resolveUpdate(id) {
+                if (
+                    !confirm(
+                        "Mark this update as resolved (manual fix/ignored)?",
+                    )
+                )
+                    return;
+                const res = await fetch(`/api/admin/evolution/resolve/${id}`, {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: authHeaders(),
+                });
+                if (!res.ok) {
+                    setStatus(
+                        await parseErrorMessage(
+                            res,
+                            "Failed to resolve update.",
+                        ),
+                        true,
+                    );
+                    return;
+                }
+                setStatus("Update resolved.");
+                loadUpdates();
+            }
 
-        async function rollbackUpdate(id) {
-            if (!confirm('Rollback this update?')) return;
-            await fetch(`/api/admin/evolution/rollback/${id}`, { method: 'POST' });
-            loadUpdates();
-        }
-        
-        async function addComment(id) {
-            const input = document.getElementById(`comment-input-${id}`);
-            const content = input.value;
-            if (!content) return;
-            
-            await fetch(`/api/admin/evolution/comment/${id}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content })
-            });
-            loadUpdates();
-        }
+            async function rollbackUpdate(id) {
+                if (!confirm("Rollback this update?")) return;
+                const res = await fetch(`/api/admin/evolution/rollback/${id}`, {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: authHeaders(),
+                });
+                if (!res.ok) {
+                    setStatus(
+                        await parseErrorMessage(
+                            res,
+                            "Failed to roll back update.",
+                        ),
+                        true,
+                    );
+                    return;
+                }
+                setStatus("Update rolled back.");
+                loadUpdates();
+            }
 
-        function escapeHtml(text) {
-            if (!text) return '';
-            return text.replace(/&/g, "&amp;")
-                       .replace(/</g, "&lt;")
-                       .replace(/>/g, "&gt;")
-                       .replace(/"/g, "&quot;")
-                       .replace(/'/g, "&#039;");
-        }
+            async function addComment(id) {
+                const input = document.getElementById(`comment-input-${id}`);
+                const content = input.value.trim();
+                if (!content) return;
 
-        loadUpdates();
-    </script>
-</body>
+                const res = await fetch(`/api/admin/evolution/comment/${id}`, {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: authHeaders(true),
+                    body: JSON.stringify({ content }),
+                });
+                if (!res.ok) {
+                    setStatus(
+                        await parseErrorMessage(res, "Failed to add comment."),
+                        true,
+                    );
+                    return;
+                }
+                setStatus("Comment added.");
+                loadUpdates();
+            }
+
+            async function brainstormUpdate() {
+                const res = await fetch("/api/evolution/brainstorm", {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: authHeaders(),
+                });
+                if (!res.ok) {
+                    setStatus(
+                        await parseErrorMessage(
+                            res,
+                            "Failed to brainstorm update.",
+                        ),
+                        true,
+                    );
+                    return;
+                }
+                const payload = await res.json();
+                setStatus(payload.message || "Brainstorm complete.");
+                loadUpdates();
+            }
+
+            function escapeHtml(text) {
+                if (!text) return "";
+                return text
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
+
+            (async () => {
+                const allowed = await ensureRootAdminAccess();
+                if (!allowed) return;
+                loadUpdates();
+            })();
+        </script>
+    </body>
 </html>

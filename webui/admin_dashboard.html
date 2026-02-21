@@ -231,6 +231,12 @@
                         stream controls.
                     </p>
                 </a>
+                <a href="/webui/evolution.html" class="card">
+                    <h3>Evolution Proposals</h3>
+                    <p>
+                        Review, comment, and apply/deny proposed self-updates.
+                    </p>
+                </a>
                 <a href="/webui/admin_blacklist.html" class="card">
                     <h3>IP Blacklist</h3>
                     <p>
@@ -279,12 +285,14 @@
             const ROOT_ADMIN_USERNAME = "1090mb";
             let rootAdminAuthorized = false;
             const TOKEN_KEY = "jeebs_auth_token";
-function authHeaders(contentTypeJson = false) {
-    const headers = contentTypeJson ? { "Content-Type": "application/json" } : {};
-    const token = localStorage.getItem(TOKEN_KEY);
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-    return headers;
-}
+            function authHeaders(contentTypeJson = false) {
+                const headers = contentTypeJson
+                    ? { "Content-Type": "application/json" }
+                    : {};
+                const token = localStorage.getItem(TOKEN_KEY);
+                if (token) headers["Authorization"] = `Bearer ${token}`;
+                return headers;
+            }
 
             async function ensureRootAdminAccess() {
                 try {
@@ -342,7 +350,9 @@ function authHeaders(contentTypeJson = false) {
             async function loadStatus() {
                 if (!rootAdminAuthorized) return;
                 try {
-                    const res = await fetch("/api/admin/status", { headers: authHeaders() });
+                    const res = await fetch("/api/admin/status", {
+                        headers: authHeaders(),
+                    });
                     if (res.ok) {
                         const data = await res.json();
                         const usedMb =
@@ -382,7 +392,9 @@ function authHeaders(contentTypeJson = false) {
             async function loadLogs() {
                 if (!rootAdminAuthorized) return;
                 try {
-                    const res = await fetch("/api/admin/logs", { headers: authHeaders() });
+                    const res = await fetch("/api/admin/logs", {
+                        headers: authHeaders(),
+                    });
                     if (res.ok) {
                         const logs = await res.json();
                         const container =
@@ -417,7 +429,9 @@ function authHeaders(contentTypeJson = false) {
             async function loadSessions() {
                 if (!rootAdminAuthorized) return;
                 try {
-                    const res = await fetch("/api/admin/sessions", { headers: authHeaders() });
+                    const res = await fetch("/api/admin/sessions", {
+                        headers: authHeaders(),
+                    });
                     if (res.ok) {
                         const sessions = await res.json();
                         const container =
@@ -487,7 +501,7 @@ function authHeaders(contentTypeJson = false) {
                     try {
                         const json = JSON.parse(e.target.result);
                         const res = await fetch("/api/admin/import", {
-                        headers: authHeaders(true),
+                            headers: authHeaders(true),
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify(json),

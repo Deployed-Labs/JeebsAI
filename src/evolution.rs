@@ -52,24 +52,24 @@ struct UpdatesResponse {
     role: String,
 }
 
+fn require_root_admin(session: &Session) -> Result<String, HttpResponse> {
+    if !crate::auth::is_root_admin_session(session) {
+        return Err(
+            HttpResponse::Forbidden().json(json!({"error": "Restricted to 1090mb admin account"}))
+        );
+    }
+
+    Ok(session
+        .get::<String>("username")
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| crate::auth::ROOT_ADMIN_USERNAME.to_string()))
+}
+
 #[get("/api/admin/evolution/updates")]
 pub async fn list_updates(data: web::Data<AppState>, session: Session) -> impl Responder {
-    let username = match session.get::<String>("username") {
-        Ok(Some(u)) => u,
-        _ => return HttpResponse::Unauthorized().json(json!({"error": "Not logged in"})),
-    };
-
-    let role: String = match sqlx::query("SELECT role FROM users WHERE username = ?")
-        .bind(&username)
-        .fetch_optional(&data.db)
-        .await
-    {
-        Ok(Some(row)) => row.get(0),
-        _ => return HttpResponse::Unauthorized().json(json!({"error": "User not found"})),
-    };
-
-    if role == "user" {
-        return HttpResponse::Forbidden().json(json!({"error": "Access denied"}));
+    if let Err(response) = require_root_admin(&session) {
+        return response;
     }
 
     let rows = sqlx::query("SELECT value FROM jeebs_store WHERE key LIKE 'evolution:update:%'")
@@ -89,7 +89,10 @@ pub async fn list_updates(data: web::Data<AppState>, session: Session) -> impl R
     // Sort by date desc
     updates.sort_by(|a, b| b.created_at.cmp(&a.created_at));
 
-    HttpResponse::Ok().json(UpdatesResponse { updates, role })
+    HttpResponse::Ok().json(UpdatesResponse {
+        updates,
+        role: "admin".to_string(),
+    })
 }
 
 #[post("/api/admin/evolution/apply/{id}")]
@@ -98,23 +101,10 @@ pub async fn apply_update(
     path: web::Path<String>,
     session: Session,
 ) -> impl Responder {
-    let username = match session.get::<String>("username") {
-        Ok(Some(u)) => u,
-        _ => return HttpResponse::Unauthorized().json(json!({"error": "Not logged in"})),
+    let actor = match require_root_admin(&session) {
+        Ok(username) => username,
+        Err(response) => return response,
     };
-
-    let role: String = match sqlx::query("SELECT role FROM users WHERE username = ?")
-        .bind(&username)
-        .fetch_optional(&data.db)
-        .await
-    {
-        Ok(Some(row)) => row.get(0),
-        _ => return HttpResponse::Unauthorized().json(json!({"error": "User not found"})),
-    };
-
-    if role != "admin" {
-        return HttpResponse::Forbidden().json(json!({"error": "Admin only"}));
-    }
 
     let id = path.into_inner();
     let key = format!("evolution:update:{id}");
@@ -177,7 +167,7 @@ pub async fn apply_update(
                     &data.db,
                     "INFO",
                     "EVOLUTION",
-                    &format!("Applied update: {}", update.title),
+                    &format!("Applied update '{}' by {}", update.title, actor),
                 )
                 .await;
 
@@ -194,23 +184,10 @@ pub async fn deny_update(
     path: web::Path<String>,
     session: Session,
 ) -> impl Responder {
-    let username = match session.get::<String>("username") {
-        Ok(Some(u)) => u,
-        _ => return HttpResponse::Unauthorized().json(json!({"error": "Not logged in"})),
+    let actor = match require_root_admin(&session) {
+        Ok(username) => username,
+        Err(response) => return response,
     };
-
-    let role: String = match sqlx::query("SELECT role FROM users WHERE username = ?")
-        .bind(&username)
-        .fetch_optional(&data.db)
-        .await
-    {
-        Ok(Some(row)) => row.get(0),
-        _ => return HttpResponse::Unauthorized().json(json!({"error": "User not found"})),
-    };
-
-    if role != "admin" {
-        return HttpResponse::Forbidden().json(json!({"error": "Admin only"}));
-    }
 
     let id = path.into_inner();
     let key = format!("evolution:update:{id}");
@@ -235,7 +212,7 @@ pub async fn deny_update(
                     &data.db,
                     "WARN",
                     "EVOLUTION",
-                    &format!("Denied update: {}", update.title),
+                    &format!("Denied update '{}' by {}", update.title, actor),
                 )
                 .await;
                 return HttpResponse::Ok().json(json!({"message": "Update denied"}));
@@ -251,23 +228,10 @@ pub async fn resolve_update(
     path: web::Path<String>,
     session: Session,
 ) -> impl Responder {
-    let username = match session.get::<String>("username") {
-        Ok(Some(u)) => u,
-        _ => return HttpResponse::Unauthorized().json(json!({"error": "Not logged in"})),
+    let actor = match require_root_admin(&session) {
+        Ok(username) => username,
+        Err(response) => return response,
     };
-
-    let role: String = match sqlx::query("SELECT role FROM users WHERE username = ?")
-        .bind(&username)
-        .fetch_optional(&data.db)
-        .await
-    {
-        Ok(Some(row)) => row.get(0),
-        _ => return HttpResponse::Unauthorized().json(json!({"error": "User not found"})),
-    };
-
-    if role != "admin" {
-        return HttpResponse::Forbidden().json(json!({"error": "Admin only"}));
-    }
 
     let id = path.into_inner();
     let key = format!("evolution:update:{id}");
@@ -288,6 +252,13 @@ pub async fn resolve_update(
                     .execute(&data.db)
                     .await
                     .unwrap();
+                crate::logging::log(
+                    &data.db,
+                    "INFO",
+                    "EVOLUTION",
+                    &format!("Resolved update '{}' by {}", update.title, actor),
+                )
+                .await;
                 return HttpResponse::Ok().json(json!({"message": "Update resolved"}));
             }
         }
@@ -301,23 +272,10 @@ pub async fn rollback_update(
     path: web::Path<String>,
     session: Session,
 ) -> impl Responder {
-    let username = match session.get::<String>("username") {
-        Ok(Some(u)) => u,
-        _ => return HttpResponse::Unauthorized().json(json!({"error": "Not logged in"})),
+    let actor = match require_root_admin(&session) {
+        Ok(username) => username,
+        Err(response) => return response,
     };
-
-    let role: String = match sqlx::query("SELECT role FROM users WHERE username = ?")
-        .bind(&username)
-        .fetch_optional(&data.db)
-        .await
-    {
-        Ok(Some(row)) => row.get(0),
-        _ => return HttpResponse::Unauthorized().json(json!({"error": "User not found"})),
-    };
-
-    if role != "admin" {
-        return HttpResponse::Forbidden().json(json!({"error": "Admin only"}));
-    }
 
     let id = path.into_inner();
     let key = format!("evolution:update:{id}");
@@ -345,6 +303,13 @@ pub async fn rollback_update(
                         .execute(&data.db)
                         .await
                         .unwrap();
+                        crate::logging::log(
+                            &data.db,
+                            "WARN",
+                            "EVOLUTION",
+                            &format!("Rolled back update '{}' by {}", update.title, actor),
+                        )
+                        .await;
                         return HttpResponse::Ok()
                             .json(json!({"message": "Update rolled back successfully"}));
                     }
@@ -371,22 +336,14 @@ pub async fn add_comment(
     body: web::Json<CreateComment>,
     session: Session,
 ) -> impl Responder {
-    let username = match session.get::<String>("username") {
-        Ok(Some(u)) => u,
-        _ => return HttpResponse::Unauthorized().json(json!({"error": "Not logged in"})),
+    let actor = match require_root_admin(&session) {
+        Ok(username) => username,
+        Err(response) => return response,
     };
 
-    let role: String = match sqlx::query("SELECT role FROM users WHERE username = ?")
-        .bind(&username)
-        .fetch_optional(&data.db)
-        .await
-    {
-        Ok(Some(row)) => row.get(0),
-        _ => return HttpResponse::Unauthorized().json(json!({"error": "User not found"})),
-    };
-
-    if role == "user" {
-        return HttpResponse::Forbidden().json(json!({"error": "Access denied"}));
+    let comment_content = body.content.trim();
+    if comment_content.is_empty() {
+        return HttpResponse::BadRequest().json(json!({"error": "Comment cannot be empty"}));
     }
 
     let id = path.into_inner();
@@ -401,8 +358,8 @@ pub async fn add_comment(
         if let Ok(bytes) = decode_all(&val) {
             if let Ok(mut update) = serde_json::from_slice::<ProposedUpdate>(&bytes) {
                 let comment = Comment {
-                    author: username,
-                    content: body.content.clone(),
+                    author: actor.clone(),
+                    content: comment_content.to_string(),
                     timestamp: Local::now().to_rfc3339(),
                 };
                 update.comments.push(comment);
@@ -414,6 +371,13 @@ pub async fn add_comment(
                     .execute(&data.db)
                     .await
                     .unwrap();
+                crate::logging::log(
+                    &data.db,
+                    "INFO",
+                    "EVOLUTION",
+                    &format!("Added comment to update '{}' by {}", update.title, actor),
+                )
+                .await;
                 return HttpResponse::Ok().json(json!({"message": "Comment added"}));
             }
         }
@@ -423,22 +387,8 @@ pub async fn add_comment(
 
 #[get("/api/admin/notifications")]
 pub async fn get_notifications(data: web::Data<AppState>, session: Session) -> impl Responder {
-    let username = match session.get::<String>("username") {
-        Ok(Some(u)) => u,
-        _ => return HttpResponse::Unauthorized().json(json!({"error": "Not logged in"})),
-    };
-
-    let role: String = match sqlx::query("SELECT role FROM users WHERE username = ?")
-        .bind(&username)
-        .fetch_optional(&data.db)
-        .await
-    {
-        Ok(Some(row)) => row.get(0),
-        _ => return HttpResponse::Unauthorized().json(json!({"error": "User not found"})),
-    };
-
-    if role != "admin" {
-        return HttpResponse::Forbidden().json(json!({"error": "Admin only"}));
+    if let Err(response) = require_root_admin(&session) {
+        return response;
     }
 
     let rows = sqlx::query("SELECT value FROM jeebs_store WHERE key LIKE 'notification:%'")
@@ -467,31 +417,26 @@ pub async fn dismiss_notification(
     path: web::Path<String>,
     session: Session,
 ) -> impl Responder {
-    let username = match session.get::<String>("username") {
-        Ok(Some(u)) => u,
-        _ => return HttpResponse::Unauthorized().json(json!({"error": "Not logged in"})),
+    let actor = match require_root_admin(&session) {
+        Ok(username) => username,
+        Err(response) => return response,
     };
-
-    let role: String = match sqlx::query("SELECT role FROM users WHERE username = ?")
-        .bind(&username)
-        .fetch_optional(&data.db)
-        .await
-    {
-        Ok(Some(row)) => row.get(0),
-        _ => return HttpResponse::Unauthorized().json(json!({"error": "User not found"})),
-    };
-
-    if role != "admin" {
-        return HttpResponse::Forbidden().json(json!({"error": "Admin only"}));
-    }
 
     let id = path.into_inner();
     let key = format!("notification:{id}");
     sqlx::query("DELETE FROM jeebs_store WHERE key = ?")
-        .bind(key)
+        .bind(&key)
         .execute(&data.db)
         .await
         .unwrap();
+
+    crate::logging::log(
+        &data.db,
+        "INFO",
+        "EVOLUTION",
+        &format!("Dismissed notification '{id}' by {actor}"),
+    )
+    .await;
 
     HttpResponse::Ok().json(json!({"ok": true}))
 }
@@ -499,23 +444,10 @@ pub async fn dismiss_notification(
 // Simulation endpoint for Jeebs to "think" of an update
 #[post("/api/evolution/brainstorm")]
 pub async fn brainstorm_update(data: web::Data<AppState>, session: Session) -> impl Responder {
-    let username = match session.get::<String>("username") {
-        Ok(Some(u)) => u,
-        _ => return HttpResponse::Unauthorized().json(json!({"error": "Not logged in"})),
+    let actor = match require_root_admin(&session) {
+        Ok(username) => username,
+        Err(response) => return response,
     };
-
-    let role: String = match sqlx::query("SELECT role FROM users WHERE username = ?")
-        .bind(&username)
-        .fetch_optional(&data.db)
-        .await
-    {
-        Ok(Some(row)) => row.get(0),
-        _ => return HttpResponse::Unauthorized().json(json!({"error": "User not found"})),
-    };
-
-    if role != "admin" {
-        return HttpResponse::Forbidden().json(json!({"error": "Admin only"}));
-    }
 
     let id = uuid::Uuid::new_v4().to_string();
     let update = ProposedUpdate {
@@ -538,10 +470,19 @@ pub async fn brainstorm_update(data: web::Data<AppState>, session: Session) -> i
     let key = format!("evolution:update:{id}");
     let val = encode_all(&serde_json::to_vec(&update).unwrap(), 1).unwrap();
     sqlx::query("INSERT INTO jeebs_store (key, value) VALUES (?, ?)")
-        .bind(key)
+        .bind(&key)
         .bind(val)
         .execute(&data.db)
         .await
         .unwrap();
+
+    crate::logging::log(
+        &data.db,
+        "INFO",
+        "EVOLUTION",
+        &format!("Brainstormed update '{id}' by {actor}"),
+    )
+    .await;
+
     HttpResponse::Ok().json(json!({"message": "Jeebs has proposed a new update!", "id": id}))
 }

@@ -78,6 +78,162 @@ pub struct GraphResponse {
     pub edges: Vec<GraphEdge>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct ConversationTurn {
+    role: String,
+    content: String,
+    timestamp: String,
+}
+
+const MAX_HISTORY_TURNS: usize = 24;
+const MAX_HISTORY_CHARS_PER_TURN: usize = 600;
+
+fn history_key(user_id: &str) -> String {
+    format!("chat:history:{user_id}")
+}
+
+fn sanitize_turn_content(content: &str) -> String {
+    let compact = content.split_whitespace().collect::<Vec<_>>().join(" ");
+    if compact.chars().count() <= MAX_HISTORY_CHARS_PER_TURN {
+        compact
+    } else {
+        truncate_chars(&compact, MAX_HISTORY_CHARS_PER_TURN)
+    }
+}
+
+fn parse_history_blob(bytes: &[u8]) -> Option<Vec<ConversationTurn>> {
+    let parsed = serde_json::from_slice::<Vec<ConversationTurn>>(bytes).ok()?;
+    let mut cleaned = parsed
+        .into_iter()
+        .filter_map(|turn| {
+            let role = turn.role.to_lowercase();
+            if role != "user" && role != "assistant" {
+                return None;
+            }
+
+            let content = sanitize_turn_content(&turn.content);
+            if content.is_empty() {
+                return None;
+            }
+
+            Some(ConversationTurn {
+                role,
+                content,
+                timestamp: turn.timestamp,
+            })
+        })
+        .collect::<Vec<_>>();
+
+    if cleaned.len() > MAX_HISTORY_TURNS {
+        cleaned.drain(0..(cleaned.len() - MAX_HISTORY_TURNS));
+    }
+
+    Some(cleaned)
+}
+
+async fn load_conversation_history(db: &SqlitePool, user_id: &str) -> Vec<ConversationTurn> {
+    let key = history_key(user_id);
+    let row = match sqlx::query("SELECT value FROM jeebs_store WHERE key = ? LIMIT 1")
+        .bind(&key)
+        .fetch_optional(db)
+        .await
+    {
+        Ok(v) => v,
+        Err(_) => return Vec::new(),
+    };
+
+    let Some(row) = row else {
+        return Vec::new();
+    };
+
+    let value: Vec<u8> = row.get(0);
+    if let Some(history) = parse_history_blob(&value) {
+        return history;
+    }
+
+    if let Ok(decoded) = decode_all(&value) {
+        if let Some(history) = parse_history_blob(&decoded) {
+            return history;
+        }
+    }
+
+    Vec::new()
+}
+
+async fn save_conversation_history(
+    db: &SqlitePool,
+    user_id: &str,
+    turns: &[ConversationTurn],
+) -> Result<(), sqlx::Error> {
+    let key = history_key(user_id);
+    let mut trimmed = turns.to_vec();
+    if trimmed.len() > MAX_HISTORY_TURNS {
+        trimmed.drain(0..(trimmed.len() - MAX_HISTORY_TURNS));
+    }
+
+    let payload = serde_json::to_vec(&trimmed).unwrap_or_default();
+    sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)")
+        .bind(&key)
+        .bind(payload)
+        .execute(db)
+        .await?;
+
+    Ok(())
+}
+
+fn last_turn_by_role<'a>(history: &'a [ConversationTurn], role: &str) -> Option<&'a ConversationTurn> {
+    history.iter().rev().find(|turn| turn.role == role)
+}
+
+fn is_follow_up_prompt(lower: &str) -> bool {
+    matches!(
+        lower,
+        "ok" | "okay" | "sure" | "hmm" | "go on" | "continue" | "tell me more" | "elaborate"
+    ) || lower.starts_with("why ")
+        || lower == "why"
+        || lower.starts_with("how ")
+        || lower == "how"
+        || lower.contains("what do you mean")
+        || lower.contains("can you explain")
+}
+
+fn extract_name_from_intro(lower_input: &str) -> Option<String> {
+    for prefix in ["my name is ", "i am ", "i'm "] {
+        if let Some(rest) = lower_input.strip_prefix(prefix) {
+            let candidate = rest
+                .trim()
+                .trim_matches(|ch: char| matches!(ch, '.' | ',' | '!' | '?'));
+            if candidate.is_empty() {
+                return None;
+            }
+            let mut chars = candidate.chars();
+            let first = chars.next()?;
+            let mut out = first.to_uppercase().collect::<String>();
+            out.push_str(chars.as_str());
+            return Some(out);
+        }
+    }
+    None
+}
+
+fn recent_conversation_summary(history: &[ConversationTurn]) -> Option<String> {
+    let recent = history
+        .iter()
+        .rev()
+        .filter(|turn| turn.role == "user")
+        .take(3)
+        .map(|turn| truncate_chars(&turn.content, 80))
+        .collect::<Vec<_>>();
+
+    if recent.is_empty() {
+        return None;
+    }
+
+    let mut ordered = recent;
+    ordered.reverse();
+    Some(ordered.join(" | "))
+}
+
 pub async fn search_knowledge(db: &SqlitePool, query: &str) -> Vec<BrainNode> {
     let pattern = format!("%{}%", query);
     let rows = sqlx::query(
@@ -261,7 +417,8 @@ fn is_goodbye(lower: &str) -> bool {
 
 fn help_text() -> String {
     [
-        "I can handle basic chat right now:",
+        "I can handle conversation and basic assistant tasks:",
+        "- multi-turn chat with short memory per session",
         "- greetings and short conversation",
         "- quick math (example: calculate 12 * 7)",
         "- current date/time",
@@ -321,18 +478,80 @@ fn parse_forget_command(input: &str) -> Option<String> {
 }
 
 pub async fn custom_ai_logic(prompt: &str, db: &SqlitePool) -> String {
+    custom_ai_logic_with_context(prompt, db, &[], None).await
+}
+
+async fn custom_ai_logic_with_context(
+    prompt: &str,
+    db: &SqlitePool,
+    history: &[ConversationTurn],
+    username: Option<&str>,
+) -> String {
     let clean_prompt = prompt.split_whitespace().collect::<Vec<_>>().join(" ");
     if clean_prompt.is_empty() {
         return "Send me a message and I will respond.".to_string();
     }
     let lower = clean_prompt.to_lowercase();
 
+    if lower.contains("what did i just say") || lower.contains("what was my last message") {
+        if let Some(previous_user) = last_turn_by_role(history, "user") {
+            return format!("Your last message was: \"{}\"", previous_user.content);
+        }
+        return "I do not have earlier messages in this session yet.".to_string();
+    }
+
+    if lower.contains("what did you just say") || lower.contains("repeat that") {
+        if let Some(previous_assistant) = last_turn_by_role(history, "assistant") {
+            return format!("I said: \"{}\"", previous_assistant.content);
+        }
+        return "I do not have a previous reply to repeat yet.".to_string();
+    }
+
+    if lower.contains("what were we talking about") || lower.contains("recap") {
+        if let Some(summary) = recent_conversation_summary(history) {
+            return format!("Recent topics from our chat: {summary}");
+        }
+        return "We just started chatting. Ask me anything to get going.".to_string();
+    }
+
+    if lower.contains("what is my name") || lower.contains("who am i") {
+        for turn in history.iter().rev().filter(|turn| turn.role == "user") {
+            if let Some(name) = extract_name_from_intro(&turn.content.to_lowercase()) {
+                return format!("You told me your name is {name}.");
+            }
+        }
+
+        if let Some(name) = username {
+            return format!("You are logged in as {name}.");
+        }
+
+        return "I do not know your name yet. Tell me with \"my name is ...\"".to_string();
+    }
+
+    if let Some(name) = extract_name_from_intro(&lower) {
+        return format!("Nice to meet you, {name}. What do you want to talk about?");
+    }
+
+    if is_follow_up_prompt(&lower) {
+        if let Some(previous_assistant) = last_turn_by_role(history, "assistant") {
+            return format!(
+                "Sure. Building on that: {}",
+                truncate_chars(&previous_assistant.content, 220)
+            );
+        }
+    }
+
     if is_greeting(&lower) {
-        return "Hey, I am Jeebs. I am online and ready to chat.".to_string();
+        return if let Some(name) = username {
+            format!("Hey {name}, I am Jeebs. I am online and ready to chat.")
+        } else {
+            "Hey, I am Jeebs. I am online and ready to chat.".to_string()
+        };
     }
 
     if lower.contains("who are you") || lower.contains("what are you") {
-        return "I am JeebsAI, your assistant for basic conversation, quick math, and knowledge lookups.".to_string();
+        return "I am JeebsAI, your assistant for conversation, quick math, and knowledge lookups."
+            .to_string();
     }
 
     if lower == "help" || lower.contains("what can you do") || lower.contains("commands") {
@@ -432,7 +651,14 @@ pub async fn custom_ai_logic(prompt: &str, db: &SqlitePool) -> String {
     }
 
     if clean_prompt.ends_with('?') {
-        "I am still learning that topic. Try `help`, ask for math/time/date, or teach me more context.".to_string()
+        if let Some(previous_user) = last_turn_by_role(history, "user") {
+            format!(
+                "I am still learning that topic. Are you asking in relation to \"{}\"?",
+                truncate_chars(&previous_user.content, 90)
+            )
+        } else {
+            "I am still learning that topic. Try `help`, ask for math/time/date, or teach me more context.".to_string()
+        }
     } else {
         "Got it. Keep chatting with me and I will help with what I can.".to_string()
     }
@@ -445,6 +671,38 @@ pub struct Cortex {
 impl Cortex {
     pub async fn think(prompt: &str, state: &AppState) -> String {
         custom_ai_logic(prompt, &state.db).await
+    }
+
+    pub async fn think_for_user(
+        prompt: &str,
+        state: &AppState,
+        user_id: &str,
+        username: Option<&str>,
+    ) -> String {
+        let mut history = load_conversation_history(&state.db, user_id).await;
+        let response = custom_ai_logic_with_context(prompt, &state.db, &history, username).await;
+
+        let now = Local::now().to_rfc3339();
+        let user_content = sanitize_turn_content(prompt);
+        if !user_content.is_empty() {
+            history.push(ConversationTurn {
+                role: "user".to_string(),
+                content: user_content,
+                timestamp: now.clone(),
+            });
+        }
+
+        history.push(ConversationTurn {
+            role: "assistant".to_string(),
+            content: sanitize_turn_content(&response),
+            timestamp: now,
+        });
+
+        if let Err(err) = save_conversation_history(&state.db, user_id, &history).await {
+            eprintln!("[WARN] failed to persist conversation history: {err}");
+        }
+
+        response
     }
 }
 

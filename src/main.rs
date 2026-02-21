@@ -1,12 +1,13 @@
-use jeebs::{admin, auth, chat, cortex, evolution, logging, AppState};
-use actix_web::{web, App, HttpServer};
 use actix_cors::Cors;
+use actix_files::Files;
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
 use actix_web::cookie::Key;
-use actix_files::Files;
+use actix_web::{web, App, HttpServer};
+use jeebs::{admin, auth, chat, cortex, evolution, logging, AppState};
 use sqlx::SqlitePool;
 use std::env;
 use std::path::Path;
+use std::time::Duration;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -32,6 +33,18 @@ async fn main() -> std::io::Result<()> {
         eprintln!("Failed to run migrations: {e}");
     }
 
+    // Ensure logging storage exists even on databases created before log migrations.
+    logging::init(&pool).await;
+
+    // Run log retention cleanup on startup and then every 24 hours.
+    let log_pool = pool.clone();
+    tokio::spawn(async move {
+        loop {
+            logging::cleanup_old_logs(&log_pool).await;
+            tokio::time::sleep(Duration::from_secs(24 * 60 * 60)).await;
+        }
+    });
+
     let state = web::Data::new(AppState {
         db: pool,
         plugins: vec![],
@@ -46,6 +59,14 @@ async fn main() -> std::io::Result<()> {
         .and_then(|value| value.parse().ok())
         .unwrap_or(8080);
 
+    logging::log(
+        &state.db,
+        "INFO",
+        "SYSTEM",
+        &format!("Jeebs server starting on 127.0.0.1:{port}"),
+    )
+    .await;
+
     println!("Jeebs is awake on port {}", port);
 
     // Session cookie secret
@@ -54,7 +75,10 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .wrap(Cors::permissive()) // This allows your phone to connect
-            .wrap(SessionMiddleware::new(CookieSessionStore::default(), secret_key.clone()))
+            .wrap(SessionMiddleware::new(
+                CookieSessionStore::default(),
+                secret_key.clone(),
+            ))
             .app_data(state.clone())
             .service(auth::register)
             .service(auth::login)
@@ -62,10 +86,9 @@ async fn main() -> std::io::Result<()> {
             .service(auth::auth_status)
             .service(auth::logout)
             .service(chat::jeebs_api)
-            // explicit POST routes to avoid 405s
-            .route("/api/admin/crawl", web::post().to(cortex::admin_crawl))
-            .route("/api/brain/search", web::post().to(cortex::search_brain))
-            .route("/api/brain/reindex", web::post().to(cortex::reindex_brain))
+            .service(cortex::admin_crawl)
+            .service(cortex::search_brain)
+            .service(cortex::reindex_brain)
             .service(cortex::admin_train)
             .service(cortex::visualize_brain)
             .service(cortex::get_logic_graph)

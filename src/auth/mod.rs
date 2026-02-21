@@ -120,13 +120,32 @@ fn extract_bearer_claims(http_req: &HttpRequest) -> Option<TokenClaims> {
     Some(decoded.claims)
 }
 
+fn peer_addr(http_req: &HttpRequest) -> String {
+    http_req
+        .peer_addr()
+        .map(|addr| addr.ip().to_string())
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
 async fn handle_pgp_login(
     data: &web::Data<AppState>,
     req: &PgpLoginRequest,
+    http_req: &HttpRequest,
     session: &Session,
 ) -> HttpResponse {
     let username = req.username.trim();
     if !valid_username(username) {
+        crate::logging::log(
+            &data.db,
+            "WARN",
+            "AUTH",
+            &format!(
+                "Rejected login due to invalid username format from ip={} username={}",
+                peer_addr(http_req),
+                username
+            ),
+        )
+        .await;
         return HttpResponse::BadRequest().json(json!({"error": "Invalid username format"}));
     }
 
@@ -143,6 +162,17 @@ async fn handle_pgp_login(
     };
 
     let Some(row) = row else {
+        crate::logging::log(
+            &data.db,
+            "WARN",
+            "AUTH",
+            &format!(
+                "Failed login for unknown username from ip={} username={}",
+                peer_addr(http_req),
+                username
+            ),
+        )
+        .await;
         return HttpResponse::Unauthorized().json(json!({"error": "Unknown username"}));
     };
 
@@ -170,21 +200,32 @@ async fn handle_pgp_login(
         }
     };
 
-    let verified = match crate::auth::pgp::verify_signature_with_public_key(
-        &req.signed_message,
-        public_key,
-    ) {
-        Ok(v) => v,
-        Err(e) => {
-            return HttpResponse::Unauthorized().json(json!({
-                "error": format!("Signature verification failed: {e}")
-            }));
-        }
-    };
+    let verified =
+        match crate::auth::pgp::verify_signature_with_public_key(&req.signed_message, public_key) {
+            Ok(v) => v,
+            Err(e) => {
+                crate::logging::log(
+                    &data.db,
+                    "WARN",
+                    "AUTH",
+                    &format!(
+                        "PGP signature verification failed from ip={} username={} reason={}",
+                        peer_addr(http_req),
+                        username,
+                        e
+                    ),
+                )
+                .await;
+                return HttpResponse::Unauthorized().json(json!({
+                    "error": format!("Signature verification failed: {e}")
+                }));
+            }
+        };
 
     let parts: Vec<&str> = verified.trim().split(':').collect();
     if parts.len() != 3 || parts[0] != "LOGIN" {
-        return HttpResponse::BadRequest().json(json!({"error": "Signed message format is invalid"}));
+        return HttpResponse::BadRequest()
+            .json(json!({"error": "Signed message format is invalid"}));
     }
     if parts[1] != username {
         return HttpResponse::BadRequest().json(json!({"error": "Signed username mismatch"}));
@@ -199,6 +240,17 @@ async fn handle_pgp_login(
 
     let now = Utc::now().timestamp();
     if ts < now - 300 || ts > now + 60 {
+        crate::logging::log(
+            &data.db,
+            "WARN",
+            "AUTH",
+            &format!(
+                "Rejected login due to stale timestamp from ip={} username={}",
+                peer_addr(http_req),
+                username
+            ),
+        )
+        .await;
         return HttpResponse::Unauthorized().json(json!({
             "error": "Signed timestamp is outside the allowed window"
         }));
@@ -227,6 +279,19 @@ async fn handle_pgp_login(
         session.renew();
     }
 
+    crate::logging::log(
+        &data.db,
+        "INFO",
+        "AUTH",
+        &format!(
+            "Successful login username={} is_admin={} ip={}",
+            username,
+            is_admin,
+            peer_addr(http_req)
+        ),
+    )
+    .await;
+
     HttpResponse::Ok().json(json!({
         "status": "success",
         "username": username,
@@ -236,7 +301,11 @@ async fn handle_pgp_login(
 }
 
 #[post("/api/register")]
-pub async fn register(data: web::Data<AppState>, req: web::Json<RegisterRequest>) -> impl Responder {
+pub async fn register(
+    data: web::Data<AppState>,
+    req: web::Json<RegisterRequest>,
+    http_req: HttpRequest,
+) -> impl Responder {
     let username = req.username.trim();
     if !valid_username(username) {
         return HttpResponse::BadRequest().json(json!({
@@ -259,6 +328,17 @@ pub async fn register(data: web::Data<AppState>, req: web::Json<RegisterRequest>
         .await
     {
         Ok(Some(_)) => {
+            crate::logging::log(
+                &data.db,
+                "WARN",
+                "AUTH",
+                &format!(
+                    "Registration conflict for existing username={} from ip={}",
+                    username,
+                    peer_addr(&http_req)
+                ),
+            )
+            .await;
             return HttpResponse::Conflict().json(json!({"error": "Username already exists"}));
         }
         Ok(None) => {}
@@ -295,6 +375,18 @@ pub async fn register(data: web::Data<AppState>, req: web::Json<RegisterRequest>
         return HttpResponse::InternalServerError().json(json!({"error": "Failed to create user"}));
     }
 
+    crate::logging::log(
+        &data.db,
+        "INFO",
+        "AUTH",
+        &format!(
+            "Registered new user username={} from ip={}",
+            username,
+            peer_addr(&http_req)
+        ),
+    )
+    .await;
+
     HttpResponse::Created().json(json!({
         "status": "registered",
         "username": username
@@ -305,15 +397,17 @@ pub async fn register(data: web::Data<AppState>, req: web::Json<RegisterRequest>
 pub async fn login_pgp(
     data: web::Data<AppState>,
     req: web::Json<PgpLoginRequest>,
+    http_req: HttpRequest,
     session: Session,
 ) -> impl Responder {
-    handle_pgp_login(&data, &req, &session).await
+    handle_pgp_login(&data, &req, &http_req, &session).await
 }
 
 #[post("/api/login")]
 pub async fn login(
     data: web::Data<AppState>,
     req: web::Json<LoginAliasRequest>,
+    http_req: HttpRequest,
     session: Session,
 ) -> impl Responder {
     let signed_message = match req.signed_message.as_deref() {
@@ -331,7 +425,7 @@ pub async fn login(
         remember_me: req.remember_me,
     };
 
-    handle_pgp_login(&data, &pgp_req, &session).await
+    handle_pgp_login(&data, &pgp_req, &http_req, &session).await
 }
 
 #[get("/api/auth/status")]
@@ -391,7 +485,32 @@ pub async fn auth_status(session: Session, http_req: HttpRequest) -> impl Respon
 }
 
 #[post("/api/logout")]
-pub async fn logout(session: Session) -> impl Responder {
+pub async fn logout(
+    data: web::Data<AppState>,
+    session: Session,
+    http_req: HttpRequest,
+) -> impl Responder {
+    let username = session.get::<String>("username").ok().flatten();
+    let is_admin = session
+        .get::<bool>("is_admin")
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
     session.purge();
+
+    crate::logging::log(
+        &data.db,
+        "INFO",
+        "AUTH",
+        &format!(
+            "Logout username={} is_admin={} ip={}",
+            username.unwrap_or_else(|| "unknown".to_string()),
+            is_admin,
+            peer_addr(&http_req)
+        ),
+    )
+    .await;
+
     HttpResponse::Ok().json(json!({"status": "logged_out"}))
 }

@@ -41,6 +41,13 @@ pub async fn add_whitelist_ip(
         .unwrap();
 
     data.ip_whitelist.write().unwrap().insert(ip);
+    crate::logging::log(
+        &data.db,
+        "INFO",
+        "SECURITY",
+        &format!("Added IP to whitelist ip={}", req.ip.trim()),
+    )
+    .await;
     HttpResponse::Ok().json(json!({"ok": true}))
 }
 
@@ -63,5 +70,12 @@ pub async fn remove_whitelist_ip(
         .unwrap();
 
     data.ip_whitelist.write().unwrap().remove(&ip);
+    crate::logging::log(
+        &data.db,
+        "INFO",
+        "SECURITY",
+        &format!("Removed IP from whitelist ip={}", req.ip.trim()),
+    )
+    .await;
     HttpResponse::Ok().json(json!({"ok": true}))
 }

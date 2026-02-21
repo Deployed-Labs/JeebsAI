@@ -53,10 +53,18 @@ pub async fn terminate_session(
     let username = path.into_inner();
 
     sqlx::query("DELETE FROM user_sessions WHERE username = ?")
-        .bind(username)
+        .bind(&username)
         .execute(&data.db)
         .await
         .unwrap();
+
+    crate::logging::log(
+        &data.db,
+        "WARN",
+        "SECURITY",
+        &format!("Admin terminated active session username={username}"),
+    )
+    .await;
 
     HttpResponse::Ok().json(json!({"ok": true}))
 }

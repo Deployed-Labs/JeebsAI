@@ -8,6 +8,7 @@ use std::env;
 use std::io::Write;
 
 use crate::cortex::Cortex;
+use crate::logging;
 use crate::state::AppState;
 
 const DEFAULT_JWT_SECRET: &str = "jeebs-secret-key-change-in-production";
@@ -43,6 +44,13 @@ fn extract_bearer_claims(http_req: &HttpRequest) -> Option<TokenClaims> {
     Some(decoded.claims)
 }
 
+fn peer_addr(http_req: &HttpRequest) -> String {
+    http_req
+        .peer_addr()
+        .map(|addr| addr.ip().to_string())
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
 #[post("/api/jeebs")]
 pub async fn jeebs_api(
     data: web::Data<AppState>,
@@ -67,10 +75,24 @@ pub async fn jeebs_api(
     }
 
     if !logged_in {
+        logging::log(
+            &data.db,
+            "WARN",
+            "CHAT",
+            &format!(
+                "Rejected chat request from unauthenticated client ip={}",
+                peer_addr(&http_req)
+            ),
+        )
+        .await;
         return HttpResponse::Unauthorized().json(json!({"error": "Not logged in"}));
     }
     let db = &data.db;
     let prompt = req.prompt.trim();
+    let username_for_log = username
+        .as_deref()
+        .map(str::to_string)
+        .unwrap_or_else(|| "unknown".to_string());
     let user_id = if let Some(uid) = session.get::<String>("user_id").unwrap_or(None) {
         uid
     } else {
@@ -80,20 +102,46 @@ pub async fn jeebs_api(
     };
 
     // Update last_seen
-    let _ = sqlx::query("UPDATE user_sessions SET last_seen = ? WHERE username = ?")
+    if let Err(err) = sqlx::query("UPDATE user_sessions SET last_seen = ? WHERE username = ?")
         .bind(Local::now().to_rfc3339())
         .bind(username.as_deref().unwrap_or(""))
         .execute(db)
+        .await
+    {
+        logging::log(
+            db,
+            "WARN",
+            "CHAT",
+            &format!(
+                "Failed to update user session username={} user_id={} reason={}",
+                username_for_log, user_id, err
+            ),
+        )
         .await;
+    }
+
+    logging::log(
+        db,
+        "INFO",
+        "CHAT",
+        &format!(
+            "Prompt received username={} user_id={} ip={} prompt_chars={}",
+            username_for_log,
+            user_id,
+            peer_addr(&http_req),
+            prompt.chars().count()
+        ),
+    )
+    .await;
 
     println!(
-        "[API] user_id={} username={:?} ip={:?} prompt=\"{}\"",
+        "[API] user_id={} username={:?} ip={} prompt_chars={}",
         user_id,
         username,
-        http_req.peer_addr(),
-        prompt
+        peer_addr(&http_req),
+        prompt.chars().count()
     );
-    let response = Cortex::think(prompt, &data).await;
+    let response = Cortex::think_for_user(prompt, &data, &user_id, username.as_deref()).await;
     HttpResponse::Ok().json(JeebsResponse { response })
 }
 
