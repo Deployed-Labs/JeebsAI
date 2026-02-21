@@ -258,6 +258,62 @@
                 style="margin-top: 8px; font-size: 0.85rem; color: #b0bec5"
             ></div>
             <div
+                id="training-live"
+                style="
+                    margin-top: 10px;
+                    font-size: 0.85rem;
+                    border: 1px solid var(--border);
+                    border-radius: 4px;
+                    padding: 8px;
+                    background: rgba(0, 0, 0, 0.12);
+                "
+            >
+                Live state: -
+            </div>
+            <div
+                id="training-detail"
+                style="
+                    margin-top: 8px;
+                    font-size: 0.85rem;
+                    color: #cfd8dc;
+                    border: 1px solid var(--border);
+                    border-radius: 4px;
+                    padding: 8px;
+                    background: rgba(0, 0, 0, 0.1);
+                "
+            >
+                Detailed totals will appear here.
+            </div>
+            <div
+                id="training-last-cycle"
+                style="
+                    margin-top: 8px;
+                    font-size: 0.85rem;
+                    color: #cfd8dc;
+                    border: 1px solid var(--border);
+                    border-radius: 4px;
+                    padding: 8px;
+                    background: rgba(0, 0, 0, 0.1);
+                "
+            >
+                Last cycle details will appear here.
+            </div>
+            <div
+                id="training-cycle-history"
+                style="
+                    margin-top: 8px;
+                    max-height: 180px;
+                    overflow-y: auto;
+                    border: 1px solid var(--border);
+                    border-radius: 4px;
+                    padding: 8px;
+                    background: rgba(0, 0, 0, 0.1);
+                    font-size: 0.82rem;
+                "
+            >
+                No cycle history yet.
+            </div>
+            <div
                 id="training-learned"
                 style="
                     margin-top: 10px;
@@ -497,6 +553,20 @@
                 renderEvolutionStatus();
             }
 
+            function formatDateTime(raw) {
+                if (!raw) return "n/a";
+                const dt = new Date(raw);
+                if (Number.isNaN(dt.getTime())) return raw;
+                return dt.toLocaleString();
+            }
+
+            function formatDurationMs(ms) {
+                const value = Number(ms || 0);
+                if (value <= 0) return "0ms";
+                if (value < 1000) return `${value}ms`;
+                return `${(value / 1000).toFixed(1)}s`;
+            }
+
             function renderTrainingStatus() {
                 const updatedAt = document.getElementById(
                     "training-updated-at",
@@ -507,6 +577,14 @@
                 const nodes = document.getElementById("training-nodes");
                 const topics = document.getElementById("training-topics");
                 const websites = document.getElementById("training-websites");
+                const live = document.getElementById("training-live");
+                const detail = document.getElementById("training-detail");
+                const lastCycle = document.getElementById(
+                    "training-last-cycle",
+                );
+                const cycleHistory = document.getElementById(
+                    "training-cycle-history",
+                );
                 const learned = document.getElementById("training-learned");
 
                 if (!trainingStatus) {
@@ -517,6 +595,11 @@
                     nodes.textContent = "Nodes written: -";
                     topics.textContent = "";
                     websites.textContent = "";
+                    live.textContent = "Live state: -";
+                    detail.textContent = "Detailed totals will appear here.";
+                    lastCycle.textContent =
+                        "Last cycle details will appear here.";
+                    cycleHistory.textContent = "No cycle history yet.";
                     learned.textContent = "No learned node writes yet.";
                     return;
                 }
@@ -525,14 +608,14 @@
                 const updatedRaw =
                     training.updated_at || training.last_cycle_at;
                 updatedAt.textContent = updatedRaw
-                    ? `Updated: ${new Date(updatedRaw).toLocaleString()}`
+                    ? `Updated: ${formatDateTime(updatedRaw)}`
                     : "Updated: unknown";
                 enabled.textContent = `Enabled: ${training.enabled ? "yes" : "no"}`;
                 internet.textContent = `Internet: ${trainingStatus.internet_enabled ? "enabled" : "disabled"}`;
                 cycles.textContent = `Cycles: ${training.total_cycles ?? 0}`;
                 nodes.textContent = `Nodes written: ${training.total_nodes_written ?? 0}`;
                 const lastTopics = training.last_topics || [];
-                const intervalSeconds = trainingStatus.interval_seconds ?? 60;
+                const intervalSeconds = trainingStatus.interval_seconds ?? 5;
                 topics.textContent =
                     lastTopics.length > 0
                         ? `Last training topics: ${lastTopics.join(", ")} (every ${intervalSeconds}s while enabled)`
@@ -543,6 +626,78 @@
                     lastWebsites.length > 0
                         ? `Websites scraped this cycle: ${lastWebsites.join(", ")}`
                         : "Websites scraped this cycle: none";
+
+                const running = training.is_cycle_running === true;
+                const activePhase = training.active_phase || "idle";
+                const activeTarget = training.active_target || "n/a";
+                const activeStarted = formatDateTime(
+                    training.active_cycle_started_at,
+                );
+                const activeUpdated = formatDateTime(
+                    training.active_updated_at,
+                );
+                const activeNodes = training.active_nodes_written ?? 0;
+                const activeWebsites = training.active_websites_completed ?? 0;
+                const activeTopics = training.active_topics_completed ?? 0;
+                live.innerHTML = `
+                    <div><strong>Live State:</strong> ${running ? "RUNNING" : "idle"}</div>
+                    <div>Phase: ${escapeHtml(activePhase)} | Target: ${escapeHtml(activeTarget)}</div>
+                    <div>Started: ${escapeHtml(activeStarted)} | Last heartbeat: ${escapeHtml(activeUpdated)}</div>
+                    <div>Live progress: nodes=${activeNodes}, websites=${activeWebsites}, topics=${activeTopics}</div>
+                `;
+
+                const totalWebsites = training.total_websites_scraped ?? 0;
+                const totalVisited = training.total_crawl_pages_visited ?? 0;
+                const totalStored = training.total_crawl_pages_stored ?? 0;
+                const totalLinks = training.total_crawl_links_followed ?? 0;
+                const totalCrawlNodes = training.total_crawl_nodes_written ?? 0;
+                const totalWikiDocs =
+                    training.total_wikipedia_docs_written ?? 0;
+                const lastDuration = formatDurationMs(
+                    training.last_cycle_duration_ms ?? 0,
+                );
+                const lastNodes = training.last_cycle_nodes_written ?? 0;
+                const lastErrors = training.last_cycle_errors || [];
+                detail.innerHTML = `
+                    <div><strong>Detailed Totals</strong></div>
+                    <div>websites_scraped=${totalWebsites}, crawl_pages_visited=${totalVisited}, crawl_pages_stored=${totalStored}, crawl_links_followed=${totalLinks}</div>
+                    <div>crawl_nodes_written=${totalCrawlNodes}, wikipedia_docs_written=${totalWikiDocs}, total_nodes_written=${training.total_nodes_written ?? 0}</div>
+                    <div>last_cycle_duration=${lastDuration}, last_cycle_nodes=${lastNodes}, last_cycle_errors=${lastErrors.length}</div>
+                `;
+
+                const summary = training.last_cycle_summary || null;
+                if (!summary) {
+                    lastCycle.textContent =
+                        "Last cycle details will appear here.";
+                } else {
+                    const summaryErrors = (summary.errors || [])
+                        .slice(0, 5)
+                        .map((e) => escapeHtml(e))
+                        .join(" | ");
+                    lastCycle.innerHTML = `
+                        <div><strong>Last Cycle</strong> ${escapeHtml(formatDateTime(summary.cycle_finished_at))}</div>
+                        <div>duration=${formatDurationMs(summary.duration_ms)}, nodes=${summary.nodes_written}, websites=${(summary.websites_scraped || []).length}, topics=${(summary.topics || []).length}</div>
+                        <div>crawl visited=${summary.crawl_pages_visited}, stored=${summary.crawl_pages_stored}, links=${summary.crawl_links_followed}, wiki_docs=${summary.wikipedia_docs_written}</div>
+                        <div>errors: ${summaryErrors || "none"}</div>
+                    `;
+                }
+
+                const historyRows = (training.recent_cycles || []).slice(0, 12);
+                if (historyRows.length === 0) {
+                    cycleHistory.textContent = "No cycle history yet.";
+                } else {
+                    cycleHistory.innerHTML = historyRows
+                        .map((cycle, idx) => {
+                            const cycleErrors = (cycle.errors || []).length;
+                            return `
+                                <div style="padding:6px 0; border-bottom:1px solid var(--border);">
+                                    <div><strong>#${idx + 1}</strong> ${escapeHtml(formatDateTime(cycle.cycle_finished_at))}</div>
+                                    <div>duration=${formatDurationMs(cycle.duration_ms)}, nodes=${cycle.nodes_written}, websites=${(cycle.websites_scraped || []).length}, topics=${(cycle.topics || []).length}, errors=${cycleErrors}</div>
+                                </div>
+                            `;
+                        })
+                        .join("");
+                }
 
                 const learnedItems = training.last_learned_items || [];
                 if (learnedItems.length === 0) {
@@ -609,8 +764,9 @@
                     const nodesWritten = payload?.report?.nodes_written ?? 0;
                     const websitesScraped =
                         payload?.report?.websites_scraped?.length ?? 0;
+                    const durationMs = payload?.report?.duration_ms ?? 0;
                     setStatus(
-                        `Training mode enabled. Internet is ${internetEnabled ? "enabled" : "disabled"}. Initial cycle: ${websitesScraped} website(s), ${nodesWritten} node(s).`,
+                        `Training mode enabled. Internet is ${internetEnabled ? "enabled" : "disabled"}. Initial cycle: ${websitesScraped} website(s), ${nodesWritten} node(s), duration ${formatDurationMs(durationMs)}.`,
                     );
                 } else {
                     setStatus("Training mode stopped.");
@@ -638,8 +794,9 @@
                 const nodesWritten = payload?.report?.nodes_written ?? 0;
                 const websitesScraped =
                     payload?.report?.websites_scraped?.length ?? 0;
+                const durationMs = payload?.report?.duration_ms ?? 0;
                 setStatus(
-                    `Training cycle completed. Websites scraped: ${websitesScraped}. Nodes written: ${nodesWritten}.`,
+                    `Training cycle completed. Websites scraped: ${websitesScraped}. Nodes written: ${nodesWritten}. Duration: ${formatDurationMs(durationMs)}.`,
                 );
                 loadTrainingStatus();
             }
@@ -916,7 +1073,7 @@
                 loadEvolutionStatus();
                 loadTrainingStatus();
                 setInterval(loadEvolutionStatus, 15000);
-                setInterval(loadTrainingStatus, 15000);
+                setInterval(loadTrainingStatus, 3000);
             })();
         </script>
     </body>

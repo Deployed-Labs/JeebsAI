@@ -8,7 +8,7 @@ use serde_json::json;
 use sqlx::{Row, SqlitePool};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::env;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::state::AppState;
 use crate::utils::decode_all;
@@ -76,6 +76,27 @@ struct TrainingLearnedItem {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+struct TrainingCycleSnapshot {
+    cycle_started_at: String,
+    cycle_finished_at: String,
+    duration_ms: u64,
+    topics: Vec<String>,
+    websites_scraped: Vec<String>,
+    nodes_written: u64,
+    crawl_pages_visited: u64,
+    crawl_pages_stored: u64,
+    crawl_links_followed: u64,
+    crawl_nodes_written: u64,
+    wikipedia_docs_written: u64,
+    learned_items_count: u64,
+    errors: Vec<String>,
+}
+
+fn default_active_phase() -> String {
+    "idle".to_string()
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 struct TrainingModeState {
     enabled: bool,
     updated_at: String,
@@ -84,12 +105,50 @@ struct TrainingModeState {
     total_cycles: u64,
     total_topics_processed: u64,
     total_nodes_written: u64,
+    #[serde(default)]
+    total_websites_scraped: u64,
+    #[serde(default)]
+    total_crawl_pages_visited: u64,
+    #[serde(default)]
+    total_crawl_pages_stored: u64,
+    #[serde(default)]
+    total_crawl_links_followed: u64,
+    #[serde(default)]
+    total_crawl_nodes_written: u64,
+    #[serde(default)]
+    total_wikipedia_docs_written: u64,
     last_topics: Vec<String>,
     last_error: Option<String>,
     #[serde(default)]
     last_websites: Vec<String>,
     #[serde(default)]
     last_learned_items: Vec<TrainingLearnedItem>,
+    #[serde(default)]
+    last_cycle_duration_ms: Option<u64>,
+    #[serde(default)]
+    last_cycle_nodes_written: u64,
+    #[serde(default)]
+    last_cycle_errors: Vec<String>,
+    #[serde(default)]
+    last_cycle_summary: Option<TrainingCycleSnapshot>,
+    #[serde(default)]
+    recent_cycles: Vec<TrainingCycleSnapshot>,
+    #[serde(default)]
+    is_cycle_running: bool,
+    #[serde(default)]
+    active_cycle_started_at: Option<String>,
+    #[serde(default = "default_active_phase")]
+    active_phase: String,
+    #[serde(default)]
+    active_target: Option<String>,
+    #[serde(default)]
+    active_nodes_written: u64,
+    #[serde(default)]
+    active_websites_completed: u64,
+    #[serde(default)]
+    active_topics_completed: u64,
+    #[serde(default)]
+    active_updated_at: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -106,11 +165,19 @@ struct TrainingStatusResponse {
 
 #[derive(Debug, Serialize)]
 struct TrainingCycleReport {
+    cycle_started_at: String,
+    cycle_finished_at: String,
+    duration_ms: u64,
     topics: Vec<String>,
     nodes_written: usize,
     errors: Vec<String>,
     websites_scraped: Vec<String>,
     learned_items: Vec<TrainingLearnedItem>,
+    crawl_pages_visited: usize,
+    crawl_pages_stored: usize,
+    crawl_links_followed: usize,
+    crawl_nodes_written: usize,
+    wikipedia_docs_written: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -168,7 +235,7 @@ struct LearnedFact {
 const MAX_HISTORY_TURNS: usize = 24;
 const MAX_HISTORY_CHARS_PER_TURN: usize = 600;
 const TRAINING_STATE_KEY: &str = "training:mode:state";
-const DEFAULT_TRAINING_INTERVAL_SECS: u64 = 60;
+const DEFAULT_TRAINING_INTERVAL_SECS: u64 = 5;
 const JEEBS_LIKES: &[&str] = &[
     "learning new knowledge",
     "clear reasoning",
@@ -823,7 +890,7 @@ fn training_interval_seconds() -> u64 {
     env::var("TRAINING_MODE_INTERVAL_SECS")
         .ok()
         .and_then(|raw| raw.parse::<u64>().ok())
-        .map(|value| value.clamp(30, 3600))
+        .map(|value| value.clamp(5, 3600))
         .unwrap_or(DEFAULT_TRAINING_INTERVAL_SECS)
 }
 
@@ -836,10 +903,29 @@ fn training_state_default() -> TrainingModeState {
         total_cycles: 0,
         total_topics_processed: 0,
         total_nodes_written: 0,
+        total_websites_scraped: 0,
+        total_crawl_pages_visited: 0,
+        total_crawl_pages_stored: 0,
+        total_crawl_links_followed: 0,
+        total_crawl_nodes_written: 0,
+        total_wikipedia_docs_written: 0,
         last_topics: Vec::new(),
         last_error: None,
         last_websites: Vec::new(),
         last_learned_items: Vec::new(),
+        last_cycle_duration_ms: None,
+        last_cycle_nodes_written: 0,
+        last_cycle_errors: Vec::new(),
+        last_cycle_summary: None,
+        recent_cycles: Vec::new(),
+        is_cycle_running: false,
+        active_cycle_started_at: None,
+        active_phase: default_active_phase(),
+        active_target: None,
+        active_nodes_written: 0,
+        active_websites_completed: 0,
+        active_topics_completed: 0,
+        active_updated_at: None,
     }
 }
 
@@ -877,6 +963,99 @@ async fn save_training_state(
         .execute(db)
         .await?;
     Ok(())
+}
+
+async fn mutate_training_state<F>(db: &SqlitePool, mutator: F)
+where
+    F: FnOnce(&mut TrainingModeState),
+{
+    let mut mode = load_training_state(db).await;
+    mutator(&mut mode);
+    mode.updated_at = Local::now().to_rfc3339();
+    if mode.updated_by.trim().is_empty() {
+        mode.updated_by = "training_runtime".to_string();
+    }
+    let _ = save_training_state(db, &mode).await;
+}
+
+fn report_to_snapshot(report: &TrainingCycleReport) -> TrainingCycleSnapshot {
+    TrainingCycleSnapshot {
+        cycle_started_at: report.cycle_started_at.clone(),
+        cycle_finished_at: report.cycle_finished_at.clone(),
+        duration_ms: report.duration_ms,
+        topics: report.topics.clone(),
+        websites_scraped: report.websites_scraped.clone(),
+        nodes_written: report.nodes_written as u64,
+        crawl_pages_visited: report.crawl_pages_visited as u64,
+        crawl_pages_stored: report.crawl_pages_stored as u64,
+        crawl_links_followed: report.crawl_links_followed as u64,
+        crawl_nodes_written: report.crawl_nodes_written as u64,
+        wikipedia_docs_written: report.wikipedia_docs_written as u64,
+        learned_items_count: report.learned_items.len() as u64,
+        errors: report.errors.clone(),
+    }
+}
+
+fn apply_training_report(mode: &mut TrainingModeState, report: &TrainingCycleReport, actor: &str) {
+    mode.last_cycle_at = Some(report.cycle_finished_at.clone());
+    mode.total_cycles = mode.total_cycles.saturating_add(1);
+    mode.total_topics_processed = mode
+        .total_topics_processed
+        .saturating_add(report.topics.len() as u64);
+    mode.total_nodes_written = mode
+        .total_nodes_written
+        .saturating_add(report.nodes_written as u64);
+    mode.total_websites_scraped = mode
+        .total_websites_scraped
+        .saturating_add(report.websites_scraped.len() as u64);
+    mode.total_crawl_pages_visited = mode
+        .total_crawl_pages_visited
+        .saturating_add(report.crawl_pages_visited as u64);
+    mode.total_crawl_pages_stored = mode
+        .total_crawl_pages_stored
+        .saturating_add(report.crawl_pages_stored as u64);
+    mode.total_crawl_links_followed = mode
+        .total_crawl_links_followed
+        .saturating_add(report.crawl_links_followed as u64);
+    mode.total_crawl_nodes_written = mode
+        .total_crawl_nodes_written
+        .saturating_add(report.crawl_nodes_written as u64);
+    mode.total_wikipedia_docs_written = mode
+        .total_wikipedia_docs_written
+        .saturating_add(report.wikipedia_docs_written as u64);
+
+    mode.last_topics = report.topics.clone();
+    mode.last_websites = report.websites_scraped.clone();
+    mode.last_learned_items = report.learned_items.clone();
+    mode.last_error = report.errors.first().cloned();
+    mode.last_cycle_duration_ms = Some(report.duration_ms);
+    mode.last_cycle_nodes_written = report.nodes_written as u64;
+    mode.last_cycle_errors = report.errors.clone();
+
+    let snapshot = report_to_snapshot(report);
+    mode.last_cycle_summary = Some(snapshot.clone());
+    mode.recent_cycles.insert(0, snapshot);
+    if mode.recent_cycles.len() > 30 {
+        mode.recent_cycles.truncate(30);
+    }
+
+    mode.updated_at = report.cycle_finished_at.clone();
+    mode.updated_by = actor.to_string();
+
+    mode.is_cycle_running = false;
+    mode.active_cycle_started_at = None;
+    mode.active_phase = default_active_phase();
+    mode.active_target = None;
+    mode.active_nodes_written = 0;
+    mode.active_websites_completed = 0;
+    mode.active_topics_completed = 0;
+    mode.active_updated_at = Some(report.cycle_finished_at.clone());
+}
+
+fn finalize_training_report(report: &mut TrainingCycleReport, timer: &Instant) {
+    report.cycle_finished_at = Local::now().to_rfc3339();
+    let elapsed_ms = timer.elapsed().as_millis();
+    report.duration_ms = elapsed_ms.min(u128::from(u64::MAX)) as u64;
 }
 
 fn extract_question_topic(question: &str) -> String {
@@ -1115,18 +1294,42 @@ async fn store_external_learning_doc(
 }
 
 async fn run_training_cycle(state: &AppState) -> TrainingCycleReport {
+    let cycle_started_at = Local::now().to_rfc3339();
+    let cycle_timer = Instant::now();
     let mut report = TrainingCycleReport {
+        cycle_started_at: cycle_started_at.clone(),
+        cycle_finished_at: cycle_started_at.clone(),
+        duration_ms: 0,
         topics: Vec::new(),
         nodes_written: 0,
         errors: Vec::new(),
         websites_scraped: Vec::new(),
         learned_items: Vec::new(),
+        crawl_pages_visited: 0,
+        crawl_pages_stored: 0,
+        crawl_links_followed: 0,
+        crawl_nodes_written: 0,
+        wikipedia_docs_written: 0,
     };
+
+    let cycle_started_for_state = cycle_started_at.clone();
+    mutate_training_state(&state.db, move |mode| {
+        mode.is_cycle_running = true;
+        mode.active_cycle_started_at = Some(cycle_started_for_state);
+        mode.active_phase = "starting training cycle".to_string();
+        mode.active_target = None;
+        mode.active_nodes_written = 0;
+        mode.active_websites_completed = 0;
+        mode.active_topics_completed = 0;
+        mode.active_updated_at = Some(Local::now().to_rfc3339());
+    })
+    .await;
 
     if !*state.internet_enabled.read().unwrap() {
         report
             .errors
             .push("internet is disabled; enable it in admin first".to_string());
+        finalize_training_report(&mut report, &cycle_timer);
         return report;
     }
 
@@ -1140,6 +1343,15 @@ async fn run_training_cycle(state: &AppState) -> TrainingCycleReport {
         }
     }
     report.topics = topics.clone();
+
+    let topics_count = report.topics.len() as u64;
+    mutate_training_state(&state.db, move |mode| {
+        mode.active_phase = "collecting topics and preparing sources".to_string();
+        mode.active_target = Some(format!("{topics_count} topic(s) queued"));
+        mode.active_updated_at = Some(Local::now().to_rfc3339());
+    })
+    .await;
+
     let client = match reqwest::Client::builder()
         .timeout(Duration::from_secs(10))
         .user_agent("JeebsAI-TrainingMode/1.0")
@@ -1150,6 +1362,7 @@ async fn run_training_cycle(state: &AppState) -> TrainingCycleReport {
             report
                 .errors
                 .push(format!("failed to initialize training client: {err}"));
+            finalize_training_report(&mut report, &cycle_timer);
             return report;
         }
     };
@@ -1174,11 +1387,28 @@ async fn run_training_cycle(state: &AppState) -> TrainingCycleReport {
             .take(random_site_count)
             .collect::<Vec<_>>()
     };
+
+    let mut websites_completed = 0_u64;
+    let mut topics_completed = 0_u64;
+
     for site in random_sites {
+        let target_site = site.to_string();
+        mutate_training_state(&state.db, move |mode| {
+            mode.active_phase = "crawling random website".to_string();
+            mode.active_target = Some(target_site);
+            mode.active_updated_at = Some(Local::now().to_rfc3339());
+        })
+        .await;
+
         match crawl_and_store(state, site, crawl_depth).await {
             Ok(summary) => {
+                websites_completed = websites_completed.saturating_add(1);
                 report.websites_scraped.push(summary.start_url.clone());
                 report.nodes_written += summary.pages_stored;
+                report.crawl_pages_visited += summary.pages_visited;
+                report.crawl_pages_stored += summary.pages_stored;
+                report.crawl_links_followed += summary.links_followed;
+                report.crawl_nodes_written += summary.pages_stored;
                 for node in summary.stored_nodes.into_iter().take(8) {
                     report.learned_items.push(TrainingLearnedItem {
                         node_id: node.node_id,
@@ -1192,9 +1422,26 @@ async fn run_training_cycle(state: &AppState) -> TrainingCycleReport {
             }
             Err(err) => report.errors.push(format!("random site '{site}': {err}")),
         }
+
+        let active_nodes_written = report.nodes_written as u64;
+        mutate_training_state(&state.db, move |mode| {
+            mode.active_nodes_written = active_nodes_written;
+            mode.active_websites_completed = websites_completed;
+            mode.active_topics_completed = topics_completed;
+            mode.active_updated_at = Some(Local::now().to_rfc3339());
+        })
+        .await;
     }
 
     for topic in topics {
+        let target_topic = topic.clone();
+        mutate_training_state(&state.db, move |mode| {
+            mode.active_phase = "researching topic".to_string();
+            mode.active_target = Some(target_topic);
+            mode.active_updated_at = Some(Local::now().to_rfc3339());
+        })
+        .await;
+
         match query_wikipedia_docs(&client, &topic, 2).await {
             Ok(docs) => {
                 for doc in docs {
@@ -1209,22 +1456,45 @@ async fn run_training_cycle(state: &AppState) -> TrainingCycleReport {
                                 topic: doc.topic.clone(),
                                 source_type: "wikipedia".to_string(),
                             });
+                            report.wikipedia_docs_written += 1;
                         }
                         Err(err) => report.errors.push(format!(
                             "failed to store learned doc '{}': {err}",
                             doc.title
                         )),
                     }
+
+                    let active_nodes_written = report.nodes_written as u64;
+                    let active_docs_written = report.wikipedia_docs_written as u64;
+                    mutate_training_state(&state.db, move |mode| {
+                        mode.active_nodes_written = active_nodes_written;
+                        mode.active_target = Some(format!(
+                            "writing wikipedia docs ({active_docs_written} this cycle)"
+                        ));
+                        mode.active_updated_at = Some(Local::now().to_rfc3339());
+                    })
+                    .await;
                 }
             }
             Err(err) => report.errors.push(format!("topic '{topic}': {err}")),
         }
+
+        topics_completed = topics_completed.saturating_add(1);
+        let active_nodes_written = report.nodes_written as u64;
+        mutate_training_state(&state.db, move |mode| {
+            mode.active_nodes_written = active_nodes_written;
+            mode.active_websites_completed = websites_completed;
+            mode.active_topics_completed = topics_completed;
+            mode.active_updated_at = Some(Local::now().to_rfc3339());
+        })
+        .await;
     }
 
     if report.learned_items.len() > 24 {
         report.learned_items.truncate(24);
     }
 
+    finalize_training_report(&mut report, &cycle_timer);
     report
 }
 
@@ -1242,20 +1512,7 @@ pub fn spawn_autonomous_training(state: web::Data<AppState>) {
             let mut mode = load_training_state(&state.db).await;
             if mode.enabled {
                 let report = run_training_cycle(state.get_ref()).await;
-                mode.last_cycle_at = Some(Local::now().to_rfc3339());
-                mode.total_cycles = mode.total_cycles.saturating_add(1);
-                mode.total_topics_processed = mode
-                    .total_topics_processed
-                    .saturating_add(report.topics.len() as u64);
-                mode.total_nodes_written = mode
-                    .total_nodes_written
-                    .saturating_add(report.nodes_written as u64);
-                mode.last_topics = report.topics.clone();
-                mode.last_websites = report.websites_scraped.clone();
-                mode.last_learned_items = report.learned_items.clone();
-                mode.last_error = report.errors.first().cloned();
-                mode.updated_at = Local::now().to_rfc3339();
-                mode.updated_by = "autonomous_worker".to_string();
+                apply_training_report(&mut mode, &report, "autonomous_worker");
                 let _ = save_training_state(&state.db, &mode).await;
 
                 crate::logging::log(
@@ -1263,10 +1520,14 @@ pub fn spawn_autonomous_training(state: web::Data<AppState>) {
                     "INFO",
                     "training_mode",
                     &format!(
-                        "Training cycle complete. topics={} websites={} nodes_written={} errors={}",
+                        "Training cycle complete. duration_ms={} topics={} websites={} nodes_written={} crawl_pages_visited={} crawl_links_followed={} wiki_docs={} errors={}",
+                        report.duration_ms,
                         report.topics.len(),
                         report.websites_scraped.len(),
                         report.nodes_written,
+                        report.crawl_pages_visited,
+                        report.crawl_links_followed,
+                        report.wikipedia_docs_written,
                         report.errors.len()
                     ),
                 )
@@ -2069,20 +2330,7 @@ pub async fn admin_train(session: Session, state: web::Data<AppState>) -> impl R
     let _ = save_training_state(&state.db, &training_state).await;
 
     let report = run_training_cycle(state.get_ref()).await;
-    training_state.last_cycle_at = Some(Local::now().to_rfc3339());
-    training_state.total_cycles = training_state.total_cycles.saturating_add(1);
-    training_state.total_topics_processed = training_state
-        .total_topics_processed
-        .saturating_add(report.topics.len() as u64);
-    training_state.total_nodes_written = training_state
-        .total_nodes_written
-        .saturating_add(report.nodes_written as u64);
-    training_state.last_topics = report.topics.clone();
-    training_state.last_websites = report.websites_scraped.clone();
-    training_state.last_learned_items = report.learned_items.clone();
-    training_state.last_error = report.errors.first().cloned();
-    training_state.updated_at = Local::now().to_rfc3339();
-    training_state.updated_by = actor;
+    apply_training_report(&mut training_state, &report, &actor);
     let _ = save_training_state(&state.db, &training_state).await;
 
     crate::logging::log(
@@ -2144,6 +2392,15 @@ pub async fn set_training_mode(
         training.last_error = None;
         let mut internet_enabled = state.internet_enabled.write().unwrap();
         *internet_enabled = true;
+    } else {
+        training.is_cycle_running = false;
+        training.active_cycle_started_at = None;
+        training.active_phase = "stopped by admin".to_string();
+        training.active_target = None;
+        training.active_nodes_written = 0;
+        training.active_websites_completed = 0;
+        training.active_topics_completed = 0;
+        training.active_updated_at = Some(Local::now().to_rfc3339());
     }
     if let Err(err) = save_training_state(&state.db, &training).await {
         return HttpResponse::InternalServerError()
@@ -2175,20 +2432,7 @@ pub async fn set_training_mode(
         .await;
 
         let report = run_training_cycle(state.get_ref()).await;
-        training.last_cycle_at = Some(Local::now().to_rfc3339());
-        training.total_cycles = training.total_cycles.saturating_add(1);
-        training.total_topics_processed = training
-            .total_topics_processed
-            .saturating_add(report.topics.len() as u64);
-        training.total_nodes_written = training
-            .total_nodes_written
-            .saturating_add(report.nodes_written as u64);
-        training.last_topics = report.topics.clone();
-        training.last_websites = report.websites_scraped.clone();
-        training.last_learned_items = report.learned_items.clone();
-        training.last_error = report.errors.first().cloned();
-        training.updated_at = Local::now().to_rfc3339();
-        training.updated_by = actor;
+        apply_training_report(&mut training, &report, &actor);
 
         if let Err(err) = save_training_state(&state.db, &training).await {
             return HttpResponse::InternalServerError()
@@ -2227,20 +2471,7 @@ pub async fn run_training_now(session: Session, state: web::Data<AppState>) -> i
 
     let mut training_state = load_training_state(&state.db).await;
     let report = run_training_cycle(state.get_ref()).await;
-    training_state.last_cycle_at = Some(Local::now().to_rfc3339());
-    training_state.total_cycles = training_state.total_cycles.saturating_add(1);
-    training_state.total_topics_processed = training_state
-        .total_topics_processed
-        .saturating_add(report.topics.len() as u64);
-    training_state.total_nodes_written = training_state
-        .total_nodes_written
-        .saturating_add(report.nodes_written as u64);
-    training_state.last_topics = report.topics.clone();
-    training_state.last_websites = report.websites_scraped.clone();
-    training_state.last_learned_items = report.learned_items.clone();
-    training_state.last_error = report.errors.first().cloned();
-    training_state.updated_at = Local::now().to_rfc3339();
-    training_state.updated_by = actor;
+    apply_training_report(&mut training_state, &report, &actor);
     let _ = save_training_state(&state.db, &training_state).await;
 
     HttpResponse::Ok().json(json!({
