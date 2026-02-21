@@ -83,8 +83,9 @@ wait_for_route() {
 check_route() {
   local port="$1"
   local path="$2"
+  local method="${3:-GET}"
   local code
-  code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "http://127.0.0.1:${port}${path}" || true)"
+  code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 -X "$method" "http://127.0.0.1:${port}${path}" || true)"
   case "$code" in
     200|401|403)
       echo "ok ${path} -> ${code}"
@@ -192,7 +193,7 @@ SQL
   check_route "$port" "/api/admin/evolution/updates"
   check_route "$port" "/api/admin/evolution/status"
   check_route "$port" "/api/admin/training/status"
-  check_route "$port" "/api/admin/crawl/random"
+  check_route "$port" "/api/admin/crawl/random" "POST"
   check_route "$port" "/webui/evolution.html"
 
   if [[ -n "$db_path" ]]; then
