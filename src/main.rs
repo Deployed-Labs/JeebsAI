@@ -1,13 +1,45 @@
 use actix_cors::Cors;
 use actix_files::Files;
+use actix_governor::{Governor, GovernorConfigBuilder, KeyExtractor, SimpleKeyExtractionError};
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
 use actix_web::cookie::Key;
+use actix_web::dev::ServiceRequest;
 use actix_web::{web, App, HttpServer};
 use jeebs::{admin, auth, chat, cortex, evolution, logging, AppState};
-use sqlx::SqlitePool;
+use jeebs::plugins::{
+    Base64Plugin, CalcPlugin, ContactPlugin, ErrorPlugin, HashPlugin, LogicPlugin, MemoryPlugin,
+    NewsPlugin, PasswordPlugin, SummaryPlugin, SystemPlugin, TimePlugin, TodoPlugin,
+    TranslatePlugin, WeatherPlugin, WebsiteStatusPlugin,
+};
+use sqlx::{Row, SqlitePool};
+use std::collections::HashSet;
 use std::env;
 use std::path::Path;
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
+use sysinfo::System;
+
+#[derive(Clone)]
+struct WhitelistedKeyExtractor;
+
+impl KeyExtractor for WhitelistedKeyExtractor {
+    type Key = String;
+    type KeyExtractionError = SimpleKeyExtractionError<String>;
+
+    fn extract(&self, req: &ServiceRequest) -> Result<Self::Key, Self::KeyExtractionError> {
+        if let Some(state) = req.app_data::<web::Data<AppState>>() {
+            let ip = req.peer_addr().map(|a| a.ip().to_string()).unwrap_or_else(|| "unknown".to_string());
+            if let Ok(whitelist) = state.ip_whitelist.read() {
+                if whitelist.contains(&ip) {
+                    return Ok(format!("whitelist:{}", uuid::Uuid::new_v4()));
+                }
+            }
+            Ok(ip)
+        } else {
+            Ok("unknown".to_string())
+        }
+    }
+}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -28,15 +60,15 @@ async fn main() -> std::io::Result<()> {
         .await
         .expect("DB Fail");
 
-    // Apply any pending migrations at startup so offline-built binaries catch up when DB is available.
+    // Apply any pending migrations at startup
     if let Err(e) = sqlx::migrate!("./migrations").run(&pool).await {
         eprintln!("Failed to run migrations: {e}");
     }
 
-    // Ensure logging storage exists even on databases created before log migrations.
+    // Ensure logging storage exists
     logging::init(&pool).await;
 
-    // Run log retention cleanup on startup and then every 24 hours.
+    // Run log retention cleanup on startup and then every 24 hours
     let log_pool = pool.clone();
     tokio::spawn(async move {
         loop {
@@ -45,18 +77,64 @@ async fn main() -> std::io::Result<()> {
         }
     });
 
+    // Load IP Blacklist
+    let rows = sqlx::query("SELECT ip FROM ip_blacklist")
+        .fetch_all(&pool)
+        .await
+        .expect("Failed to load blacklist");
+    let mut ips = HashSet::new();
+    for row in rows {
+        let ip: String = row.get(0);
+        ips.insert(ip);
+    }
+    let ip_blacklist = Arc::new(RwLock::new(ips));
+
+    // Load IP Whitelist
+    let rows = sqlx::query("SELECT ip FROM ip_whitelist")
+        .fetch_all(&pool)
+        .await
+        .expect("Failed to load whitelist");
+    let mut w_ips = HashSet::new();
+    for row in rows {
+        let ip: String = row.get(0);
+        w_ips.insert(ip);
+    }
+    let ip_whitelist = Arc::new(RwLock::new(w_ips));
+
+    // Initialize Plugins
+    let mut plugins: Vec<Box<dyn jeebs::plugins::Plugin>> = vec![
+        Box::new(TimePlugin),
+        Box::new(CalcPlugin),
+        Box::new(WeatherPlugin),
+        Box::new(NewsPlugin),
+        Box::new(MemoryPlugin),
+        Box::new(SystemPlugin),
+        Box::new(SummaryPlugin),
+        Box::new(TranslatePlugin),
+        Box::new(PasswordPlugin),
+        Box::new(HashPlugin),
+        Box::new(Base64Plugin),
+        Box::new(jeebs::security::SecurityPlugin),
+        Box::new(LogicPlugin),
+        Box::new(ContactPlugin),
+        Box::new(WebsiteStatusPlugin),
+        Box::new(TodoPlugin),
+        Box::new(ErrorPlugin),
+    ];
+    plugins.extend(jeebs::plugins::load_dynamic_plugins("plugins"));
+
     let state = web::Data::new(AppState {
-        db: pool,
-        plugins: vec![],
-        ip_blacklist: std::sync::Arc::new(std::sync::RwLock::new(std::collections::HashSet::new())),
-        ip_whitelist: std::sync::Arc::new(std::sync::RwLock::new(std::collections::HashSet::new())),
-        sys: std::sync::Arc::new(std::sync::Mutex::new(sysinfo::System::new_all())),
-        internet_enabled: std::sync::Arc::new(std::sync::RwLock::new(false)),
+        db: pool.clone(),
+        plugins,
+        ip_blacklist,
+        ip_whitelist,
+        sys: Arc::new(Mutex::new(System::new_all())),
+        internet_enabled: Arc::new(RwLock::new(false)),
     });
 
-    // Start Jeebs autonomous evolution loop.
+    // Start Jeebs autonomous evolution loop
     evolution::spawn_autonomous_thinker(state.db.clone());
-    // Start Jeebs autonomous internet training worker.
+    // Start Jeebs autonomous internet training worker
     cortex::spawn_autonomous_training(state.clone());
 
     let port: u16 = env::var("PORT")
@@ -68,7 +146,7 @@ async fn main() -> std::io::Result<()> {
         &state.db,
         "INFO",
         "SYSTEM",
-        &format!("Jeebs server starting on 127.0.0.1:{port}"),
+        &format!("Jeebs server starting on 0.0.0.0:{port}"),
     )
     .await;
 
@@ -77,18 +155,27 @@ async fn main() -> std::io::Result<()> {
     // Session cookie secret
     let secret_key = Key::generate();
 
+    // Governor configuration
+    let governor_conf = GovernorConfigBuilder::default()
+        .key_extractor(WhitelistedKeyExtractor)
+        .per_second(2)
+        .burst_size(5)
+        .finish()
+        .unwrap();
+
     HttpServer::new(move || {
         App::new()
-            .wrap(Cors::permissive()) // This allows your phone to connect
+            .wrap(Cors::permissive())
             .wrap(SessionMiddleware::new(
                 CookieSessionStore::default(),
                 secret_key.clone(),
             ))
+            .wrap(Governor::new(&governor_conf))
             .app_data(state.clone())
             .service(auth::register)
             .service(auth::login)
             .service(auth::login_pgp)
-            .service(auth::auth_status)
+            .service(auth::register)
             .service(auth::logout)
             .service(chat::jeebs_api)
             .service(cortex::admin_crawl)
@@ -101,6 +188,9 @@ async fn main() -> std::io::Result<()> {
             .service(cortex::visualize_brain)
             .service(cortex::get_logic_graph)
             .service(cortex::admin_crawl_random)
+            .service(cortex::knowledge_search)
+            .service(cortex::knowledge_stats)
+            .service(cortex::language_stats)
             .service(admin::status::get_system_status)
             .service(admin::sessions::get_active_sessions)
             .service(admin::sessions::terminate_session)
@@ -138,7 +228,7 @@ async fn main() -> std::io::Result<()> {
             .service(Files::new("/webui", "./webui").index_file("index.html"))
             .service(Files::new("/", "./webui").index_file("index.html"))
     })
-    .bind(("127.0.0.1", port))?
+    .bind(("0.0.0.0", port))?
     .run()
     .await
 }

@@ -1,7 +1,18 @@
 # JeebsAI
 
-JeebsAI is a modular Rust-based AI assistant with a web UI and persistent storage.
+JeebsAI is a modular Rust-based AI assistant with a web UI, persistent storage, and **advanced learning capabilities**.
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+## ✨ New: Learning & Knowledge System
+
+Jeebs now features:
+- 🧠 **Advanced Knowledge Retrieval** - Search across brain nodes, knowledge triples, contexts, and FAQ
+- 📚 **Language Learning** - Automatically learns vocabulary and patterns from every conversation
+- 💡 **Proactive Proposals** - Suggests learning topics, features, and experiments
+- 📊 **Progress Tracking** - Monitor vocabulary growth and knowledge accumulation
+- 🎓 **User Teaching** - Store facts, context, and custom responses
+
+👉 **[Quick Start Guide](QUICK_START.md)** | **[Full Learning System Docs](LEARNING_SYSTEM.md)**
 
 ## Table of Contents
 

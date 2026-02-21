@@ -102,9 +102,21 @@ pub async fn jeebs_api(
     };
 
     // Update last_seen
-    if let Err(err) = sqlx::query("UPDATE user_sessions SET last_seen = ? WHERE username = ?")
-        .bind(Local::now().to_rfc3339())
+    let ip = peer_addr(&http_req);
+    let user_agent = http_req
+        .headers()
+        .get("user-agent")
+        .and_then(|h| h.to_str().ok())
+        .unwrap_or("unknown");
+    let now = Local::now().to_rfc3339();
+
+    if let Err(err) = sqlx::query(
+        "INSERT OR REPLACE INTO user_sessions (username, ip, user_agent, last_seen) VALUES (?, ?, ?, ?)"
+    )
         .bind(username.as_deref().unwrap_or(""))
+        .bind(&ip)
+        .bind(user_agent)
+        .bind(&now)
         .execute(db)
         .await
     {

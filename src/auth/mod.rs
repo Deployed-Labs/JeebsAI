@@ -1,6 +1,6 @@
 use actix_session::Session;
 use actix_web::{get, post, web, HttpRequest, HttpResponse, Responder};
-use chrono::Utc;
+use chrono::{Local, Utc};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -279,6 +279,25 @@ async fn handle_pgp_login(
         session.renew();
     }
 
+    // Track user session in database
+    let ip = peer_addr(http_req);
+    let user_agent = http_req
+        .headers()
+        .get("user-agent")
+        .and_then(|h| h.to_str().ok())
+        .unwrap_or("unknown");
+    let now = Local::now().to_rfc3339();
+
+    let _ = sqlx::query(
+        "INSERT OR REPLACE INTO user_sessions (username, ip, user_agent, last_seen) VALUES (?, ?, ?, ?)"
+    )
+    .bind(username)
+    .bind(&ip)
+    .bind(user_agent)
+    .bind(&now)
+    .execute(&data.db)
+    .await;
+
     crate::logging::log(
         &data.db,
         "INFO",
@@ -287,7 +306,7 @@ async fn handle_pgp_login(
             "Successful login username={} is_admin={} ip={}",
             username,
             is_admin,
-            peer_addr(http_req)
+            ip
         ),
     )
     .await;
@@ -496,6 +515,14 @@ pub async fn logout(
         .ok()
         .flatten()
         .unwrap_or(false);
+
+    // Remove session from database
+    if let Some(ref uname) = username {
+        let _ = sqlx::query("DELETE FROM user_sessions WHERE username = ?")
+            .bind(uname)
+            .execute(&data.db)
+            .await;
+    }
 
     session.purge();
 

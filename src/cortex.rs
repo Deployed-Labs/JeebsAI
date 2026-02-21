@@ -37,6 +37,12 @@ pub struct SearchRequest {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct AdvancedSearchRequest {
+    pub query: String,
+    pub max_results: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct CrawlRequest {
     pub url: String,
     pub depth: Option<u8>,
@@ -76,6 +82,18 @@ struct TrainingLearnedItem {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+struct TrainingTrackProgress {
+    name: String,
+    status: String,
+    progress_percent: u8,
+    mastered: bool,
+    nodes_written: u64,
+    threshold: u64,
+    current_goal: String,
+    last_learned_at: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 struct TrainingCycleSnapshot {
     cycle_started_at: String,
     cycle_finished_at: String,
@@ -88,12 +106,248 @@ struct TrainingCycleSnapshot {
     crawl_links_followed: u64,
     crawl_nodes_written: u64,
     wikipedia_docs_written: u64,
+    text_chars_learned: u64,
+    focus_topic: Option<String>,
+    focus_topic_nodes_written: u64,
     learned_items_count: u64,
     errors: Vec<String>,
 }
 
 fn default_active_phase() -> String {
     "idle".to_string()
+}
+
+fn normalize_training_topic_input(input: &str) -> Option<String> {
+    let compact = normalize_whitespace(input);
+    if compact.is_empty() {
+        return None;
+    }
+    Some(truncate_chars(&compact, 160))
+}
+
+fn build_track(name: &str, threshold: u64, goal: &str) -> TrainingTrackProgress {
+    TrainingTrackProgress {
+        name: name.to_string(),
+        status: "active".to_string(),
+        progress_percent: 0,
+        mastered: false,
+        nodes_written: 0,
+        threshold,
+        current_goal: goal.to_string(),
+        last_learned_at: None,
+    }
+}
+
+fn default_training_tracks() -> Vec<TrainingTrackProgress> {
+    vec![
+        build_track(
+            "conversation skills",
+            80,
+            "learn clarifying questions, structured replies, and tone adaptation",
+        ),
+        build_track(
+            "rust programming",
+            60,
+            "master ownership, concurrency, and production-grade Rust patterns",
+        ),
+        build_track(
+            "python programming",
+            60,
+            "master Python tooling, data workflows, and async application patterns",
+        ),
+        build_track(
+            "data compression and storage efficiency",
+            50,
+            "learn how to store more information in less space with compression and indexing",
+        ),
+        TrainingTrackProgress {
+            status: "queued".to_string(),
+            ..build_track(
+                "go programming",
+                40,
+                "unlock after Rust and Python mastery, then learn idiomatic Go systems design",
+            )
+        },
+        TrainingTrackProgress {
+            status: "queued".to_string(),
+            ..build_track(
+                "javascript and typescript",
+                40,
+                "unlock after Rust and Python mastery, then learn full-stack JS/TS architecture",
+            )
+        },
+        TrainingTrackProgress {
+            status: "queued".to_string(),
+            ..build_track(
+                "c and c++",
+                40,
+                "unlock after Rust and Python mastery, then learn low-level optimization",
+            )
+        },
+    ]
+}
+
+fn track_hit_score(track_name: &str, item: &TrainingLearnedItem) -> u64 {
+    let corpus = format!(
+        "{} {} {}",
+        item.topic.to_ascii_lowercase(),
+        item.title.to_ascii_lowercase(),
+        item.summary.to_ascii_lowercase()
+    );
+    let keywords: &[&str] = match track_name {
+        "conversation skills" => &[
+            "conversation",
+            "dialogue",
+            "communication",
+            "listening",
+            "clarifying",
+            "question",
+            "language model prompting",
+            "interaction design",
+        ],
+        "rust programming" => &[
+            "rust",
+            "cargo",
+            "borrow checker",
+            "ownership",
+            "lifetime",
+            "actix",
+            "tokio",
+            "serde",
+            "sqlx",
+        ],
+        "python programming" => &[
+            "python",
+            "pandas",
+            "numpy",
+            "fastapi",
+            "asyncio",
+            "flask",
+            "django",
+            "pytest",
+        ],
+        "data compression and storage efficiency" => &[
+            "compression",
+            "storage",
+            "dedup",
+            "columnar",
+            "parquet",
+            "zstd",
+            "lz4",
+            "dictionary encoding",
+            "delta encoding",
+            "data structure",
+        ],
+        "go programming" => &["go language", "golang", "goroutine", "go programming"],
+        "javascript and typescript" => &[
+            "javascript",
+            "typescript",
+            "node.js",
+            "nodejs",
+            "react",
+            "frontend",
+        ],
+        "c and c++" => &[
+            "c programming",
+            "c++",
+            "memory management",
+            "low-level",
+            "pointer",
+        ],
+        _ => &[],
+    };
+
+    if keywords.is_empty() {
+        return 0;
+    }
+    keywords.iter().filter(|kw| corpus.contains(**kw)).count() as u64
+}
+
+fn refresh_track_statuses(mode: &mut TrainingModeState) {
+    let prerequisites_mastered = LANGUAGE_UNLOCK_PREREQUISITES.iter().all(|required| {
+        mode.learning_tracks
+            .iter()
+            .find(|track| track.name == *required)
+            .map(|track| track.mastered)
+            .unwrap_or(false)
+    });
+
+    for track in &mut mode.learning_tracks {
+        let threshold = track.threshold.max(1);
+        let pct = ((track.nodes_written.saturating_mul(100)) / threshold).min(100);
+        track.progress_percent = pct as u8;
+        track.mastered = track.nodes_written >= threshold;
+
+        if ADVANCED_LANGUAGE_TRACKS.contains(&track.name.as_str())
+            && !prerequisites_mastered
+            && !track.mastered
+        {
+            track.status = "queued".to_string();
+            track.current_goal = "waiting for Rust and Python mastery unlock".to_string();
+            continue;
+        }
+
+        track.status = if track.mastered {
+            "mastered".to_string()
+        } else {
+            "active".to_string()
+        };
+    }
+}
+
+fn smartness_score(mode: &TrainingModeState) -> f64 {
+    let mastery = mode
+        .learning_tracks
+        .iter()
+        .filter(|track| track.mastered)
+        .count() as f64;
+    (mode.total_nodes_written as f64 * 0.45
+        + mode.total_topics_processed as f64 * 0.25
+        + mode.total_websites_scraped as f64 * 0.2
+        + mastery * 25.0)
+        .round()
+}
+
+fn curriculum_topics_from_state(mode: &TrainingModeState) -> Vec<String> {
+    let mut topics = vec![
+        "how to store more data in less space".to_string(),
+        "lossless compression techniques".to_string(),
+        "conversation skills for ai assistants".to_string(),
+    ];
+
+    for track in &mode.learning_tracks {
+        if track.status != "active" || track.mastered {
+            continue;
+        }
+        topics.push(track.name.clone());
+        if !track.current_goal.trim().is_empty() {
+            topics.push(track.current_goal.clone());
+        }
+    }
+
+    let mut dedup = Vec::<String>::new();
+    let mut seen = HashSet::<String>::new();
+    for topic in topics {
+        let normalized = topic.to_ascii_lowercase();
+        if seen.insert(normalized) {
+            dedup.push(topic);
+        }
+    }
+    dedup
+}
+
+fn matches_focus_topic(focus_topic: &str, item: &TrainingLearnedItem) -> bool {
+    let focus = focus_topic.to_ascii_lowercase();
+    if focus.is_empty() {
+        return false;
+    }
+    let corpus = format!(
+        "{} {} {}",
+        item.topic.to_ascii_lowercase(),
+        item.title.to_ascii_lowercase(),
+        item.summary.to_ascii_lowercase()
+    );
+    corpus.contains(&focus)
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -149,11 +403,26 @@ struct TrainingModeState {
     active_topics_completed: u64,
     #[serde(default)]
     active_updated_at: Option<String>,
+    #[serde(default)]
+    focus_topic: Option<String>,
+    #[serde(default)]
+    smartness_score: f64,
+    #[serde(default)]
+    total_text_chars_learned: u64,
+    #[serde(default)]
+    learning_tracks: Vec<TrainingTrackProgress>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 struct TrainingModeToggleRequest {
     enabled: bool,
+    #[serde(default)]
+    focus_topic: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct TrainingFocusTopicRequest {
+    topic: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -178,6 +447,10 @@ struct TrainingCycleReport {
     crawl_links_followed: usize,
     crawl_nodes_written: usize,
     wikipedia_docs_written: usize,
+    text_chars_learned: usize,
+    track_hits: HashMap<String, u64>,
+    focus_topic: Option<String>,
+    focus_topic_nodes_written: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -254,6 +527,13 @@ const JEEBS_WANTS: &[&str] = &[
     "to expand knowledge coverage every cycle",
     "to reduce unanswered questions",
     "to prove intelligence with measurable improvements",
+];
+
+const LANGUAGE_UNLOCK_PREREQUISITES: &[&str] = &["rust programming", "python programming"];
+const ADVANCED_LANGUAGE_TRACKS: &[&str] = &[
+    "go programming",
+    "javascript and typescript",
+    "c and c++",
 ];
 
 fn history_key(user_id: &str) -> String {
@@ -926,6 +1206,10 @@ fn training_state_default() -> TrainingModeState {
         active_websites_completed: 0,
         active_topics_completed: 0,
         active_updated_at: None,
+        focus_topic: None,
+        smartness_score: 0.0,
+        total_text_chars_learned: 0,
+        learning_tracks: default_training_tracks(),
     }
 }
 
@@ -942,14 +1226,21 @@ async fn load_training_state(db: &SqlitePool) -> TrainingModeState {
     };
 
     let raw: Vec<u8> = row.get(0);
-    serde_json::from_slice::<TrainingModeState>(&raw)
+    let mut state = serde_json::from_slice::<TrainingModeState>(&raw)
         .ok()
         .or_else(|| {
             decode_all(&raw)
                 .ok()
                 .and_then(|decoded| serde_json::from_slice::<TrainingModeState>(&decoded).ok())
         })
-        .unwrap_or_else(training_state_default)
+        .unwrap_or_else(training_state_default);
+
+    if state.learning_tracks.is_empty() {
+        state.learning_tracks = default_training_tracks();
+    }
+    refresh_track_statuses(&mut state);
+    state.smartness_score = smartness_score(&state);
+    state
 }
 
 async fn save_training_state(
@@ -991,12 +1282,19 @@ fn report_to_snapshot(report: &TrainingCycleReport) -> TrainingCycleSnapshot {
         crawl_links_followed: report.crawl_links_followed as u64,
         crawl_nodes_written: report.crawl_nodes_written as u64,
         wikipedia_docs_written: report.wikipedia_docs_written as u64,
+        text_chars_learned: report.text_chars_learned as u64,
+        focus_topic: report.focus_topic.clone(),
+        focus_topic_nodes_written: report.focus_topic_nodes_written as u64,
         learned_items_count: report.learned_items.len() as u64,
         errors: report.errors.clone(),
     }
 }
 
 fn apply_training_report(mode: &mut TrainingModeState, report: &TrainingCycleReport, actor: &str) {
+    if mode.learning_tracks.is_empty() {
+        mode.learning_tracks = default_training_tracks();
+    }
+
     mode.last_cycle_at = Some(report.cycle_finished_at.clone());
     mode.total_cycles = mode.total_cycles.saturating_add(1);
     mode.total_topics_processed = mode
@@ -1023,6 +1321,9 @@ fn apply_training_report(mode: &mut TrainingModeState, report: &TrainingCycleRep
     mode.total_wikipedia_docs_written = mode
         .total_wikipedia_docs_written
         .saturating_add(report.wikipedia_docs_written as u64);
+    mode.total_text_chars_learned = mode
+        .total_text_chars_learned
+        .saturating_add(report.text_chars_learned as u64);
 
     mode.last_topics = report.topics.clone();
     mode.last_websites = report.websites_scraped.clone();
@@ -1031,6 +1332,15 @@ fn apply_training_report(mode: &mut TrainingModeState, report: &TrainingCycleRep
     mode.last_cycle_duration_ms = Some(report.duration_ms);
     mode.last_cycle_nodes_written = report.nodes_written as u64;
     mode.last_cycle_errors = report.errors.clone();
+
+    for track in &mut mode.learning_tracks {
+        let increment = report.track_hits.get(&track.name).copied().unwrap_or(0);
+        if increment > 0 {
+            track.nodes_written = track.nodes_written.saturating_add(increment);
+            track.last_learned_at = Some(report.cycle_finished_at.clone());
+        }
+    }
+    refresh_track_statuses(mode);
 
     let snapshot = report_to_snapshot(report);
     mode.last_cycle_summary = Some(snapshot.clone());
@@ -1050,6 +1360,7 @@ fn apply_training_report(mode: &mut TrainingModeState, report: &TrainingCycleRep
     mode.active_websites_completed = 0;
     mode.active_topics_completed = 0;
     mode.active_updated_at = Some(report.cycle_finished_at.clone());
+    mode.smartness_score = smartness_score(mode);
 }
 
 fn finalize_training_report(report: &mut TrainingCycleReport, timer: &Instant) {
@@ -1725,18 +2036,36 @@ fn is_goodbye(lower: &str) -> bool {
 
 fn help_text() -> String {
     [
-        "I can handle conversation and basic assistant tasks:",
-        "- multi-turn chat with short memory per session",
-        "- learns personal facts from normal chat (example: `my favorite color is blue`)",
-        "- greetings and short conversation",
-        "- quick math (example: calculate 12 * 7)",
-        "- current date/time",
-        "- lookup from stored brain notes",
-        "- communication reflection (ask: `how am i communicating?`)",
-        "- preferences and goals (ask: `what do you like?`, `what do you dislike?`, `what do you want?`)",
-        "- custom memory commands: `remember: question => answer`, `forget: question`",
+        "I can handle conversation and intelligent knowledge retrieval:",
         "",
-        "Try: `hello`, `what time is it`, `what is 18/3`, or ask about something I already learned.",
+        "💬 **Communication:**",
+        "- Multi-turn chat with contextual memory",
+        "- Learn personal facts from conversation",
+        "- Communication style analysis",
+        "",
+        "🧠 **Knowledge & Learning:**",
+        "- Advanced knowledge retrieval from multiple sources",
+        "- Automatic vocabulary learning from your input",
+        "- Store and retrieve contextual information",
+        "- FAQ learning: `remember: question => answer`",
+        "- Context storage: `store this: [information]`",
+        "",
+        "📊 **Stats & Insights:**",
+        "- `knowledge stats` - see what I know",
+        "- `vocabulary stats` - see my language learning",
+        "- `what experiments?` - view my experiment list",
+        "- `how am I communicating?` - communication analysis",
+        "",
+        "🔧 **Utilities:**",
+        "- Quick math: `calculate 12 * 7`",
+        "- Current date/time",
+        "- Preferences: `what do you like/dislike/want?`",
+        "",
+        "💡 **Proactive Features:**",
+        "- Periodic action proposals",
+        "- `what do you want to do?` - request suggestions",
+        "",
+        "I continuously learn from our conversations and can synthesize answers from my knowledge base.",
     ]
     .join("\n")
 }
@@ -1830,6 +2159,9 @@ async fn custom_ai_logic_with_context(
     username: Option<&str>,
     facts_owner: Option<&str>,
 ) -> String {
+    // Learn from user input
+    let _ = crate::language_learning::learn_from_input(db, prompt).await;
+
     let clean_prompt = prompt.split_whitespace().collect::<Vec<_>>().join(" ");
     if clean_prompt.is_empty() {
         return "Send me a message and I will respond.".to_string();
@@ -1851,6 +2183,127 @@ async fn custom_ai_logic_with_context(
             return format!("Your last message was: \"{}\"", previous_user.content);
         }
         return "I do not have earlier messages in this session yet.".to_string();
+    }
+
+    // Handle proposal responses
+    if lower.contains("yes, do it")
+        || lower.contains("yes do it")
+        || lower.contains("go ahead")
+        || lower.contains("yes please")
+        || (lower.contains("yes") && (lower.contains("research") || lower.contains("learn") || lower.contains("add")))
+    {
+        crate::proposals::acknowledge_proposal(db).await;
+        return "Great! I've added this to my action queue. I'll work on it during my next autonomous cycle and report back with results.".to_string();
+    }
+
+    if lower.contains("no thanks")
+        || lower.contains("not now")
+        || lower.contains("skip it")
+        || lower.contains("maybe later")
+        || (lower.contains("no") && (lower.contains("proposal") || lower.contains("suggestion")))
+    {
+        crate::proposals::acknowledge_proposal(db).await;
+        return "Understood. I'll propose something different next time.".to_string();
+    }
+
+    // Show experiments list
+    if lower.contains("what experiments")
+        || lower.contains("show experiments")
+        || lower.contains("experiments list")
+    {
+        return "Here are experiments I want to run:\n\n\
+            1. Test different knowledge graph traversal algorithms\n\
+            2. Benchmark response times with cached vs fresh queries\n\
+            3. Experiment with conversation context compression\n\
+            4. Test impact of different training data sizes\n\
+            5. Measure accuracy improvement from user feedback\n\
+            6. Compare SQLite vs PostgreSQL performance\n\
+            7. Test different embedding model strategies\n\
+            8. Analyze optimal cache invalidation patterns\n\
+            9. Experiment with parallel request handling\n\
+            10. Test different prompt engineering approaches\n\n\
+            These experiments will help me improve performance and accuracy.".to_string();
+    }
+
+    // Show knowledge stats
+    if lower.contains("knowledge stats")
+        || lower.contains("what do you know")
+        || lower.contains("how much knowledge")
+        || lower.contains("knowledge base")
+    {
+        if let Ok(stats) = crate::knowledge_retrieval::get_knowledge_stats(db).await {
+            let mut lines = vec!["📊 **Knowledge Base Statistics**:".to_string(), String::new()];
+
+            if let Some(brain_nodes) = stats.get("brain_nodes") {
+                lines.push(format!("🧠 Brain Nodes: {}", brain_nodes));
+            }
+            if let Some(triples) = stats.get("knowledge_triples") {
+                lines.push(format!("🔗 Knowledge Triples: {}", triples));
+            }
+            if let Some(faq) = stats.get("faq_entries") {
+                lines.push(format!("❓ FAQ Entries: {}", faq));
+            }
+            if let Some(contexts) = stats.get("contexts") {
+                lines.push(format!("📚 Contextual Topics: {}", contexts));
+            }
+
+            let total: u64 = stats.values().sum();
+            lines.push(String::new());
+            lines.push(format!("**Total Knowledge Items**: {}", total));
+
+            return lines.join("\n");
+        }
+        return "I'm tracking knowledge across multiple sources but couldn't retrieve stats right now.".to_string();
+    }
+
+    // Show vocabulary stats
+    if lower.contains("vocabulary stats")
+        || lower.contains("language stats")
+        || lower.contains("what words")
+        || lower.contains("word count")
+    {
+        if let Ok(stats) = crate::language_learning::get_vocabulary_stats(db).await {
+            let mut lines = vec!["📖 **Vocabulary Statistics**:".to_string(), String::new()];
+
+            if let Some(total) = stats.get("total_words") {
+                lines.push(format!("Total Unique Words Learned: {}", total));
+            }
+            if let Some(freq) = stats.get("total_frequency") {
+                lines.push(format!("Total Word Encounters: {}", freq));
+            }
+
+            lines.push(String::new());
+            lines.push("**Parts of Speech**:".to_string());
+
+            for (key, value) in &stats {
+                if key.starts_with("pos_") {
+                    let pos = key.strip_prefix("pos_").unwrap_or(key);
+                    lines.push(format!("  • {}: {}", pos, value));
+                }
+            }
+
+            return lines.join("\n");
+        }
+        return "I'm learning vocabulary but couldn't retrieve stats right now.".to_string();
+    }
+
+    // Manually request a proposal
+    if lower.contains("what do you want to do")
+        || lower.contains("what do you want to learn")
+        || lower.contains("suggest something")
+        || lower.contains("propose an action")
+    {
+        // Force generate a new proposal by temporarily clearing the interval check
+        let old_key = "jeebs:next_proposal:temp";
+        let _ = sqlx::query("DELETE FROM jeebs_store WHERE key = ?")
+            .bind("jeebs:next_proposal")
+            .execute(db)
+            .await;
+
+        if let Some(proposal) = crate::proposals::generate_proactive_proposal(db).await {
+            return crate::proposals::format_proposal(&proposal);
+        }
+        return "I have many ideas! Let me think about what would be most valuable right now...".to_string();
     }
 
     if lower.contains("what did you just say") || lower.contains("repeat that") {
@@ -1973,6 +2426,52 @@ async fn custom_ai_logic_with_context(
         };
     }
 
+    // Teach command - store contextual knowledge
+    if lower.starts_with("teach me about") || lower.starts_with("learn about") {
+        let topic = if lower.starts_with("teach me about") {
+            clean_prompt.strip_prefix("teach me about ").or_else(|| clean_prompt.strip_prefix("Teach me about "))
+        } else {
+            clean_prompt.strip_prefix("learn about ").or_else(|| clean_prompt.strip_prefix("Learn about "))
+        };
+
+        if let Some(topic_str) = topic {
+            let topic_clean = topic_str.trim();
+            return format!(
+                "I'll start learning about {}. Please share some facts or information, and I'll store them. You can say things like:\n\
+                - \"{}\" is important because...\n\
+                - Key concepts in {} include...\n\
+                - {} relates to...",
+                topic_clean, topic_clean, topic_clean, topic_clean
+            );
+        }
+    }
+
+    // Store context command
+    if lower.contains("store this:") || lower.contains("remember this about") {
+        let parts: Vec<&str> = if lower.contains("store this:") {
+            clean_prompt.splitn(2, "store this:").collect()
+        } else {
+            clean_prompt.splitn(2, "remember this about").collect()
+        };
+
+        if parts.len() == 2 {
+            let content = parts[1].trim();
+            // Try to extract topic and facts
+            let words: Vec<&str> = content.split_whitespace().take(3).collect();
+            let topic = words.join(" ");
+
+            if let Ok(_) = crate::language_learning::store_context(
+                db,
+                &topic,
+                vec![topic.clone()],
+                vec![],
+                vec![content.to_string()],
+            ).await {
+                return format!("Stored contextual knowledge about '{}'. I can now reference this when needed.", topic);
+            }
+        }
+    }
+
     if let Some(question) = parse_forget_command(&clean_prompt) {
         let key = format!("chat:faq:{question}");
         return match sqlx::query("DELETE FROM jeebs_store WHERE key = ?")
@@ -2060,20 +2559,57 @@ async fn custom_ai_logic_with_context(
         return cached;
     }
 
-    let related = search_brain_for_chat(db, &clean_prompt).await;
-    if !related.is_empty() {
-        let mut lines = vec![format!(
-            "Here is what I found related to \"{clean_prompt}\":"
-        )];
-        for (idx, (label, summary)) in related.iter().enumerate() {
-            let text = if summary.trim().is_empty() {
-                "(no summary available yet)"
-            } else {
-                summary
-            };
-            lines.push(format!("{}. {} - {}", idx + 1, label, text));
+    // Use advanced knowledge retrieval
+    if let Ok(retrieval_result) = crate::knowledge_retrieval::retrieve_knowledge(db, &clean_prompt, 5).await {
+        if !retrieval_result.items.is_empty() {
+            // If we have a synthesized answer, use it
+            if let Some(synthesized) = retrieval_result.synthesized_answer {
+                if !synthesized.is_empty() {
+                    return format!(
+                        "Based on what I know: {}\n\n(Retrieved from {} source{})",
+                        synthesized,
+                        retrieval_result.items.len(),
+                        if retrieval_result.items.len() == 1 { "" } else { "s" }
+                    );
+                }
+            }
+
+            // Otherwise, present the knowledge items
+            let mut lines = vec![format!(
+                "I found {} piece{} of knowledge related to \"{}\":",
+                retrieval_result.items.len(),
+                if retrieval_result.items.len() == 1 { "" } else { "s" },
+                clean_prompt
+            )];
+
+            for (idx, item) in retrieval_result.items.iter().take(3).enumerate() {
+                let display_text = if !item.summary.is_empty() {
+                    &item.summary
+                } else if !item.content.is_empty() {
+                    &item.content
+                } else {
+                    &item.label
+                };
+
+                lines.push(format!(
+                    "{}. {} [{}] - {}",
+                    idx + 1,
+                    item.label,
+                    item.category,
+                    truncate_chars(display_text, 150)
+                ));
+            }
+
+            if retrieval_result.total_searched > retrieval_result.items.len() {
+                lines.push(format!(
+                    "\n(Showing top {} of {} results)",
+                    retrieval_result.items.len(),
+                    retrieval_result.total_searched
+                ));
+            }
+
+            return lines.join("\n");
         }
-        return lines.join("\n");
     }
 
     if clean_prompt.ends_with('?') {
@@ -2161,6 +2697,20 @@ impl Cortex {
         {
             response = "Got it. You can give me a direct question, and I will answer or learn it."
                 .to_string();
+        }
+
+        // Check if we should add a proactive proposal
+        if let Some(proposal) = crate::proposals::generate_proactive_proposal(&state.db).await {
+            // Only append proposals to certain types of responses
+            let should_append = response.contains("Got it")
+                || response.contains("I am still learning")
+                || response.contains("Here is what I found")
+                || response.starts_with("I learned that");
+
+            if should_append {
+                response.push_str("\n\n---\n\n");
+                response.push_str(&crate::proposals::format_proposal(&proposal));
+            }
         }
 
         let now = Local::now().to_rfc3339();
@@ -2968,27 +3518,218 @@ pub async fn search_brain(
     HttpResponse::Ok().json(results)
 }
 
-#[post("/api/brain/reindex")]
-pub async fn reindex_brain(session: Session, _state: web::Data<AppState>) -> impl Responder {
+#[post("/api/knowledge/search")]
+pub async fn knowledge_search(
+    data: web::Data<AppState>,
+    req: web::Json<AdvancedSearchRequest>,
+) -> impl Responder {
+    let max_results = req.max_results.unwrap_or(10).min(50);
+
+    match crate::knowledge_retrieval::retrieve_knowledge(&data.db, &req.query, max_results).await {
+        Ok(result) => HttpResponse::Ok().json(json!({
+            "items": result.items,
+            "total_searched": result.total_searched,
+            "query_terms": result.query_terms,
+            "synthesized_answer": result.synthesized_answer,
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(json!({
+            "error": format!("Knowledge search failed: {}", e)
+        })),
+    }
+}
+
+#[get("/api/knowledge/stats")]
+pub async fn knowledge_stats(data: web::Data<AppState>) -> impl Responder {
+    match crate::knowledge_retrieval::get_knowledge_stats(&data.db).await {
+        Ok(stats) => HttpResponse::Ok().json(stats),
+        Err(e) => HttpResponse::InternalServerError().json(json!({
+            "error": format!("Failed to get stats: {}", e)
+        })),
+    }
+}
+
+#[get("/api/language/stats")]
+pub async fn language_stats(data: web::Data<AppState>) -> impl Responder {
+    match crate::language_learning::get_vocabulary_stats(&data.db).await {
+        Ok(stats) => HttpResponse::Ok().json(stats),
+        Err(e) => HttpResponse::InternalServerError().json(json!({
+            "error": format!("Failed to get stats: {}", e)
+        })),
+    }
+}
+
+#[post("/api/admin/training")]
+pub async fn admin_training(session: Session, state: web::Data<AppState>) -> impl Responder {
     if !crate::auth::is_root_admin_session(&session) {
         return HttpResponse::Forbidden()
             .json(json!({"error": "Restricted to 1090mb admin account"}));
     }
 
+    let actor = session
+        .get::<String>("username")
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| crate::auth::ROOT_ADMIN_USERNAME.to_string());
+
+    {
+        let mut internet_enabled = state.internet_enabled.write().unwrap();
+        *internet_enabled = true;
+    }
+
+    let mut training_state = load_training_state(&state.db).await;
+    training_state.enabled = true;
+    training_state.updated_at = Local::now().to_rfc3339();
+    training_state.updated_by = actor.clone();
+    let _ = save_training_state(&state.db, &training_state).await;
+
+    let report = run_training_cycle(state.get_ref()).await;
+    apply_training_report(&mut training_state, &report, &actor);
+    let _ = save_training_state(&state.db, &training_state).await;
+
+    crate::logging::log(
+        &state.db,
+        "INFO",
+        "training_mode",
+        "Internet enabled automatically because training mode was enabled.",
+    )
+    .await;
+
     HttpResponse::Ok().json(json!({
         "ok": true,
-        "message": "Reindexing complete."
+        "message": "Training mode enabled and one training cycle completed.",
+        "report": report,
+        "internet_enabled": *state.internet_enabled.read().unwrap(),
+        "training": training_state
     }))
 }
 
-#[get("/api/brain/visualize")]
-pub async fn visualize_brain(state: web::Data<AppState>) -> impl Responder {
-    let graph = build_graph(&state.db, false).await;
-    HttpResponse::Ok().json(graph)
+#[get("/api/admin/training/status")]
+pub async fn get_admin_training_status(session: Session, state: web::Data<AppState>) -> impl Responder {
+    if !crate::auth::is_root_admin_session(&session) {
+        return HttpResponse::Forbidden()
+            .json(json!({"error": "Restricted to 1090mb admin account"}));
+    }
+
+    let training = load_training_state(&state.db).await;
+    let internet_enabled = *state.internet_enabled.read().unwrap();
+
+    HttpResponse::Ok().json(TrainingStatusResponse {
+        training,
+        internet_enabled,
+        interval_seconds: training_interval_seconds(),
+    })
 }
 
-#[get("/api/brain/logic_graph")]
-pub async fn get_logic_graph(state: web::Data<AppState>) -> impl Responder {
-    let graph = build_graph(&state.db, true).await;
-    HttpResponse::Ok().json(graph)
+#[post("/api/admin/training/mode")]
+pub async fn set_admin_training_mode(
+    session: Session,
+    state: web::Data<AppState>,
+    req: web::Json<TrainingModeToggleRequest>,
+) -> impl Responder {
+    if !crate::auth::is_root_admin_session(&session) {
+        return HttpResponse::Forbidden()
+            .json(json!({"error": "Restricted to 1090mb admin account"}));
+    }
+
+    let actor = session
+        .get::<String>("username")
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| crate::auth::ROOT_ADMIN_USERNAME.to_string());
+
+    let mut training = load_training_state(&state.db).await;
+    training.enabled = req.enabled;
+    training.updated_at = Local::now().to_rfc3339();
+    training.updated_by = actor.clone();
+    if req.enabled {
+        training.last_error = None;
+        let mut internet_enabled = state.internet_enabled.write().unwrap();
+        *internet_enabled = true;
+    } else {
+        training.is_cycle_running = false;
+        training.active_cycle_started_at = None;
+        training.active_phase = "stopped by admin".to_string();
+        training.active_target = None;
+        training.active_nodes_written = 0;
+        training.active_websites_completed = 0;
+        training.active_topics_completed = 0;
+        training.active_updated_at = Some(Local::now().to_rfc3339());
+    }
+    if let Err(err) = save_training_state(&state.db, &training).await {
+        return HttpResponse::InternalServerError()
+            .json(json!({"error": format!("failed to save training mode: {err}")}));
+    }
+
+    crate::logging::log(
+        &state.db,
+        "INFO",
+        "training_mode",
+        &format!(
+            "Training mode {} by {}",
+            if req.enabled { "enabled" } else { "disabled" },
+            actor
+        ),
+    )
+    .await;
+
+    if req.enabled {
+        crate::logging::log(
+            &state.db,
+            "INFO",
+            "training_mode",
+            &format!(
+                "Internet enabled automatically for training mode by {}",
+                actor
+            ),
+        )
+        .await;
+
+        let report = run_training_cycle(state.get_ref()).await;
+        apply_training_report(&mut training, &report, &actor);
+
+        if let Err(err) = save_training_state(&state.db, &training).await {
+            return HttpResponse::InternalServerError()
+                .json(json!({"error": format!("failed to save training mode: {err}")}));
+        }
+
+        return HttpResponse::Ok().json(json!({
+            "ok": true,
+            "enabled": req.enabled,
+            "internet_enabled": *state.internet_enabled.read().unwrap(),
+            "report": report,
+            "training": training
+        }));
+    }
+
+    HttpResponse::Ok().json(json!({
+        "ok": true,
+        "enabled": req.enabled,
+        "internet_enabled": *state.internet_enabled.read().unwrap(),
+        "training": training
+    }))
+}
+
+#[post("/api/admin/training/run")]
+pub async fn run_admin_training_now(session: Session, state: web::Data<AppState>) -> impl Responder {
+    if !crate::auth::is_root_admin_session(&session) {
+        return HttpResponse::Forbidden()
+            .json(json!({"error": "Restricted to 1090mb admin account"}));
+    }
+
+    let actor = session
+        .get::<String>("username")
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| crate::auth::ROOT_ADMIN_USERNAME.to_string());
+
+    let mut training_state = load_training_state(&state.db).await;
+    let report = run_training_cycle(state.get_ref()).await;
+    apply_training_report(&mut training_state, &report, &actor);
+    let _ = save_training_state(&state.db, &training_state).await;
+
+    HttpResponse::Ok().json(json!({
+        "ok": report.errors.is_empty(),
+        "report": report,
+        "training": training_state
+    }))
 }

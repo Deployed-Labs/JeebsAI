@@ -1,5 +1,5 @@
-use async_trait::async_trait;
 use crate::state::AppState;
+use async_trait::async_trait;
 
 #[async_trait]
 pub trait Plugin: Send + Sync {
@@ -12,8 +12,12 @@ macro_rules! create_plugin {
         pub struct $name;
         #[async_trait]
         impl Plugin for $name {
-            fn name(&self) -> &'static str { $str_name }
-            async fn handle(&self, _input: &str, _state: &AppState) -> Option<String> { None }
+            fn name(&self) -> &'static str {
+                $str_name
+            }
+            async fn handle(&self, _input: &str, _state: &AppState) -> Option<String> {
+                None
+            }
         }
     };
 }

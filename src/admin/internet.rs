@@ -16,10 +16,7 @@ struct SetInternetRequest {
 
 /// Get current internet connectivity status
 #[get("/api/admin/internet/status")]
-pub async fn get_internet_status(
-    data: web::Data<AppState>,
-    session: Session,
-) -> impl Responder {
+pub async fn get_internet_status(data: web::Data<AppState>, session: Session) -> impl Responder {
     if !crate::auth::is_root_admin_session(&session) {
         return HttpResponse::Forbidden()
             .json(serde_json::json!({"error": "Restricted to 1090mb admin account"}));
