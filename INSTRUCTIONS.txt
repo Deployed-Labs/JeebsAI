@@ -1,0 +1,31 @@
+
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║                    🚀 DEPLOY NOW 🚀                         ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+
+
+COPY AND PASTE THIS COMMAND:
+
+    bash DEPLOY_EVERYTHING.sh
+
+
+That's literally all you need to do! 🎉
+
+
+THEN ON YOUR VPS:
+
+    bash pull_from_github.sh
+
+
+Done! ✅
+
+
+───────────────────────────────────────────────────────────────
+
+📖 For more details, see:
+   • README_DEPLOY.txt
+   • START_HERE.txt
+
+───────────────────────────────────────────────────────────────

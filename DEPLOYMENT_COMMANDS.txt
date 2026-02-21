@@ -1,0 +1,122 @@
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║     🚀 TOPIC LEARNING FEATURE - DEPLOYMENT COMMANDS 🚀      ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+
+═══════════════════════════════════════════════════════════════
+  STEP 1: PUSH TO GITHUB (Run on your LOCAL machine)
+═══════════════════════════════════════════════════════════════
+
+Open Terminal in JeebsAI directory and run:
+
+    bash auto_deploy.sh
+
+That's it! ✅
+
+Alternative if auto_deploy doesn't work:
+
+    bash deploy_now.sh
+
+
+═══════════════════════════════════════════════════════════════
+  STEP 2: DEPLOY TO VPS (Run on your VPS)
+═══════════════════════════════════════════════════════════════
+
+1. SSH to your VPS:
+
+    ssh your-user@your-vps-ip
+
+
+2. Navigate to JeebsAI:
+
+    cd ~/JeebsAI
+
+
+3. Pull and deploy:
+
+    bash pull_from_github.sh
+
+
+The script will automatically:
+  ✓ Pull latest code from GitHub
+  ✓ Detect if you use systemd or Docker
+  ✓ Ask if you want to restart Jeebs
+  ✓ Show deployment status
+
+
+═══════════════════════════════════════════════════════════════
+  STEP 3: TEST THE FEATURE
+═══════════════════════════════════════════════════════════════
+
+1. Open browser to:
+
+    http://your-vps-ip/webui/admin_dashboard.html
+
+
+2. Log in as root admin (1090mb)
+
+3. Scroll to the orange "🎓 Topic Learning" section
+
+4. Type a topic in the textbox (e.g., "artificial intelligence")
+
+5. Click LEARN or press Enter
+
+6. Watch Jeebs research and learn! 🧠
+
+
+═══════════════════════════════════════════════════════════════
+  📋 WHAT WAS ADDED
+═══════════════════════════════════════════════════════════════
+
+✨ Topic Learning Section in Admin Dashboard:
+   - Input textbox for entering any topic
+   - LEARN button to trigger research
+   - Real-time status updates with emojis
+   - Keyboard support (Enter key)
+   - Shows preview of what Jeebs learned
+
+🛠️ Deployment Scripts:
+   - auto_deploy.sh - Complete automation
+   - pull_from_github.sh - VPS deployment script
+   - Full documentation in markdown files
+
+
+═══════════════════════════════════════════════════════════════
+  🆘 TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════
+
+If auto_deploy.sh says "permission denied":
+
+    chmod +x auto_deploy.sh
+    ./auto_deploy.sh
+
+
+If pull_from_github.sh not found on VPS:
+
+    git pull origin main
+    chmod +x pull_from_github.sh
+    ./pull_from_github.sh
+
+
+If Jeebs won't restart:
+
+    sudo systemctl restart jeebs
+    # or for Docker:
+    docker-compose restart
+
+
+═══════════════════════════════════════════════════════════════
+  📚 DOCUMENTATION FILES
+═══════════════════════════════════════════════════════════════
+
+  • PUSH_TO_GITHUB.md - Quick reference guide
+  • TOPIC_LEARNING_DEPLOYMENT.md - Full deployment guide
+  • This file (DEPLOYMENT_COMMANDS.txt) - Copy-paste commands
+
+
+═══════════════════════════════════════════════════════════════
+
+Ready to deploy? Just run: bash auto_deploy.sh
+
+Good luck! 🚀
