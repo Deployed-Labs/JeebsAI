@@ -224,6 +224,54 @@
                 style="margin-top: 8px; font-size: 0.85rem; color: #b0bec5"
             ></div>
         </div>
+        <div class="thinker-panel">
+            <div
+                style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 8px;
+                    flex-wrap: wrap;
+                "
+            >
+                <strong>Training Mode</strong>
+                <span id="training-updated-at" style="color: #90caf9"></span>
+            </div>
+            <div class="thinker-grid">
+                <div class="thinker-metric" id="training-enabled">
+                    Enabled: -
+                </div>
+                <div class="thinker-metric" id="training-internet">
+                    Internet: -
+                </div>
+                <div class="thinker-metric" id="training-cycles">Cycles: -</div>
+                <div class="thinker-metric" id="training-nodes">
+                    Nodes written: -
+                </div>
+            </div>
+            <div
+                id="training-topics"
+                style="margin-top: 8px; font-size: 0.85rem; color: #b0bec5"
+            ></div>
+            <div
+                style="
+                    margin-top: 10px;
+                    display: flex;
+                    gap: 8px;
+                    flex-wrap: wrap;
+                "
+            >
+                <button class="btn-apply" onclick="setTrainingMode(true)">
+                    Enable Training
+                </button>
+                <button class="btn-deny" onclick="setTrainingMode(false)">
+                    Disable Training
+                </button>
+                <button class="btn-resolve" onclick="runTrainingNow()">
+                    Run Training Now
+                </button>
+            </div>
+        </div>
         <div id="notifications-area"></div>
         <div
             style="
@@ -270,6 +318,7 @@
             let userRole = "";
             let rootAdminAuthorized = false;
             let evolutionStatus = null;
+            let trainingStatus = null;
 
             // Theme Init
             if (localStorage.getItem("theme") === "light")
@@ -364,6 +413,7 @@
                 setStatus(`Loaded ${allUpdates.length} evolution proposal(s).`);
                 loadNotifications();
                 loadEvolutionStatus();
+                loadTrainingStatus();
                 renderUpdates();
             }
 
@@ -426,6 +476,103 @@
                 }
                 evolutionStatus = await res.json();
                 renderEvolutionStatus();
+            }
+
+            function renderTrainingStatus() {
+                const updatedAt = document.getElementById(
+                    "training-updated-at",
+                );
+                const enabled = document.getElementById("training-enabled");
+                const internet = document.getElementById("training-internet");
+                const cycles = document.getElementById("training-cycles");
+                const nodes = document.getElementById("training-nodes");
+                const topics = document.getElementById("training-topics");
+
+                if (!trainingStatus) {
+                    updatedAt.textContent = "";
+                    enabled.textContent = "Enabled: -";
+                    internet.textContent = "Internet: -";
+                    cycles.textContent = "Cycles: -";
+                    nodes.textContent = "Nodes written: -";
+                    topics.textContent = "";
+                    return;
+                }
+
+                const training = trainingStatus.training || {};
+                const updatedRaw =
+                    training.updated_at || training.last_cycle_at;
+                updatedAt.textContent = updatedRaw
+                    ? `Updated: ${new Date(updatedRaw).toLocaleString()}`
+                    : "Updated: unknown";
+                enabled.textContent = `Enabled: ${training.enabled ? "yes" : "no"}`;
+                internet.textContent = `Internet: ${trainingStatus.internet_enabled ? "enabled" : "disabled"}`;
+                cycles.textContent = `Cycles: ${training.total_cycles ?? 0}`;
+                nodes.textContent = `Nodes written: ${training.total_nodes_written ?? 0}`;
+                const lastTopics = training.last_topics || [];
+                topics.textContent =
+                    lastTopics.length > 0
+                        ? `Last training topics: ${lastTopics.join(", ")}`
+                        : "Last training topics: none";
+            }
+
+            async function loadTrainingStatus() {
+                if (!rootAdminAuthorized) return;
+                const res = await fetch("/api/admin/training/status", {
+                    credentials: "same-origin",
+                    headers: authHeaders(),
+                });
+                if (!res.ok) {
+                    trainingStatus = null;
+                    renderTrainingStatus();
+                    return;
+                }
+                trainingStatus = await res.json();
+                renderTrainingStatus();
+            }
+
+            async function setTrainingMode(enabled) {
+                const res = await fetch("/api/admin/training/mode", {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: authHeaders(true),
+                    body: JSON.stringify({ enabled }),
+                });
+                if (!res.ok) {
+                    setStatus(
+                        await parseErrorMessage(
+                            res,
+                            "Failed to update training mode.",
+                        ),
+                        true,
+                    );
+                    return;
+                }
+                setStatus(`Training mode ${enabled ? "enabled" : "disabled"}.`);
+                loadTrainingStatus();
+            }
+
+            async function runTrainingNow() {
+                const res = await fetch("/api/admin/training/run", {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: authHeaders(),
+                });
+                if (!res.ok) {
+                    setStatus(
+                        await parseErrorMessage(
+                            res,
+                            "Failed to run training cycle.",
+                        ),
+                        true,
+                    );
+                    return;
+                }
+                const payload = await res.json();
+                const nodesWritten = payload?.report?.nodes_written ?? 0;
+                setStatus(
+                    `Training cycle completed. Nodes written: ${nodesWritten}.`,
+                );
+                loadTrainingStatus();
             }
 
             function renderUpdates() {
@@ -698,7 +845,9 @@
                 if (!allowed) return;
                 loadUpdates();
                 loadEvolutionStatus();
+                loadTrainingStatus();
                 setInterval(loadEvolutionStatus, 15000);
+                setInterval(loadTrainingStatus, 15000);
             })();
         </script>
     </body>

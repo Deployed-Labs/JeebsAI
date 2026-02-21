@@ -56,6 +56,8 @@ async fn main() -> std::io::Result<()> {
 
     // Start Jeebs autonomous evolution loop.
     evolution::spawn_autonomous_thinker(state.db.clone());
+    // Start Jeebs autonomous internet training worker.
+    cortex::spawn_autonomous_training(state.clone());
 
     let port: u16 = env::var("PORT")
         .ok()
@@ -93,6 +95,9 @@ async fn main() -> std::io::Result<()> {
             .service(cortex::search_brain)
             .service(cortex::reindex_brain)
             .service(cortex::admin_train)
+            .service(cortex::get_training_status)
+            .service(cortex::set_training_mode)
+            .service(cortex::run_training_now)
             .service(cortex::visualize_brain)
             .service(cortex::get_logic_graph)
             .service(admin::status::get_system_status)

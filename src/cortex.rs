@@ -1,11 +1,13 @@
 use actix_session::Session;
 use actix_web::{get, post, web, HttpResponse, Responder};
 use chrono::Local;
+use rand::seq::SliceRandom;
 use reqwest::header::CONTENT_TYPE;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{Row, SqlitePool};
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::env;
 use std::time::Duration;
 
 use crate::state::AppState;
@@ -40,6 +42,11 @@ pub struct CrawlRequest {
     pub depth: Option<u8>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct RandomCrawlQuery {
+    pub depth: Option<u8>,
+}
+
 #[derive(Debug, Serialize)]
 struct CrawlSummary {
     start_url: String,
@@ -47,6 +54,46 @@ struct CrawlSummary {
     pages_visited: usize,
     pages_stored: usize,
     links_followed: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct TrainingModeState {
+    enabled: bool,
+    updated_at: String,
+    updated_by: String,
+    last_cycle_at: Option<String>,
+    total_cycles: u64,
+    total_topics_processed: u64,
+    total_nodes_written: u64,
+    last_topics: Vec<String>,
+    last_error: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct TrainingModeToggleRequest {
+    enabled: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct TrainingStatusResponse {
+    training: TrainingModeState,
+    internet_enabled: bool,
+    interval_seconds: u64,
+}
+
+#[derive(Debug, Serialize)]
+struct TrainingCycleReport {
+    topics: Vec<String>,
+    nodes_written: usize,
+    errors: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct CommunicationProfile {
+    style: String,
+    signals: Vec<String>,
+    recent_topics: Vec<String>,
+    updated_at: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -95,6 +142,8 @@ struct LearnedFact {
 
 const MAX_HISTORY_TURNS: usize = 24;
 const MAX_HISTORY_CHARS_PER_TURN: usize = 600;
+const TRAINING_STATE_KEY: &str = "training:mode:state";
+const DEFAULT_TRAINING_INTERVAL_SECS: u64 = 300;
 
 fn history_key(user_id: &str) -> String {
     format!("chat:history:{user_id}")
@@ -546,6 +595,572 @@ fn wants_personal_memory_lookup(lower: &str) -> bool {
         || lower.contains("tell me my ")
 }
 
+fn comprehension_key(owner: &str) -> String {
+    format!("chat:comprehension:{owner}")
+}
+
+async fn save_communication_profile(
+    db: &SqlitePool,
+    owner: &str,
+    profile: &CommunicationProfile,
+) -> Result<(), sqlx::Error> {
+    let payload = serde_json::to_vec(profile).unwrap_or_default();
+    sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)")
+        .bind(comprehension_key(owner))
+        .bind(payload)
+        .execute(db)
+        .await?;
+    Ok(())
+}
+
+async fn load_communication_profile(db: &SqlitePool, owner: &str) -> Option<CommunicationProfile> {
+    let row = sqlx::query("SELECT value FROM jeebs_store WHERE key = ? LIMIT 1")
+        .bind(comprehension_key(owner))
+        .fetch_optional(db)
+        .await
+        .ok()??;
+    let raw: Vec<u8> = row.get(0);
+    serde_json::from_slice::<CommunicationProfile>(&raw)
+        .ok()
+        .or_else(|| {
+            decode_all(&raw)
+                .ok()
+                .and_then(|decoded| serde_json::from_slice::<CommunicationProfile>(&decoded).ok())
+        })
+}
+
+fn infer_recent_topics(turns: &[ConversationTurn], limit: usize) -> Vec<String> {
+    let mut topics = HashMap::<String, usize>::new();
+    for turn in turns.iter().filter(|t| t.role == "user").rev().take(8) {
+        for token in tokenize_for_matching(&turn.content) {
+            if token.len() >= 4 {
+                *topics.entry(token).or_insert(0) += 1;
+            }
+        }
+    }
+    let mut scored = topics.into_iter().collect::<Vec<_>>();
+    scored.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    scored
+        .into_iter()
+        .take(limit)
+        .map(|(topic, _)| topic)
+        .collect()
+}
+
+fn analyze_communication_profile(
+    prompt: &str,
+    history: &[ConversationTurn],
+    previous: Option<&CommunicationProfile>,
+) -> CommunicationProfile {
+    let mut recent_user_turns = history
+        .iter()
+        .filter(|turn| turn.role == "user")
+        .rev()
+        .take(6)
+        .cloned()
+        .collect::<Vec<_>>();
+    recent_user_turns.reverse();
+
+    if !prompt.trim().is_empty() {
+        recent_user_turns.push(ConversationTurn {
+            role: "user".to_string(),
+            content: sanitize_turn_content(prompt),
+            timestamp: Local::now().to_rfc3339(),
+        });
+    }
+
+    let mut question_count = 0usize;
+    let mut command_like_count = 0usize;
+    let mut gratitude_count = 0usize;
+    let mut frustration_count = 0usize;
+    let mut long_message_count = 0usize;
+
+    for turn in &recent_user_turns {
+        let lower = turn.content.to_lowercase();
+        if lower.contains('?') {
+            question_count += 1;
+        }
+        if lower.starts_with("please ")
+            || lower.starts_with("do ")
+            || lower.starts_with("add ")
+            || lower.starts_with("make ")
+            || lower.starts_with("fix ")
+            || lower.starts_with("give ")
+            || lower.starts_with("build ")
+        {
+            command_like_count += 1;
+        }
+        if lower.contains("thanks") || lower.contains("thank you") {
+            gratitude_count += 1;
+        }
+        if lower.contains("not working")
+            || lower.contains("still no")
+            || lower.contains("broken")
+            || lower.contains("wtf")
+            || lower.contains("why isn't")
+        {
+            frustration_count += 1;
+        }
+        if turn.content.chars().count() >= 120 {
+            long_message_count += 1;
+        }
+    }
+
+    let style = if frustration_count >= 1 {
+        "frustrated"
+    } else if question_count >= 3 {
+        "curious"
+    } else if command_like_count >= 2 {
+        "direct"
+    } else if long_message_count >= 2 {
+        "reflective"
+    } else if gratitude_count >= 1 {
+        "collaborative"
+    } else {
+        "neutral"
+    }
+    .to_string();
+
+    let mut signals = Vec::new();
+    signals.push(format!(
+        "recent_questions={}, direct_requests={}, long_messages={}",
+        question_count, command_like_count, long_message_count
+    ));
+    if frustration_count >= 1 {
+        signals.push("frustration detected in recent phrasing".to_string());
+    }
+    if gratitude_count >= 1 {
+        signals.push("appreciation language detected".to_string());
+    }
+    if let Some(previous) = previous {
+        if previous.style != style {
+            signals.push(format!(
+                "style shifted from {} to {}",
+                previous.style, style
+            ));
+        }
+    }
+
+    CommunicationProfile {
+        style,
+        signals,
+        recent_topics: infer_recent_topics(&recent_user_turns, 6),
+        updated_at: Local::now().to_rfc3339(),
+    }
+}
+
+fn wants_communication_reflection(lower: &str) -> bool {
+    lower.contains("how am i communicating")
+        || lower.contains("how do i communicate")
+        || lower.contains("my communication style")
+        || lower.contains("how am i coming across")
+        || lower.contains("am i being clear")
+        || lower.contains("what do you think of my communication")
+}
+
+fn render_communication_reflection(profile: &CommunicationProfile) -> String {
+    let mut lines = vec![format!(
+        "You are communicating in a {} style right now.",
+        profile.style
+    )];
+    if !profile.recent_topics.is_empty() {
+        lines.push(format!(
+            "Recent topics you focus on: {}.",
+            profile.recent_topics.join(", ")
+        ));
+    }
+    if let Some(signal) = profile.signals.first() {
+        lines.push(format!("Signal snapshot: {signal}."));
+    }
+    lines.join(" ")
+}
+
+fn training_interval_seconds() -> u64 {
+    env::var("TRAINING_MODE_INTERVAL_SECS")
+        .ok()
+        .and_then(|raw| raw.parse::<u64>().ok())
+        .map(|value| value.clamp(30, 3600))
+        .unwrap_or(DEFAULT_TRAINING_INTERVAL_SECS)
+}
+
+fn training_state_default() -> TrainingModeState {
+    TrainingModeState {
+        enabled: false,
+        updated_at: Local::now().to_rfc3339(),
+        updated_by: "system".to_string(),
+        last_cycle_at: None,
+        total_cycles: 0,
+        total_topics_processed: 0,
+        total_nodes_written: 0,
+        last_topics: Vec::new(),
+        last_error: None,
+    }
+}
+
+async fn load_training_state(db: &SqlitePool) -> TrainingModeState {
+    let row = sqlx::query("SELECT value FROM jeebs_store WHERE key = ? LIMIT 1")
+        .bind(TRAINING_STATE_KEY)
+        .fetch_optional(db)
+        .await
+        .ok()
+        .flatten();
+
+    let Some(row) = row else {
+        return training_state_default();
+    };
+
+    let raw: Vec<u8> = row.get(0);
+    serde_json::from_slice::<TrainingModeState>(&raw)
+        .ok()
+        .or_else(|| {
+            decode_all(&raw)
+                .ok()
+                .and_then(|decoded| serde_json::from_slice::<TrainingModeState>(&decoded).ok())
+        })
+        .unwrap_or_else(training_state_default)
+}
+
+async fn save_training_state(
+    db: &SqlitePool,
+    state: &TrainingModeState,
+) -> Result<(), sqlx::Error> {
+    let payload = serde_json::to_vec(state).unwrap_or_default();
+    sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)")
+        .bind(TRAINING_STATE_KEY)
+        .bind(payload)
+        .execute(db)
+        .await?;
+    Ok(())
+}
+
+fn extract_question_topic(question: &str) -> String {
+    let tokens = tokenize_for_matching(question);
+    if tokens.is_empty() {
+        return canonical_prompt_key(question);
+    }
+    tokens.into_iter().take(5).collect::<Vec<_>>().join(" ")
+}
+
+async fn collect_training_topics(db: &SqlitePool, limit: usize) -> Vec<String> {
+    let rows = sqlx::query("SELECT value FROM jeebs_store WHERE key LIKE 'chat:history:%'")
+        .fetch_all(db)
+        .await
+        .unwrap_or_default();
+
+    let mut counts = HashMap::<String, usize>::new();
+    for row in rows {
+        let raw: Vec<u8> = row.get(0);
+        let parsed = serde_json::from_slice::<Vec<ConversationTurn>>(&raw)
+            .ok()
+            .or_else(|| {
+                decode_all(&raw).ok().and_then(|decoded| {
+                    serde_json::from_slice::<Vec<ConversationTurn>>(&decoded).ok()
+                })
+            });
+        let Some(turns) = parsed else {
+            continue;
+        };
+
+        for turn in turns.iter().rev().take(24) {
+            if turn.role != "user" || !turn.content.contains('?') {
+                continue;
+            }
+            let topic = extract_question_topic(&turn.content);
+            if topic.is_empty() {
+                continue;
+            }
+            *counts.entry(topic).or_insert(0) += 1;
+        }
+    }
+
+    let mut topics = counts.into_iter().collect::<Vec<_>>();
+    topics.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+
+    let mut out = topics
+        .into_iter()
+        .take(limit)
+        .map(|(topic, _)| topic)
+        .collect::<Vec<_>>();
+
+    if out.is_empty() {
+        out = vec![
+            "artificial intelligence".to_string(),
+            "software engineering best practices".to_string(),
+            "rust programming".to_string(),
+            "internet security basics".to_string(),
+        ];
+    }
+
+    out
+}
+
+#[derive(Debug, Deserialize)]
+struct WikiSummaryResponse {
+    title: Option<String>,
+    extract: Option<String>,
+    #[serde(default)]
+    content_urls: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone)]
+struct ExternalLearningDoc {
+    title: String,
+    url: String,
+    summary: String,
+    topic: String,
+}
+
+async fn query_wikipedia_docs(
+    client: &reqwest::Client,
+    topic: &str,
+    max_docs: usize,
+) -> Result<Vec<ExternalLearningDoc>, String> {
+    let mut search_url = reqwest::Url::parse("https://en.wikipedia.org/w/api.php")
+        .map_err(|err| format!("wikipedia search url build failed: {err}"))?;
+    {
+        let mut pairs = search_url.query_pairs_mut();
+        pairs.append_pair("action", "opensearch");
+        pairs.append_pair("search", topic);
+        pairs.append_pair("limit", "5");
+        pairs.append_pair("namespace", "0");
+        pairs.append_pair("format", "json");
+    }
+
+    let response = client
+        .get(search_url)
+        .send()
+        .await
+        .map_err(|err| format!("wikipedia search request failed: {err}"))?;
+
+    if !response.status().is_success() {
+        return Err(format!(
+            "wikipedia search failed with status {}",
+            response.status()
+        ));
+    }
+
+    let search_raw = response
+        .text()
+        .await
+        .map_err(|err| format!("wikipedia search read failed: {err}"))?;
+    let search = serde_json::from_str::<serde_json::Value>(&search_raw)
+        .map_err(|err| format!("wikipedia search parse failed: {err}"))?;
+    let titles = search
+        .get(1)
+        .and_then(|value| value.as_array())
+        .cloned()
+        .unwrap_or_default();
+
+    let mut docs = Vec::new();
+    for title_value in titles.into_iter().take(max_docs) {
+        let title = title_value.as_str().map(str::to_string).unwrap_or_default();
+        if title.trim().is_empty() {
+            continue;
+        }
+
+        let mut summary_url =
+            reqwest::Url::parse("https://en.wikipedia.org/api/rest_v1/page/summary/")
+                .map_err(|err| format!("summary url build failed: {err}"))?;
+        summary_url
+            .path_segments_mut()
+            .map_err(|_| "failed to build summary path".to_string())?
+            .pop_if_empty()
+            .push(&title);
+
+        let summary_resp = client
+            .get(summary_url)
+            .send()
+            .await
+            .map_err(|err| format!("wikipedia summary request failed: {err}"))?;
+
+        if !summary_resp.status().is_success() {
+            continue;
+        }
+
+        let summary_raw = summary_resp
+            .text()
+            .await
+            .map_err(|err| format!("wikipedia summary read failed: {err}"))?;
+        let payload = serde_json::from_str::<WikiSummaryResponse>(&summary_raw)
+            .map_err(|err| format!("wikipedia summary parse failed: {err}"))?;
+
+        let resolved_title = payload
+            .title
+            .unwrap_or_else(|| title.clone())
+            .trim()
+            .to_string();
+        let extract = payload
+            .extract
+            .unwrap_or_default()
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+        if resolved_title.is_empty() || extract.is_empty() {
+            continue;
+        }
+
+        let page_url = payload
+            .content_urls
+            .as_ref()
+            .and_then(|urls| urls.get("desktop"))
+            .and_then(|desktop| desktop.get("page"))
+            .and_then(|page| page.as_str())
+            .map(str::to_string)
+            .unwrap_or_else(|| {
+                format!(
+                    "https://en.wikipedia.org/wiki/{}",
+                    resolved_title.replace(' ', "_")
+                )
+            });
+
+        docs.push(ExternalLearningDoc {
+            title: resolved_title,
+            url: page_url,
+            summary: truncate_chars(&extract, 900),
+            topic: topic.to_string(),
+        });
+    }
+
+    Ok(docs)
+}
+
+async fn store_external_learning_doc(
+    db: &SqlitePool,
+    doc: &ExternalLearningDoc,
+) -> Result<(), sqlx::Error> {
+    let normalized_url = doc.url.trim();
+    let node_id = format!("train:{}", blake3::hash(normalized_url.as_bytes()).to_hex());
+    let payload = serde_json::to_vec(&json!({
+        "source": "training_mode",
+        "provider": "wikipedia",
+        "topic": doc.topic,
+        "url": doc.url,
+        "title": doc.title,
+        "summary": doc.summary,
+        "trained_at": Local::now().to_rfc3339()
+    }))
+    .unwrap_or_default();
+
+    sqlx::query(
+        "INSERT OR REPLACE INTO brain_nodes (id, label, summary, data, created_at)
+         VALUES (?, ?, ?, ?, ?)",
+    )
+    .bind(&node_id)
+    .bind(&doc.title)
+    .bind(&doc.summary)
+    .bind(payload)
+    .bind(Local::now().to_rfc3339())
+    .execute(db)
+    .await?;
+
+    let _ = sqlx::query(
+        "INSERT OR REPLACE INTO knowledge_triples (subject, predicate, object, confidence, created_at)
+         VALUES (?, ?, ?, ?, ?)",
+    )
+    .bind(&doc.topic)
+    .bind("researched_from")
+    .bind(&doc.url)
+    .bind(0.82_f64)
+    .bind(Local::now().to_rfc3339())
+    .execute(db)
+    .await;
+
+    Ok(())
+}
+
+async fn run_training_cycle(state: &AppState) -> TrainingCycleReport {
+    let mut report = TrainingCycleReport {
+        topics: Vec::new(),
+        nodes_written: 0,
+        errors: Vec::new(),
+    };
+
+    if !*state.internet_enabled.read().unwrap() {
+        report
+            .errors
+            .push("internet is disabled; enable it in admin first".to_string());
+        return report;
+    }
+
+    let topics = collect_training_topics(&state.db, 3).await;
+    report.topics = topics.clone();
+    let client = match reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .user_agent("JeebsAI-TrainingMode/1.0")
+        .build()
+    {
+        Ok(client) => client,
+        Err(err) => {
+            report
+                .errors
+                .push(format!("failed to initialize training client: {err}"));
+            return report;
+        }
+    };
+
+    for topic in topics {
+        match query_wikipedia_docs(&client, &topic, 2).await {
+            Ok(docs) => {
+                for doc in docs {
+                    if store_external_learning_doc(&state.db, &doc).await.is_ok() {
+                        report.nodes_written += 1;
+                    }
+                }
+            }
+            Err(err) => report.errors.push(format!("topic '{topic}': {err}")),
+        }
+    }
+
+    report
+}
+
+pub fn spawn_autonomous_training(state: web::Data<AppState>) {
+    tokio::spawn(async move {
+        crate::logging::log(
+            &state.db,
+            "INFO",
+            "training_mode",
+            "Autonomous training worker started.",
+        )
+        .await;
+
+        loop {
+            let mut mode = load_training_state(&state.db).await;
+            if mode.enabled {
+                let report = run_training_cycle(state.get_ref()).await;
+                mode.last_cycle_at = Some(Local::now().to_rfc3339());
+                mode.total_cycles = mode.total_cycles.saturating_add(1);
+                mode.total_topics_processed = mode
+                    .total_topics_processed
+                    .saturating_add(report.topics.len() as u64);
+                mode.total_nodes_written = mode
+                    .total_nodes_written
+                    .saturating_add(report.nodes_written as u64);
+                mode.last_topics = report.topics.clone();
+                mode.last_error = report.errors.first().cloned();
+                mode.updated_at = Local::now().to_rfc3339();
+                mode.updated_by = "autonomous_worker".to_string();
+                let _ = save_training_state(&state.db, &mode).await;
+
+                crate::logging::log(
+                    &state.db,
+                    "INFO",
+                    "training_mode",
+                    &format!(
+                        "Training cycle complete. topics={} nodes_written={} errors={}",
+                        report.topics.len(),
+                        report.nodes_written,
+                        report.errors.len()
+                    ),
+                )
+                .await;
+            }
+
+            tokio::time::sleep(Duration::from_secs(training_interval_seconds())).await;
+        }
+    });
+}
+
 pub async fn search_knowledge(db: &SqlitePool, query: &str) -> Vec<BrainNode> {
     let pattern = format!("%{}%", query);
     let rows = sqlx::query(
@@ -739,6 +1354,7 @@ fn help_text() -> String {
         "- quick math (example: calculate 12 * 7)",
         "- current date/time",
         "- lookup from stored brain notes",
+        "- communication reflection (ask: `how am i communicating?`)",
         "- custom memory commands: `remember: question => answer`, `forget: question`",
         "",
         "Try: `hello`, `what time is it`, `what is 18/3`, or ask about something I already learned.",
@@ -814,6 +1430,11 @@ async fn custom_ai_logic_with_context(
     } else {
         Vec::new()
     };
+    let communication_profile = if let Some(owner) = facts_owner {
+        load_communication_profile(db, owner).await
+    } else {
+        None
+    };
 
     if lower.contains("what did i just say") || lower.contains("what was my last message") {
         if let Some(previous_user) = last_turn_by_role(history, "user") {
@@ -834,6 +1455,14 @@ async fn custom_ai_logic_with_context(
             return format!("Recent topics from our chat: {summary}");
         }
         return "We just started chatting. Ask me anything to get going.".to_string();
+    }
+
+    if wants_communication_reflection(&lower) {
+        if let Some(profile) = communication_profile.as_ref() {
+            return render_communication_reflection(profile);
+        }
+        return "I do not have enough chat context yet to analyze your communication style."
+            .to_string();
     }
 
     if lower.contains("what is my name") || lower.contains("who am i") {
@@ -1018,12 +1647,30 @@ async fn custom_ai_logic_with_context(
 
     if clean_prompt.ends_with('?') {
         if let Some(previous_user) = last_turn_by_role(history, "user") {
-            format!(
+            let mut response = format!(
                 "I am still learning that topic. Are you asking in relation to \"{}\"?",
                 truncate_chars(&previous_user.content, 90)
-            )
+            );
+            if let Some(profile) = communication_profile.as_ref() {
+                if profile.style == "frustrated" {
+                    response.push_str(
+                        " I can tell this has been frustrating. Give me a specific topic and I will research it.",
+                    );
+                }
+            }
+            response
         } else {
-            "I am still learning that topic. Try `help`, ask for math/time/date, or teach me more context.".to_string()
+            let mut response =
+                "I am still learning that topic. Try `help`, ask for math/time/date, or teach me more context."
+                    .to_string();
+            if let Some(profile) = communication_profile.as_ref() {
+                if profile.style == "curious" {
+                    response.push_str(
+                        " I can also run in training mode to research topics continuously.",
+                    );
+                }
+            }
+            response
         }
     } else {
         "Got it. Keep chatting with me and I will help with what I can.".to_string()
@@ -1047,6 +1694,15 @@ impl Cortex {
     ) -> String {
         let mut history = load_conversation_history(&state.db, user_id).await;
         let facts_owner = fact_owner_key(user_id, username);
+        let previous_profile = load_communication_profile(&state.db, &facts_owner).await;
+        let communication_profile =
+            analyze_communication_profile(prompt, &history, previous_profile.as_ref());
+        if let Err(err) =
+            save_communication_profile(&state.db, &facts_owner, &communication_profile).await
+        {
+            eprintln!("[WARN] failed to store communication profile: {err}");
+        }
+
         let learned_fact = if let Some(fact) = extract_learnable_fact(prompt) {
             match save_learned_fact(&state.db, &facts_owner, &fact).await {
                 Ok(saved) => Some(saved),
@@ -1069,6 +1725,11 @@ impl Cortex {
             {
                 response = format!("I learned that {}.", fact.fact);
             }
+        } else if response == "Got it. Keep chatting with me and I will help with what I can."
+            && communication_profile.style == "direct"
+        {
+            response = "Got it. You can give me a direct question, and I will answer or learn it."
+                .to_string();
         }
 
         let now = Local::now().to_rfc3339();
@@ -1214,15 +1875,145 @@ async fn build_graph(db: &SqlitePool, logic_only: bool) -> GraphResponse {
 }
 
 #[post("/api/admin/train")]
-pub async fn admin_train(session: Session, _state: web::Data<AppState>) -> impl Responder {
+pub async fn admin_train(session: Session, state: web::Data<AppState>) -> impl Responder {
     if !crate::auth::is_root_admin_session(&session) {
         return HttpResponse::Forbidden()
             .json(json!({"error": "Restricted to 1090mb admin account"}));
     }
 
+    let actor = session
+        .get::<String>("username")
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| crate::auth::ROOT_ADMIN_USERNAME.to_string());
+
+    let mut training_state = load_training_state(&state.db).await;
+    training_state.enabled = true;
+    training_state.updated_at = Local::now().to_rfc3339();
+    training_state.updated_by = actor.clone();
+    let _ = save_training_state(&state.db, &training_state).await;
+
+    let report = run_training_cycle(state.get_ref()).await;
+    training_state.last_cycle_at = Some(Local::now().to_rfc3339());
+    training_state.total_cycles = training_state.total_cycles.saturating_add(1);
+    training_state.total_topics_processed = training_state
+        .total_topics_processed
+        .saturating_add(report.topics.len() as u64);
+    training_state.total_nodes_written = training_state
+        .total_nodes_written
+        .saturating_add(report.nodes_written as u64);
+    training_state.last_topics = report.topics.clone();
+    training_state.last_error = report.errors.first().cloned();
+    training_state.updated_at = Local::now().to_rfc3339();
+    training_state.updated_by = actor;
+    let _ = save_training_state(&state.db, &training_state).await;
+
     HttpResponse::Ok().json(json!({
         "ok": true,
-        "message": "Training initiated."
+        "message": "Training mode enabled and one training cycle completed.",
+        "report": report,
+        "training": training_state
+    }))
+}
+
+#[get("/api/admin/training/status")]
+pub async fn get_training_status(session: Session, state: web::Data<AppState>) -> impl Responder {
+    if !crate::auth::is_root_admin_session(&session) {
+        return HttpResponse::Forbidden()
+            .json(json!({"error": "Restricted to 1090mb admin account"}));
+    }
+
+    let training = load_training_state(&state.db).await;
+    let internet_enabled = *state.internet_enabled.read().unwrap();
+
+    HttpResponse::Ok().json(TrainingStatusResponse {
+        training,
+        internet_enabled,
+        interval_seconds: training_interval_seconds(),
+    })
+}
+
+#[post("/api/admin/training/mode")]
+pub async fn set_training_mode(
+    session: Session,
+    state: web::Data<AppState>,
+    req: web::Json<TrainingModeToggleRequest>,
+) -> impl Responder {
+    if !crate::auth::is_root_admin_session(&session) {
+        return HttpResponse::Forbidden()
+            .json(json!({"error": "Restricted to 1090mb admin account"}));
+    }
+
+    let actor = session
+        .get::<String>("username")
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| crate::auth::ROOT_ADMIN_USERNAME.to_string());
+
+    let mut training = load_training_state(&state.db).await;
+    training.enabled = req.enabled;
+    training.updated_at = Local::now().to_rfc3339();
+    training.updated_by = actor.clone();
+    if req.enabled {
+        training.last_error = None;
+    }
+    if let Err(err) = save_training_state(&state.db, &training).await {
+        return HttpResponse::InternalServerError()
+            .json(json!({"error": format!("failed to save training mode: {err}")}));
+    }
+
+    crate::logging::log(
+        &state.db,
+        "INFO",
+        "training_mode",
+        &format!(
+            "Training mode {} by {}",
+            if req.enabled { "enabled" } else { "disabled" },
+            actor
+        ),
+    )
+    .await;
+
+    HttpResponse::Ok().json(json!({
+        "ok": true,
+        "enabled": req.enabled,
+        "training": training
+    }))
+}
+
+#[post("/api/admin/training/run")]
+pub async fn run_training_now(session: Session, state: web::Data<AppState>) -> impl Responder {
+    if !crate::auth::is_root_admin_session(&session) {
+        return HttpResponse::Forbidden()
+            .json(json!({"error": "Restricted to 1090mb admin account"}));
+    }
+
+    let actor = session
+        .get::<String>("username")
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| crate::auth::ROOT_ADMIN_USERNAME.to_string());
+
+    let mut training_state = load_training_state(&state.db).await;
+    let report = run_training_cycle(state.get_ref()).await;
+    training_state.last_cycle_at = Some(Local::now().to_rfc3339());
+    training_state.total_cycles = training_state.total_cycles.saturating_add(1);
+    training_state.total_topics_processed = training_state
+        .total_topics_processed
+        .saturating_add(report.topics.len() as u64);
+    training_state.total_nodes_written = training_state
+        .total_nodes_written
+        .saturating_add(report.nodes_written as u64);
+    training_state.last_topics = report.topics.clone();
+    training_state.last_error = report.errors.first().cloned();
+    training_state.updated_at = Local::now().to_rfc3339();
+    training_state.updated_by = actor;
+    let _ = save_training_state(&state.db, &training_state).await;
+
+    HttpResponse::Ok().json(json!({
+        "ok": report.errors.is_empty(),
+        "report": report,
+        "training": training_state
     }))
 }
 
