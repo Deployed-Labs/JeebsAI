@@ -1,0 +1,79 @@
+┌────────────────────────────────────────────────────────────────┐
+│                                                                │
+│  🚀 JeebsAI - VPS Installation Script READY!                  │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+
+📦 INSTALLATION SCRIPT CREATED: vps_fresh_install.sh
+
+═══════════════════════════════════════════════════════════════
+
+🎯 TO INSTALL ON YOUR VPS:
+
+   Option 1 - Direct Install (Easiest):
+   ────────────────────────────────────
+   curl -sSL https://raw.githubusercontent.com/Deployed-Labs/JeebsAI/main/vps_fresh_install.sh | sudo bash
+
+   Option 2 - Download & Run:
+   ────────────────────────────
+   wget https://raw.githubusercontent.com/Deployed-Labs/JeebsAI/main/vps_fresh_install.sh
+   chmod +x vps_fresh_install.sh
+   sudo ./vps_fresh_install.sh
+
+═══════════════════════════════════════════════════════════════
+
+✅ WHAT IT DOES:
+   • Installs all dependencies (Rust, build tools, etc.)
+   • Clones JeebsAI repository to /opt/jeebs
+   • Builds release binary (~5-10 minutes)
+   • Creates systemd service
+   • Starts JeebsAI automatically
+   • Performs health check
+
+⏱️  INSTALL TIME: 5-15 minutes (depending on VPS speed)
+
+═══════════════════════════════════════════════════════════════
+
+📋 AFTER INSTALLATION:
+
+   Access JeebsAI:
+   http://YOUR_VPS_IP:8080
+
+   Check Status:
+   sudo systemctl status jeebs
+
+   View Logs:
+   sudo journalctl -u jeebs -f
+
+   Update Later:
+   cd /opt/jeebs && sudo ./deploy_to_vps.sh
+
+═══════════════════════════════════════════════════════════════
+
+📚 DOCUMENTATION:
+   • Quick Guide:     VPS_INSTALL.md
+   • Full Details:    VPS_INSTALL.md
+   • Script Ready:    VPS_SCRIPT_READY.md
+
+═══════════════════════════════════════════════════════════════
+
+🎯 QUICK START:
+
+   1. Push to GitHub:
+      ./push_to_main.sh
+
+   2. SSH to VPS:
+      ssh root@your-vps.com
+
+   3. Run install script:
+      curl -sSL https://raw.githubusercontent.com/YOUR_USERNAME/JeebsAI/main/vps_fresh_install.sh | sudo bash
+
+   4. Done! Access at http://YOUR_VPS_IP:8080
+
+═══════════════════════════════════════════════════════════════
+
+🎉 EVERYTHING IS READY TO DEPLOY!
+
+Your intelligent AI assistant is just one command away! 🚀
+
+═══════════════════════════════════════════════════════════════

@@ -14,6 +14,17 @@ Jeebs now features:
 
 👉 **[Quick Start Guide](QUICK_START.md)** | **[Full Learning System Docs](LEARNING_SYSTEM.md)**
 
+## 🚀 Quick VPS Install
+
+**Deploy to VPS in one command:**
+```bash
+curl -sSL https://raw.githubusercontent.com/Deployed-Labs/JeebsAI/main/vps_fresh_install.sh | sudo bash
+```
+
+👉 **[Full VPS Installation Guide](VPS_INSTALL.md)**
+
+---
+
 ## Table of Contents
 
 - [Prerequisites](#prerequisites)
