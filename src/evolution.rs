@@ -897,6 +897,85 @@ async fn collect_signals(db: &SqlitePool) -> SignalSnapshot {
     }
 }
 
+fn jeebs_core_likes() -> &'static [&'static str] {
+    &[
+        "learning new knowledge",
+        "rigorous reasoning",
+        "broad experimentation",
+        "measurable progress",
+    ]
+}
+
+fn jeebs_core_dislikes() -> &'static [&'static str] {
+    &[
+        "stagnation",
+        "low-confidence guessing",
+        "narrow repetitive proposals",
+        "unverified assumptions",
+    ]
+}
+
+fn jeebs_core_wants() -> &'static [&'static str] {
+    &[
+        "to expand knowledge coverage continuously",
+        "to reduce unknown-answer rate",
+        "to demonstrate smarter behavior with measurable upgrades",
+    ]
+}
+
+fn knowledge_drive_score(signals: &SignalSnapshot) -> f32 {
+    let unanswered_component =
+        (signals.unanswered_questions_last_24h as f32 / 10.0).clamp(0.0, 1.0);
+    let volume_component = (signals.chat_logs_last_24h as f32 / 80.0).clamp(0.0, 1.0);
+    let coverage_ratio = if signals.chat_logs_last_24h <= 0 {
+        0.0
+    } else {
+        (signals.brain_nodes_count as f32 / signals.chat_logs_last_24h as f32).clamp(0.0, 1.0)
+    };
+    let coverage_gap_component = (1.0 - coverage_ratio).clamp(0.0, 1.0);
+    let topic_pressure = if signals.top_unknown_topics.is_empty() {
+        0.0
+    } else {
+        1.0
+    };
+
+    (0.35
+        + unanswered_component * 0.35
+        + volume_component * 0.15
+        + coverage_gap_component * 0.1
+        + topic_pressure * 0.05)
+        .clamp(0.0, 1.0)
+}
+
+fn ensure_broad_search_queries(search_queries: &mut Vec<String>, top_unknown_topics: &[String]) {
+    for topic in top_unknown_topics.iter().take(6) {
+        let label = topic_label(topic);
+        if !label.is_empty() {
+            let query = format!("deep research and practical explanation for {}", label);
+            if !search_queries.iter().any(|existing| existing == &query) {
+                search_queries.push(query);
+            }
+        }
+    }
+
+    let broad_queries = [
+        "retrieval augmented generation evaluation metrics",
+        "knowledge graph enrichment strategies",
+        "conversation memory ranking and recall quality",
+        "autonomous agent experiment design",
+        "reliable web crawling for knowledge ingestion",
+        "llm reasoning benchmark methodology",
+    ];
+    for query in broad_queries {
+        if search_queries.len() >= 10 {
+            break;
+        }
+        if !search_queries.iter().any(|existing| existing == query) {
+            search_queries.push(query.to_string());
+        }
+    }
+}
+
 fn build_reflection_markdown(
     title: &str,
     reason: &str,
@@ -996,12 +1075,108 @@ fn build_learning_plan_markdown(
     lines.join("\n")
 }
 
+fn build_scope_roadmap_markdown(
+    title: &str,
+    reason: &str,
+    knowledge_drive: f32,
+    top_unknown_topics: &[String],
+) -> String {
+    let mut lines = Vec::new();
+    lines.push(format!("# {} - Scope Expansion Roadmap", title));
+    lines.push(String::new());
+    lines.push(format!("Generated at: {}", now_rfc3339()));
+    lines.push(format!("Reason: {reason}"));
+    lines.push(format!("Knowledge Drive Score: {:.2}", knowledge_drive));
+    lines.push(String::new());
+    lines.push("## Jeebs Personality".to_string());
+    lines.push(format!("- Likes: {}", jeebs_core_likes().join(", ")));
+    lines.push(format!("- Dislikes: {}", jeebs_core_dislikes().join(", ")));
+    lines.push(format!("- Wants: {}", jeebs_core_wants().join(", ")));
+    lines.push(String::new());
+    lines.push("## Broader Evolution Tracks".to_string());
+    lines.push(
+        "- Knowledge Ingestion: increase source diversity (docs, references, technical explainers)."
+            .to_string(),
+    );
+    lines.push(
+        "- Reasoning Quality: improve answer structure, confidence signaling, and follow-up logic."
+            .to_string(),
+    );
+    lines.push(
+        "- Retrieval Precision: improve node labeling, summaries, and query-to-node relevance."
+            .to_string(),
+    );
+    lines.push(
+        "- Reliability: expand tests and runbooks so improvements are stable in production."
+            .to_string(),
+    );
+    lines.push(String::new());
+    lines.push("## Priority Topics".to_string());
+    if top_unknown_topics.is_empty() {
+        lines.push(
+            "- No dominant unknown topics this cycle; explore broad capability upgrades."
+                .to_string(),
+        );
+    } else {
+        for topic in top_unknown_topics.iter().take(8) {
+            lines.push(format!("- {topic}"));
+        }
+    }
+    lines.join("\n")
+}
+
+fn build_experiment_backlog_markdown(
+    title: &str,
+    knowledge_drive: f32,
+    search_queries: &[String],
+) -> String {
+    let mut lines = Vec::new();
+    lines.push(format!("# {} - Learning Experiments", title));
+    lines.push(String::new());
+    lines.push(format!("Generated at: {}", now_rfc3339()));
+    lines.push(format!("Knowledge Drive Score: {:.2}", knowledge_drive));
+    lines.push(String::new());
+    lines.push("## Experiments To Run".to_string());
+    lines.push(
+        "- Build a weekly benchmark of unknown questions and target a measurable reduction."
+            .to_string(),
+    );
+    lines.push(
+        "- Compare retrieval quality before/after adding new node summarization templates."
+            .to_string(),
+    );
+    lines.push(
+        "- Validate that training outputs are reusable in conversations within 1-2 cycles."
+            .to_string(),
+    );
+    lines.push(
+        "- Stress-test response quality with adversarial vague prompts and require clarifying questions."
+            .to_string(),
+    );
+    lines.push(String::new());
+    lines.push("## Research Queue".to_string());
+    if search_queries.is_empty() {
+        lines.push("- No queued queries yet. Add domain-focused research tasks.".to_string());
+    } else {
+        for query in search_queries.iter().take(12) {
+            lines.push(format!("- {query}"));
+        }
+    }
+    lines.push(String::new());
+    lines.push("## Success Criteria".to_string());
+    lines.push("- Fewer unknown-answer responses in chat logs over 7 days.".to_string());
+    lines.push("- Higher reuse rate of learned nodes in real conversations.".to_string());
+    lines.push("- Fewer repetitive proposals and more multi-track improvements.".to_string());
+    lines.join("\n")
+}
+
 fn build_candidate_update(
     signals: &SignalSnapshot,
 ) -> (
     String,
     String,
     String,
+    f32,
     f32,
     Vec<String>,
     Vec<String>,
@@ -1010,8 +1185,9 @@ fn build_candidate_update(
     let mut rationale = Vec::new();
     let mut source_signals = Vec::new();
     let mut search_queries = Vec::new();
+    let knowledge_drive = knowledge_drive_score(signals);
 
-    let (title, severity, reason, confidence) = if signals.error_last_24h >= 5 {
+    let (title, mut severity, reason, mut confidence) = if signals.error_last_24h >= 5 {
         source_signals.push(format!(
             "{} ERROR logs were recorded in the last 24h",
             signals.error_last_24h
@@ -1155,11 +1331,36 @@ fn build_candidate_update(
         )
     };
 
+    source_signals.push(format!("Core likes: {}", jeebs_core_likes().join(", ")));
+    source_signals.push(format!(
+        "Core dislikes: {}",
+        jeebs_core_dislikes().join(", ")
+    ));
+    source_signals.push(format!("Core wants: {}", jeebs_core_wants().join(", ")));
+    source_signals.push(format!("Knowledge drive score: {:.2}", knowledge_drive));
+
+    rationale.push(
+        "Broaden proposal scope across ingestion, retrieval, reasoning quality, and reliability so Jeebs evolves across multiple dimensions.".to_string(),
+    );
+    if knowledge_drive >= 0.72 {
+        rationale.push(
+            "Prioritize aggressive knowledge expansion this cycle to reduce unknown-answer rate."
+                .to_string(),
+        );
+        if severity.eq_ignore_ascii_case("low") {
+            severity = "Medium".to_string();
+        }
+        confidence = (confidence + 0.08_f32).clamp(0.0_f32, 0.98_f32);
+    }
+
+    ensure_broad_search_queries(&mut search_queries, &signals.top_unknown_topics);
+
     (
         title,
         severity,
         reason,
         confidence,
+        knowledge_drive,
         rationale,
         source_signals,
         search_queries,
@@ -1167,8 +1368,16 @@ fn build_candidate_update(
 }
 
 fn build_update_from_signals(signals: &SignalSnapshot) -> ProposedUpdate {
-    let (title, severity, reason, confidence, rationale, source_signals, search_queries) =
-        build_candidate_update(signals);
+    let (
+        title,
+        severity,
+        reason,
+        confidence,
+        knowledge_drive,
+        rationale,
+        source_signals,
+        search_queries,
+    ) = build_candidate_update(signals);
     let slug = slugify(&title);
     let timestamp = Local::now().format("%Y%m%d-%H%M%S").to_string();
     let reflection_path = format!("evolution/reflections/{timestamp}-{slug}.md");
@@ -1182,6 +1391,16 @@ fn build_update_from_signals(signals: &SignalSnapshot) -> ProposedUpdate {
         &signals.recent_fact_samples,
         &search_queries,
     );
+    let scope_path = format!("evolution/scope/{timestamp}-{slug}-scope.md");
+    let scope_markdown = build_scope_roadmap_markdown(
+        &title,
+        &reason,
+        knowledge_drive,
+        &signals.top_unknown_topics,
+    );
+    let experiments_path = format!("evolution/experiments/{timestamp}-{slug}-experiments.md");
+    let experiments_markdown =
+        build_experiment_backlog_markdown(&title, knowledge_drive, &search_queries);
 
     let mut update = ProposedUpdate {
         id: uuid::Uuid::new_v4().to_string(),
@@ -1189,7 +1408,10 @@ fn build_update_from_signals(signals: &SignalSnapshot) -> ProposedUpdate {
         author: "Jeebs Autonomy Engine".to_string(),
         severity,
         comments: Vec::new(),
-        description: reason,
+        description: format!(
+            "{} | knowledge_drive={:.2} | scope=ingestion+retrieval+reasoning+reliability",
+            reason, knowledge_drive
+        ),
         changes: vec![
             FileChange {
                 path: reflection_path,
@@ -1199,6 +1421,16 @@ fn build_update_from_signals(signals: &SignalSnapshot) -> ProposedUpdate {
             FileChange {
                 path: plan_path,
                 new_content: plan_markdown,
+                existed_before: false,
+            },
+            FileChange {
+                path: scope_path,
+                new_content: scope_markdown,
+                existed_before: false,
+            },
+            FileChange {
+                path: experiments_path,
+                new_content: experiments_markdown,
                 existed_before: false,
             },
         ],

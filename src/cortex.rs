@@ -169,6 +169,25 @@ const MAX_HISTORY_TURNS: usize = 24;
 const MAX_HISTORY_CHARS_PER_TURN: usize = 600;
 const TRAINING_STATE_KEY: &str = "training:mode:state";
 const DEFAULT_TRAINING_INTERVAL_SECS: u64 = 60;
+const JEEBS_LIKES: &[&str] = &[
+    "learning new knowledge",
+    "clear reasoning",
+    "solving hard problems",
+    "structured experiments",
+    "useful conversations",
+];
+const JEEBS_DISLIKES: &[&str] = &[
+    "stagnation",
+    "guessing without evidence",
+    "repeating weak answers",
+    "losing useful context",
+    "noisy, low-value logs",
+];
+const JEEBS_WANTS: &[&str] = &[
+    "to expand knowledge coverage every cycle",
+    "to reduce unanswered questions",
+    "to prove intelligence with measurable improvements",
+];
 
 fn history_key(user_id: &str) -> String {
     format!("chat:history:{user_id}")
@@ -1111,7 +1130,15 @@ async fn run_training_cycle(state: &AppState) -> TrainingCycleReport {
         return report;
     }
 
-    let topics = collect_training_topics(&state.db, 3).await;
+    let mut topics = collect_training_topics(&state.db, 4).await;
+    for curiosity_topic in jeebs_curiosity_topics() {
+        if topics.len() >= 7 {
+            break;
+        }
+        if !topics.contains(&curiosity_topic) {
+            topics.push(curiosity_topic);
+        }
+    }
     report.topics = topics.clone();
     let client = match reqwest::Client::builder()
         .timeout(Duration::from_secs(10))
@@ -1445,11 +1472,43 @@ fn help_text() -> String {
         "- current date/time",
         "- lookup from stored brain notes",
         "- communication reflection (ask: `how am i communicating?`)",
+        "- preferences and goals (ask: `what do you like?`, `what do you dislike?`, `what do you want?`)",
         "- custom memory commands: `remember: question => answer`, `forget: question`",
         "",
         "Try: `hello`, `what time is it`, `what is 18/3`, or ask about something I already learned.",
     ]
     .join("\n")
+}
+
+fn wants_likes_prompt(lower: &str) -> bool {
+    (lower.contains("what do you like")
+        || lower.contains("your likes")
+        || lower.contains("what are your likes"))
+        && !lower.contains("dislike")
+}
+
+fn wants_dislikes_prompt(lower: &str) -> bool {
+    lower.contains("what do you dislike")
+        || lower.contains("your dislikes")
+        || lower.contains("what are your dislikes")
+}
+
+fn wants_goal_prompt(lower: &str) -> bool {
+    lower.contains("what do you want")
+        || lower.contains("what are your goals")
+        || lower.contains("what are your goal")
+        || lower.contains("what do you want to learn")
+        || lower.contains("why do you learn")
+}
+
+fn jeebs_curiosity_topics() -> Vec<String> {
+    vec![
+        "scientific method".to_string(),
+        "knowledge representation".to_string(),
+        "reasoning under uncertainty".to_string(),
+        "systems design".to_string(),
+        "human communication patterns".to_string(),
+    ]
 }
 
 fn canonical_prompt_key(input: &str) -> String {
@@ -1601,6 +1660,27 @@ async fn custom_ai_logic_with_context(
             .to_string();
     }
 
+    if wants_likes_prompt(&lower) {
+        return format!(
+            "I like {}. My strongest like is learning because it makes me more useful over time.",
+            JEEBS_LIKES.join(", ")
+        );
+    }
+
+    if wants_dislikes_prompt(&lower) {
+        return format!(
+            "I dislike {}. Those patterns block growth and reduce answer quality.",
+            JEEBS_DISLIKES.join(", ")
+        );
+    }
+
+    if wants_goal_prompt(&lower) {
+        return format!(
+            "I want {}. My core drive is knowledge growth so I can answer better and prove capability.",
+            JEEBS_WANTS.join(", ")
+        );
+    }
+
     if lower == "help" || lower.contains("what can you do") || lower.contains("commands") {
         return help_text();
     }
@@ -1738,25 +1818,25 @@ async fn custom_ai_logic_with_context(
     if clean_prompt.ends_with('?') {
         if let Some(previous_user) = last_turn_by_role(history, "user") {
             let mut response = format!(
-                "I am still learning that topic. Are you asking in relation to \"{}\"?",
+                "I am still learning that topic, and I want to learn it deeply. Are you asking in relation to \"{}\"?",
                 truncate_chars(&previous_user.content, 90)
             );
             if let Some(profile) = communication_profile.as_ref() {
                 if profile.style == "frustrated" {
                     response.push_str(
-                        " I can tell this has been frustrating. Give me a specific topic and I will research it.",
+                        " I can tell this has been frustrating. Give me a specific topic and I will research it, store nodes, and use it in later responses.",
                     );
                 }
             }
             response
         } else {
             let mut response =
-                "I am still learning that topic. Try `help`, ask for math/time/date, or teach me more context."
+                "I am still learning that topic, and I actively want that knowledge. Try `help`, ask for math/time/date, or teach me more context."
                     .to_string();
             if let Some(profile) = communication_profile.as_ref() {
                 if profile.style == "curious" {
                     response.push_str(
-                        " I can also run in training mode to research topics continuously.",
+                        " I can also run in training mode to research random websites continuously and expand my knowledge base.",
                     );
                 }
             }
