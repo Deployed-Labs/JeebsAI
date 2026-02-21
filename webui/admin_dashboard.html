@@ -738,11 +738,14 @@
                         let errorMsg = "Failed to initiate learning";
                         try {
                             const errorData = await res.json();
-                            errorMsg = errorData.error || errorData.message || errorMsg;
+                            errorMsg =
+                                errorData.error ||
+                                errorData.message ||
+                                errorMsg;
                         } catch {
                             // If JSON parsing fails, try text
                             try {
-                                errorMsg = await res.text() || errorMsg;
+                                errorMsg = (await res.text()) || errorMsg;
                             } catch {}
                         }
                         statusEl.innerText = `❌ Error (${res.status}): ${errorMsg}`;
@@ -769,8 +772,6 @@
                     }
                 } catch (error) {
                     statusEl.innerText = `❌ Request failed: ${error.message}`;
-                    statusEl.style.color = "#ff6b6b";
-                }
                     statusEl.style.color = "#ff6b6b";
                 }
             }
