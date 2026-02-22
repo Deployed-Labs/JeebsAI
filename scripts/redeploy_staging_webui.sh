@@ -7,7 +7,8 @@ set -euo pipefail
 # - Syncs webui assets into the service working directory.
 # - Restarts the service and probes /webui/.
 
-REPO_DIR=${REPO_DIR:-"/root/JeebsAI"}
+APP_DIR=${APP_DIR:-"/opt/jeebs-staging"}
+REPO_DIR=${REPO_DIR:-"$APP_DIR"}
 SERVICE_NAME=${SERVICE_NAME:-"jeebs-staging"}
 APP_DIR=${APP_DIR:-"/opt/jeebs-staging"}
 PORT=${PORT:-"8080"}

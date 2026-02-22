@@ -3,7 +3,8 @@ set -euo pipefail
 
 # One-shot: Rebuild with GitHub webhook support, redeploy to production, and show setup steps.
 
-REPO_DIR=${REPO_DIR:-"/root/JeebsAI"}
+APP_DIR=${APP_DIR:-"/root/JeebsAI"}
+REPO_DIR=${REPO_DIR:-"$APP_DIR"}
 SERVICE_NAME=${SERVICE_NAME:-"jeebs"}
 APP_DIR=${APP_DIR:-"/root/JeebsAI"}
 PORT=${PORT:-"8080"}

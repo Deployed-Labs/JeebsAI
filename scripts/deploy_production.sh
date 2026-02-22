@@ -7,7 +7,8 @@ set -euo pipefail
 # - Syncs webui assets into the production working directory.
 # - Restarts jeebs and probes the chat UI.
 
-REPO_DIR=${REPO_DIR:-"/root/JeebsAI"}
+APP_DIR=${APP_DIR:-"/root/JeebsAI"}
+REPO_DIR=${REPO_DIR:-"$APP_DIR"}
 SERVICE_NAME=${SERVICE_NAME:-"jeebs"}
 APP_DIR=${APP_DIR:-"/root/JeebsAI"}
 PORT=${PORT:-"8080"}
