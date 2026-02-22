@@ -1,0 +1,18 @@
+[Unit]
+Description=JeebsAI service (template)
+After=network.target
+
+[Service]
+Type=simple
+# Edit WorkingDirectory to the full path where the repo is cloned on the VPS
+WorkingDirectory=/path/to/JeebsAI
+# Ensure this points to the built binary
+ExecStart=/usr/bin/env bash -lc 'PORT=8080 ./target/release/jeebs'
+Restart=on-failure
+Environment=RUST_LOG=info
+
+[Install]
+WantedBy=multi-user.target
+
+# NOTE: Copy this file to /etc/systemd/system/jeebs.service and edit WorkingDirectory
+# then run: sudo systemctl daemon-reload && sudo systemctl enable --now jeebs.service
