@@ -38,12 +38,14 @@
         <div class="data-list-item">
           <span>Training Mode <span id="dotTraining" style="display:inline-block;width:10px;height:10px;border-radius:50%;margin-left:6px;background:#aaa;vertical-align:middle;"></span></span>
           <span id="toggleTraining" class="badge">—</span>
+          <label class="switch" style="margin-left:16px;vertical-align:middle">
+            <input type="checkbox" id="trainingSwitch" onchange="onTrainingSwitch()">
+            <span class="slider round"></span>
+          </label>
         </div>
       </div>
       <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
-        <!-- Internet toggle replaced by switch above -->
-        <button class="btn btn-accent btn-sm" onclick="toggleFeature('training',true)">Training On</button>
-        <button class="btn btn-ghost btn-sm" onclick="toggleFeature('training',false)">Training Off</button>
+        <!-- Training toggle replaced by switch above -->
       </div>
     </div>
 

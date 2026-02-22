@@ -24,7 +24,7 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential pkg-config libssl-dev sqlite3
+        sudo apt-get install -y build-essential pkg-config libssl-dev sqlite3 nettle-dev
     
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
@@ -115,7 +115,7 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential pkg-config libssl-dev libgit2-dev ca-certificates curl
+        sudo apt-get install -y build-essential pkg-config libssl-dev libgit2-dev ca-certificates curl nettle-dev
 
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable

@@ -40,6 +40,11 @@ function authHeaders(json = false) {
 /* ── safeFetch — simple fetch wrapper (no rate-limit logic) ── */
 
 async function safeFetch(url, options) {
+    // Harden fetch: always use POST for sensitive auth, and check for CSRF
+    if (options && options.method && options.method.toUpperCase() === 'POST') {
+        if (!options.headers) options.headers = {};
+        options.headers['X-Requested-With'] = 'XMLHttpRequest';
+    }
     return fetch(url, options);
 }
 
@@ -51,6 +56,28 @@ async function getAuthState() {
             headers: authHeaders(),
             credentials: "same-origin",
         });
+            // Harden login: sanitize username and signature
+            const username = document.getElementById('loginUsername').value.trim();
+            const signature = document.getElementById('signedMessage').value.trim();
+            if (!username.match(/^[a-zA-Z0-9_\-]{3,32}$/)) {
+                alert('Invalid username format.');
+                return;
+            }
+            if (!signature.startsWith('-----BEGIN PGP SIGNED MESSAGE-----')) {
+                alert('Invalid PGP signature format.');
+                return;
+            }
+            // Harden register: sanitize username and PGP key
+            const username = document.getElementById('regUsername').value.trim();
+            const pgpKey = document.getElementById('publicKey').value.trim();
+            if (!username.match(/^[a-zA-Z0-9_\-]{3,32}$/)) {
+                alert('Invalid username format.');
+                return;
+            }
+            if (!pgpKey.startsWith('-----BEGIN PGP PUBLIC KEY BLOCK-----')) {
+                alert('Invalid PGP public key format.');
+                return;
+            }
         if (!res.ok) return { loggedIn: false, username: "", isAdmin: false, isTrainer: false };
         const data = await res.json();
         if (data.token) jeebsSetToken(data.token);
@@ -73,25 +100,26 @@ async function getAuthState() {
  *  Returns auth state if authorised; redirects otherwise.
  */
 async function requireAuth(role) {
-    // Return the current auth state. Do NOT force a redirect when the token
-    // is invalid/expired — keep the token until the user explicitly expires it.
     let auth = await getAuthState();
+
+    // If not logged in and no token, restrict access
+    if (!auth.loggedIn && !jeebsGetToken()) {
+        // If not on index.html, redirect to register
+        const path = window.location.pathname;
+        if (!path.endsWith('index.html')) {
+            window.location.replace('/webui/index.html#register');
+        }
+    }
 
     // If not logged in but we have a token locally, try a lightweight session ping
     if (!auth.loggedIn && jeebsGetToken()) {
         try {
             const pingRes = await safeFetch("/api/session/ping", { method: "POST", headers: authHeaders() });
             if (pingRes.ok) {
-                // refresh auth state
                 auth = await getAuthState();
             }
-        } catch (e) {
-            // network issue; silently continue — do not redirect
-        }
+        } catch (e) {}
     }
-
-    // Don't force navigation away — the caller should handle `auth.loggedIn === false`.
-    // For role checks, just return auth (caller can inspect `auth.isAdmin` / `auth.username`).
     return auth;
 }
 

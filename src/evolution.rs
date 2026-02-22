@@ -1666,14 +1666,60 @@ pub fn spawn_autonomous_thinker(db: SqlitePool) {
         .await;
 
         loop {
-            if let Err(err) = run_think_cycle_internal(&db, "scheduler", false).await {
-                crate::logging::log(
-                    &db,
-                    "WARN",
-                    "EVOLUTION",
-                    &format!("Autonomous thinker cycle failed: {err}"),
-                )
-                .await;
+            // Deep rabbit hole logic: only run if training is OFF and internet is ON
+            let (internet_enabled, training_enabled) = crate::toggle_manager::load_toggle_states(&db).await.unwrap_or((false, false));
+            if !training_enabled && internet_enabled {
+                // Autonomous deep learning cycle
+                let topics = crate::cortex::collect_training_topics(&db, 3).await;
+                for topic in topics {
+                    let mut visited_urls = std::collections::HashSet::new();
+                    let mut queue = vec![topic.clone()];
+                    let client = reqwest::Client::new();
+                    let mut depth = 0;
+                    while let Some(current_topic) = queue.pop() {
+                        if depth > 3 { break; }
+                        // Wikipedia search
+                        if let Ok(docs) = crate::cortex::query_wikipedia_docs(&client, &current_topic, 2).await {
+                            for doc in docs {
+                                if visited_urls.insert(doc.url.clone()) {
+                                    let _ = crate::cortex::store_external_learning_doc(&db, &doc).await;
+                                    let links: Vec<String> = doc.summary.split_whitespace()
+                                        .filter(|w| w.starts_with("http"))
+                                        .map(|w| w.to_string())
+                                        .collect();
+                                    for link in links {
+                                        if visited_urls.insert(link.clone()) {
+                                            queue.push(link);
+                                        }
+                                    }
+                                    let _ = sqlx::query(
+                                        "INSERT OR REPLACE INTO knowledge_triples (subject, predicate, object, confidence, created_at) VALUES (?, ?, ?, ?, ?)"
+                                    )
+                                        .bind(&current_topic)
+                                        .bind("related_to")
+                                        .bind(&doc.title)
+                                        .bind(0.7_f64)
+                                        .bind(chrono::Local::now().to_rfc3339())
+                                        .execute(&db)
+                                        .await;
+                                }
+                            }
+                        }
+                        depth += 1;
+                    }
+                }
+                let _ = crate::logging::log(&db, "INFO", "AUTONOMY", "JeebsAI completed deep rabbit hole exploration").await;
+            } else {
+                // Fallback: run normal think cycle
+                if let Err(err) = run_think_cycle_internal(&db, "scheduler", false).await {
+                    crate::logging::log(
+                        &db,
+                        "WARN",
+                        "EVOLUTION",
+                        &format!("Autonomous thinker cycle failed: {err}"),
+                    )
+                    .await;
+                }
             }
             tokio::time::sleep(Duration::from_secs(interval_secs)).await;
         }
