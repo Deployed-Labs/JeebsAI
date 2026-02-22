@@ -641,6 +641,13 @@
                         <div>
                             <span class="severity ${severityClass}">${severityLabel}</span>
                             <span class="status ${u.status}">${u.status}</span>
+                            ${(() => {
+                                const feeling = (u.feeling || '').toLowerCase();
+                                if (!feeling) return '';
+                                const icon = feeling === 'like' ? '👍' : feeling === 'dislike' ? '👎' : '😐';
+                                const color = feeling === 'like' ? '#66bb6a' : feeling === 'dislike' ? '#ef5350' : '#999';
+                                return `<span style="margin-left:8px; color:${color}; font-size:1.1em;">${icon}</span>`;
+                            })()}
                         </div>
                     </div>
                     <div style="font-size: 0.9em; color: #aaa; margin-bottom: 5px;">Author: ${escapeHtml(u.author)}</div>

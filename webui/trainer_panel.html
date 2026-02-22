@@ -223,10 +223,12 @@
         if (updates.length === 0) { listEl.textContent = 'No proposals found.'; return; }
         listEl.innerHTML = updates.map(u => {
             const title = (u.title || 'Untitled').replace(/</g,'&lt;');
+            const feeling = (u.feeling || '').toLowerCase();
+            const feelIcon = feeling === 'like' ? '👍' : feeling === 'dislike' ? '👎' : feeling === 'neutral' ? '😐' : '';
             const desc = (u.description || '').replace(/</g,'&lt;');
             const when = new Date(u.created_at).toLocaleString();
             const status = (u.status || 'unknown');
-            return `<div style="padding:8px; border-bottom:1px solid rgba(255,255,255,0.03);"><div style="font-weight:700">${title}</div><div style="opacity:.8; font-size:0.9em;">${desc}</div><div style="margin-top:6px; font-size:0.85em; color:#9da7bd">${when} — <strong>${status}</strong></div></div>`;
+            return `<div style="padding:8px; border-bottom:1px solid rgba(255,255,255,0.03);"><div style="font-weight:700">${title} <span style="margin-left:6px; font-size:1.1em">${feelIcon}</span></div><div style="opacity:.8; font-size:0.9em;">${desc}</div><div style="margin-top:6px; font-size:0.85em; color:#9da7bd">${when} — <strong>${status}</strong></div></div>`;
         }).join('');
     }
 

@@ -262,3 +262,34 @@ pub async fn get_entities_report(state: web::Data<AppState>) -> impl Responder {
         })),
     }
 }
+
+/// Provide a lightweight graph payload suitable for the frontend visualizer (nodes + edges)
+#[get("/api/brain/visualize")]
+pub async fn visualize(state: web::Data<AppState>) -> impl Responder {
+    let db = &state.db;
+    let parser = BrainParser::new();
+    match build_knowledge_graph(db, &parser).await {
+        Ok(graph) => {
+            let nodes: Vec<serde_json::Value> = graph
+                .nodes
+                .iter()
+                .map(|(id, node)| {
+                    serde_json::json!({
+                        "id": id,
+                        "label": node.content.original_key.clone(),
+                        "title": node.content.original_value.clone(),
+                    })
+                })
+                .collect();
+
+            let edges: Vec<serde_json::Value> = graph
+                .edges
+                .iter()
+                .map(|e| serde_json::json!({ "from": e.from, "to": e.to }))
+                .collect();
+
+            HttpResponse::Ok().json(serde_json::json!({ "nodes": nodes, "edges": edges }))
+        }
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({ "error": e })),
+    }
+}

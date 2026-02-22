@@ -268,6 +268,7 @@ async fn main() -> std::io::Result<()> {
             .service(evolution::dismiss_notification)
             .service(evolution::brainstorm_update)
             .service(brain_parsing_api::parse_brain_node)
+            .service(brain_parsing_api::visualize)
             .service(brain_parsing_api::build_brain_graph)
             .service(brain_parsing_api::query_graph_entity)
             .service(brain_parsing_api::query_graph_category)

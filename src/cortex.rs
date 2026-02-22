@@ -1348,6 +1348,21 @@ where
         mode.updated_by = "training_runtime".to_string();
     }
     let _ = save_training_state(db, &mode).await;
+
+    // Log training state updates for monitoring and anomaly detection
+    let _ = crate::logging::log(
+        db,
+        "INFO",
+        "TRAINING",
+        &format!(
+            "Training state saved: enabled={} updated_by={} last_learned_items={} total_nodes_written={}",
+            mode.enabled,
+            mode.updated_by,
+            mode.last_learned_items.len(),
+            mode.total_nodes_written
+        ),
+    )
+    .await;
 }
 
 fn report_to_snapshot(report: &TrainingCycleReport) -> TrainingCycleSnapshot {

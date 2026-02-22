@@ -8,7 +8,7 @@ set -euo pipefail
 # - Restarts the service
 # - Verifies it's working
 
-REPO_DIR=${REPO_DIR:-"/root/JeebsAI"}
+APP_DIR=${APP_DIR:-"/root/JeebsAI"}
 SERVICE_NAME=${SERVICE_NAME:-"jeebs"}
 
 if [[ $EUID -ne 0 ]]; then
@@ -24,7 +24,7 @@ rm -f /var/lib/jeebs/jeebs.db /var/lib/jeebs/jeebs.db-shm /var/lib/jeebs/jeebs.d
 mkdir -p /var/lib/jeebs
 
 echo "=== Building release binary... ==="
-cd "$REPO_DIR"
+cd "$APP_DIR"
 cargo build --release
 
 echo "=== Ensuring env file is correct... ==="
@@ -36,8 +36,8 @@ RUST_LOG=info
 EOF
 
 echo "=== Syncing webui assets... ==="
-rm -rf "$REPO_DIR/webui"
-cp -R "$REPO_DIR/webui" "$REPO_DIR/webui"
+rm -rf "$APP_DIR/webui"
+cp -R "$APP_DIR/webui" "$APP_DIR/webui"
 
 echo "=== Restarting service... ==="
 systemctl daemon-reload

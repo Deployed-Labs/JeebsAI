@@ -23,6 +23,10 @@ pub struct ProposedUpdate {
     pub status: String, // "pending", "applied", "denied"
     pub created_at: String,
     pub backup: Option<Vec<FileChange>>,
+    #[serde(default)]
+    pub feeling: Option<String>,
+    #[serde(default)]
+    pub feeling_confidence: f32,
 }
 
 #[get("/api/admin/evolution/updates")]
