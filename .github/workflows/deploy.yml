@@ -1,85 +1,160 @@
-name: Deploy to VPS
+name: Build & Deploy JeebsAI
 
 on:
   push:
-    branches: [ main ]
-  workflow_dispatch:
+    branches: [main]
+  workflow_dispatch:  # Manual trigger in GitHub UI
 
 permissions:
   contents: read
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
-  deploy:
-    name: Deploy to VPS
+  # ─── Validate webui, auth, HTML structure ─────────────────
+  validate:
+    name: Validate
     runs-on: ubuntu-latest
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Install SSH key
-      uses: webfactory/ssh-agent@v0.9.0
-      with:
-        ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
-    
-    - name: Add VPS to known hosts
-      run: |
-        mkdir -p ~/.ssh
-        ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
-    
-    - name: Deploy to VPS
-      env:
-        VPS_HOST: ${{ secrets.VPS_HOST }}
-        VPS_USER: ${{ secrets.VPS_USER }}
-        VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
-      run: |
-        # Create deployment directory if it doesn't exist
-        ssh $VPS_USER@$VPS_HOST "mkdir -p $VPS_DEPLOY_PATH"
-        
-        # Transfer files to VPS (excluding .git, target, and node_modules)
-        rsync -avz --delete \
-          --exclude='.git' \
-          --exclude='target' \
-          --exclude='node_modules' \
-          --exclude='jeebs.db' \
-          --exclude='backups' \
-          ./ $VPS_USER@$VPS_HOST:$VPS_DEPLOY_PATH/
-    
-    - name: Build and restart service on VPS
-      env:
-        VPS_HOST: ${{ secrets.VPS_HOST }}
-        VPS_USER: ${{ secrets.VPS_USER }}
-        VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
-      run: |
-        ssh $VPS_USER@$VPS_HOST "cd $VPS_DEPLOY_PATH && \
-          echo 'Building release binary...' && \
-          cargo build --release && \
-          echo 'Restarting service...' && \
-          sudo systemctl restart jeebs && \
-          sleep 3 && \
-          sudo systemctl status jeebs --no-pager"
-    
-    - name: Verify deployment
-      env:
-        VPS_HOST: ${{ secrets.VPS_HOST }}
-        VPS_USER: ${{ secrets.VPS_USER }}
-      run: |
-        ssh $VPS_USER@$VPS_HOST "if systemctl is-active --quiet jeebs; then \
-          echo '✅ Service is running successfully' && \
-          echo 'Recent logs:' && \
-          sudo journalctl -u jeebs -n 20 --no-pager; \
-        else \
-          echo '❌ Service failed to start' && \
-          echo 'Error logs:' && \
-          sudo journalctl -u jeebs -n 50 --no-pager && \
-          exit 1; \
-        fi"
-    
-    - name: Notify deployment status
-      if: always()
-      run: |
-        if [ $? -eq 0 ]; then
-          echo "✅ Deployment successful!"
-        else
-          echo "❌ Deployment failed!"
-        fi
+      - uses: actions/checkout@v4
+      - name: Run validation suite
+        run: bash validate.sh --skip-build
+
+  # ─── Build release binary on GitHub (fast, 7GB RAM) ───────
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system deps
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libssl-dev libsqlite3-dev pkg-config
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: jeebs-linux-x86_64
+          path: target/release/jeebs
+          retention-days: 14
+
+  # ─── Deploy: upload binary + webui to VPS ─────────────────
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download binary
+        uses: actions/download-artifact@v4
+        with:
+          name: jeebs-linux-x86_64
+          path: ./artifact
+
+      - name: Install SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+
+      - name: Add VPS to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Deploy to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          APP="/root/JeebsAI"
+
+          # Stop service before replacing binary
+          ssh $VPS_USER@$VPS_HOST "systemctl stop jeebs 2>/dev/null || true"
+
+          # Upload pre-built binary (no compilation on VPS!)
+          chmod +x ./artifact/jeebs
+          scp ./artifact/jeebs $VPS_USER@$VPS_HOST:$APP/target/release/jeebs
+
+          # Sync webui files (preserve DB and backups)
+          rsync -avz --delete \
+            --exclude='.git' \
+            --exclude='target' \
+            --exclude='jeebs.db' \
+            --exclude='backups' \
+            webui/ $VPS_USER@$VPS_HOST:$APP/webui/
+
+          # Upload SQL migrations
+          scp *.sql $VPS_USER@$VPS_HOST:$APP/ 2>/dev/null || true
+
+          # Set up service + start
+          ssh $VPS_USER@$VPS_HOST bash -s <<'REMOTE'
+            set -e
+            APP="/root/JeebsAI"
+
+            # Ensure DB exists
+            [ -f "$APP/jeebs.db" ] || touch "$APP/jeebs.db"
+
+            # Ensure target dir exists
+            mkdir -p "$APP/target/release"
+
+            # Ensure systemd service
+            cat > /etc/systemd/system/jeebs.service <<UNIT
+          [Unit]
+          Description=JeebsAI Server
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=root
+          WorkingDirectory=/root/JeebsAI
+          Environment=PORT=8080
+          Environment=DATABASE_URL=sqlite:/root/JeebsAI/jeebs.db
+          Environment=RUST_LOG=info
+          ExecStart=/root/JeebsAI/target/release/jeebs
+          Restart=on-failure
+          RestartSec=5
+
+          [Install]
+          WantedBy=multi-user.target
+          UNIT
+
+            systemctl daemon-reload
+            systemctl enable jeebs
+            systemctl start jeebs
+            sleep 2
+
+            if systemctl is-active --quiet jeebs; then
+              echo "✅ JeebsAI is running"
+              curl -sf -o /dev/null -w "   Health: HTTP %{http_code}\n" http://127.0.0.1:8080/health || true
+            else
+              echo "❌ Service failed to start"
+              journalctl -u jeebs --no-pager -n 15
+              exit 1
+            fi
+          REMOTE
+
+      - name: Verify deployment
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          ssh $VPS_USER@$VPS_HOST "systemctl is-active --quiet jeebs && echo '✅ Deploy successful' || (echo '❌ Deploy failed' && exit 1)"
