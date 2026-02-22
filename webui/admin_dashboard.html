@@ -291,6 +291,8 @@
             const trainerList = document.getElementById("trainerList");
             const trainerRoleStatus = document.getElementById("trainerRoleStatus");
             const intervalInfo = document.getElementById("intervalInfo");
+            let logsInFlight = false;
+            let lastLogsSignature = "";
 
             function authHeaders(json = false) {
                 const h = json ? { "Content-Type": "application/json" } : {};
@@ -488,16 +490,24 @@
             }
 
             async function loadLogs() {
+                if (logsInFlight) return;
+                logsInFlight = true;
                 try {
                     const res = await fetch("/api/admin/logs", { headers: authHeaders() });
                     if (!res.ok) throw new Error(await res.text());
                     const logs = await res.json();
                     const ordered = logs.slice().reverse();
+                    const signature = JSON.stringify(ordered);
+                    if (signature === lastLogsSignature) {
+                        return;
+                    }
+                    lastLogsSignature = signature;
                     if (!ordered.length) {
                         logsContent.textContent = "No logs captured yet.";
                         return;
                     }
-                    logsContent.innerHTML = ordered
+                    const scrollToBottom = Math.abs((logsContent.scrollTop + logsContent.clientHeight) - logsContent.scrollHeight) < 8;
+                    logsContent.textContent = ordered
                         .map((l) => {
                             if (typeof l === "string") return l;
                             const ts = l.timestamp || "";
@@ -507,9 +517,13 @@
                             return `[${ts}] ${cat}/${lvl}: ${msg}`;
                         })
                         .join("\n");
-                    logsContent.scrollTop = logsContent.scrollHeight;
+                    if (scrollToBottom) {
+                        logsContent.scrollTop = logsContent.scrollHeight;
+                    }
                 } catch (err) {
                     logsContent.textContent = `Logs error: ${err}`;
+                } finally {
+                    logsInFlight = false;
                 }
             }
 
