@@ -164,6 +164,7 @@
             const ROOT_ADMIN_USERNAME = "1090mb";
             const authStatus = document.getElementById("authStatus");
             const output = document.getElementById("trainerOutput");
+            let sessionPingTimer = null;
 
             function authHeaders() {
                 const token = localStorage.getItem(TOKEN_KEY);
@@ -197,11 +198,30 @@
                     }
 
                     authStatus.textContent = `Trainer access granted for ${data.username}.`;
+                    startSessionPing();
                     return true;
                 } catch (err) {
                     authStatus.textContent = `Access check failed: ${err}`;
                     return false;
                 }
+            }
+
+            async function pingSession() {
+                try {
+                    await fetch("/api/session/ping", {
+                        method: "POST",
+                        credentials: "same-origin",
+                        headers: authHeaders(),
+                    });
+                } catch {
+                    // ignore ping failures
+                }
+            }
+
+            function startSessionPing() {
+                if (sessionPingTimer) return;
+                sessionPingTimer = setInterval(pingSession, 30000);
+                pingSession();
             }
 
             async function sendTrainerCommand(command) {

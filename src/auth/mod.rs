@@ -4,7 +4,7 @@ use chrono::{Local, Utc};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use sqlx::Row;
+use sqlx::{Row, SqlitePool};
 use std::env;
 
 use crate::state::AppState;
@@ -50,6 +50,26 @@ pub struct AuthStatusResponse {
     pub is_admin: bool,
     pub is_trainer: bool,
     pub token: Option<String>,
+}
+
+fn update_user_session(db: &SqlitePool, username: &str, http_req: &HttpRequest) -> Result<(), sqlx::Error> {
+    let ip = peer_addr(http_req);
+    let user_agent = http_req
+        .headers()
+        .get("user-agent")
+        .and_then(|h| h.to_str().ok())
+        .unwrap_or("unknown");
+    let now = Local::now().to_rfc3339();
+
+    sqlx::query(
+        "INSERT OR REPLACE INTO user_sessions (username, ip, user_agent, last_seen) VALUES (?, ?, ?, ?)"
+    )
+    .bind(username)
+    .bind(&ip)
+    .bind(user_agent)
+    .bind(&now)
+    .execute(db)
+    .map(|_| ())
 }
 
 fn valid_username(username: &str) -> bool {
@@ -284,23 +304,7 @@ async fn handle_pgp_login(
     }
 
     // Track user session in database
-    let ip = peer_addr(http_req);
-    let user_agent = http_req
-        .headers()
-        .get("user-agent")
-        .and_then(|h| h.to_str().ok())
-        .unwrap_or("unknown");
-    let now = Local::now().to_rfc3339();
-
-    let _ = sqlx::query(
-        "INSERT OR REPLACE INTO user_sessions (username, ip, user_agent, last_seen) VALUES (?, ?, ?, ?)"
-    )
-    .bind(username)
-    .bind(&ip)
-    .bind(user_agent)
-    .bind(&now)
-    .execute(&data.db)
-    .await;
+    let _ = update_user_session(&data.db, username, http_req);
 
     crate::logging::log(
         &data.db,
@@ -531,6 +535,45 @@ pub async fn auth_status(
         is_trainer,
         token,
     })
+}
+
+#[post("/api/session/ping")]
+pub async fn session_ping(
+    data: web::Data<AppState>,
+    session: Session,
+    http_req: HttpRequest,
+) -> impl Responder {
+    let logged_in = session
+        .get::<bool>("logged_in")
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    let username = if logged_in {
+        session.get::<String>("username").ok().flatten()
+    } else {
+        None
+    };
+
+    let username = if let Some(u) = username {
+        u
+    } else if let Some(claims) = extract_bearer_claims(&http_req) {
+        claims.username
+    } else {
+        return HttpResponse::Unauthorized().json(json!({"error": "Not logged in"}));
+    };
+
+    if let Err(err) = update_user_session(&data.db, &username, &http_req) {
+        return HttpResponse::InternalServerError().json(json!({
+            "error": format!("Failed to update session: {err}")
+        }));
+    }
+
+    HttpResponse::Ok().json(json!({
+        "ok": true,
+        "username": username,
+        "last_seen": Local::now().to_rfc3339()
+    }))
 }
 
 #[post("/api/logout")]

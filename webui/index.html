@@ -518,6 +518,7 @@
                 document.getElementById("adminControlsLink");
             const trainerPanelLink =
                 document.getElementById("trainerPanelLink");
+            let sessionPingTimer = null;
 
             function isRootAdminSession() {
                 return (
@@ -577,6 +578,7 @@
                     statusChip.textContent = "Not logged in";
                     adminControlsLink.style.display = "none";
                     trainerPanelLink.style.display = "none";
+                    stopSessionPing();
                     return;
                 }
 
@@ -594,6 +596,28 @@
                     ? "inline-flex"
                     : "none";
                 promptInput.focus();
+                startSessionPing();
+            }
+
+            async function pingSession() {
+                if (!state.loggedIn) return;
+                try {
+                    await requestJson("/api/session/ping", { method: "POST" });
+                } catch {
+                    // Ignore ping failures; user may be logged out elsewhere.
+                }
+            }
+
+            function startSessionPing() {
+                if (sessionPingTimer) return;
+                sessionPingTimer = setInterval(pingSession, 30000);
+                pingSession();
+            }
+
+            function stopSessionPing() {
+                if (!sessionPingTimer) return;
+                clearInterval(sessionPingTimer);
+                sessionPingTimer = null;
             }
 
             async function requestJson(url, options = {}) {
