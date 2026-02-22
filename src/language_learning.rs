@@ -87,7 +87,10 @@ fn categorize_input(input: &str) -> String {
         "greeting".to_string()
     } else if input.contains('?') {
         "question".to_string()
-    } else if lower.starts_with("please") || lower.starts_with("can you") || lower.starts_with("could you") {
+    } else if lower.starts_with("please")
+        || lower.starts_with("can you")
+        || lower.starts_with("could you")
+    {
         "command".to_string()
     } else if lower.contains("love") || lower.contains("hate") || lower.contains("like") {
         "expression".to_string()
@@ -256,13 +259,75 @@ fn generate_response_templates(category: &str) -> Vec<String> {
 fn is_common_word(word: &str) -> bool {
     matches!(
         word,
-        "the" | "a" | "an" | "and" | "or" | "but" | "in" | "on" | "at" | "to" | "for" | "of" | "with" | "by"
-            | "from" | "up" | "about" | "into" | "through" | "during" | "before" | "after" | "above"
-            | "below" | "between" | "under" | "is" | "are" | "was" | "were" | "be" | "been" | "being"
-            | "have" | "has" | "had" | "do" | "does" | "did" | "will" | "would" | "could" | "should"
-            | "may" | "might" | "must" | "can" | "this" | "that" | "these" | "those" | "i" | "you"
-            | "he" | "she" | "it" | "we" | "they" | "me" | "him" | "her" | "us" | "them" | "my"
-            | "your" | "his" | "its" | "our" | "their"
+        "the"
+            | "a"
+            | "an"
+            | "and"
+            | "or"
+            | "but"
+            | "in"
+            | "on"
+            | "at"
+            | "to"
+            | "for"
+            | "of"
+            | "with"
+            | "by"
+            | "from"
+            | "up"
+            | "about"
+            | "into"
+            | "through"
+            | "during"
+            | "before"
+            | "after"
+            | "above"
+            | "below"
+            | "between"
+            | "under"
+            | "is"
+            | "are"
+            | "was"
+            | "were"
+            | "be"
+            | "been"
+            | "being"
+            | "have"
+            | "has"
+            | "had"
+            | "do"
+            | "does"
+            | "did"
+            | "will"
+            | "would"
+            | "could"
+            | "should"
+            | "may"
+            | "might"
+            | "must"
+            | "can"
+            | "this"
+            | "that"
+            | "these"
+            | "those"
+            | "i"
+            | "you"
+            | "he"
+            | "she"
+            | "it"
+            | "we"
+            | "they"
+            | "me"
+            | "him"
+            | "her"
+            | "us"
+            | "them"
+            | "my"
+            | "your"
+            | "his"
+            | "its"
+            | "our"
+            | "their"
     )
 }
 

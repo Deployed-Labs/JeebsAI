@@ -214,14 +214,7 @@ fn track_hit_score(track_name: &str, item: &TrainingLearnedItem) -> u64 {
             "sqlx",
         ],
         "python programming" => &[
-            "python",
-            "pandas",
-            "numpy",
-            "fastapi",
-            "asyncio",
-            "flask",
-            "django",
-            "pytest",
+            "python", "pandas", "numpy", "fastapi", "asyncio", "flask", "django", "pytest",
         ],
         "data compression and storage efficiency" => &[
             "compression",
@@ -621,11 +614,8 @@ const JEEBS_WANTS: &[&str] = &[
 ];
 
 const LANGUAGE_UNLOCK_PREREQUISITES: &[&str] = &["rust programming", "python programming"];
-const ADVANCED_LANGUAGE_TRACKS: &[&str] = &[
-    "go programming",
-    "javascript and typescript",
-    "c and c++",
-];
+const ADVANCED_LANGUAGE_TRACKS: &[&str] =
+    &["go programming", "javascript and typescript", "c and c++"];
 
 fn history_key(user_id: &str) -> String {
     format!("chat:history:{user_id}")
@@ -1267,7 +1257,7 @@ fn training_interval_seconds() -> u64 {
 
 fn training_state_default() -> TrainingModeState {
     TrainingModeState {
-        enabled: true,  // AUTO-RUN training mode by default
+        enabled: true, // AUTO-RUN training mode by default
         updated_at: Local::now().to_rfc3339(),
         updated_by: "system".to_string(),
         last_cycle_at: None,
@@ -1711,7 +1701,6 @@ fn random_crawl_candidates() -> Vec<&'static str> {
         "https://www.ox.ac.uk",
         "https://www.cam.ac.uk",
         "https://www.cern.ch",
-
         // Technology & AI
         "https://github.com",
         "https://www.arxiv.org/list/cs.AI",
@@ -1721,7 +1710,6 @@ fn random_crawl_candidates() -> Vec<&'static str> {
         "https://research.facebook.com",
         "https://www.ibm.com/research",
         "https://www.microsoft.com/research",
-
         // News & Current Events
         "https://www.bbc.com",
         "https://www.theguardian.com",
@@ -1731,7 +1719,6 @@ fn random_crawl_candidates() -> Vec<&'static str> {
         "https://news.ycombinator.com",
         "https://www.techcrunch.com",
         "https://www.theverge.com",
-
         // Developer Resources
         "https://developer.mozilla.org",
         "https://www.w3schools.com",
@@ -1741,7 +1728,6 @@ fn random_crawl_candidates() -> Vec<&'static str> {
         "https://golang.org",
         "https://www.freecodecamp.org",
         "https://docs.microsoft.com",
-
         // Wikipedia (Knowledge Base)
         "https://en.wikipedia.org",
         "https://en.wikipedia.org/wiki/Artificial_intelligence",
@@ -1751,77 +1737,64 @@ fn random_crawl_candidates() -> Vec<&'static str> {
         "https://en.wikipedia.org/wiki/Physics",
         "https://en.wikipedia.org/wiki/Biology",
         "https://en.wikipedia.org/wiki/Chemistry",
-
         // Educational Platforms
         "https://www.edx.org",
         "https://www.coursera.org",
         "https://www.khanacademy.org",
         "https://www.udacity.com",
         "https://www.brilliant.org",
-
         // Science & Nature Journals
         "https://www.cell.com",
         "https://www.sciencedirect.com",
         "https://www.springer.com",
         "https://academic.oup.com",
         "https://www.elsevier.com",
-
         // Open-Source & Development
         "https://www.linux.org",
         "https://www.apache.org",
         "https://www.eclipse.org",
         "https://www.mozilla.org",
         "https://www.kde.org",
-
         // Specialized Topics
         "https://phys.org",
         "https://www.space.com",
         "https://www.sciencedaily.com",
         "https://www.medicalnewstoday.com",
         "https://www.psychologytoday.com",
-
         // Quantum Computing & Advanced Physics
         "https://quantum.ibm.com",
         "https://www.dwavesys.com",
         "https://www.qiskit.org",
-
         // Machine Learning & Data Science
         "https://www.tensorflow.org",
         "https://pytorch.org",
         "https://www.kaggle.com",
         "https://www.paperswithcode.com",
-
         // Economics & Finance
         "https://www.imf.org",
         "https://www.worldbank.org",
         "https://www.ecb.europa.eu",
         "https://www.federalreserve.gov",
-
         // Climate & Environment
         "https://climate.nasa.gov",
         "https://www.ipcc.ch",
         "https://www.un.org/en/climatechange",
-
         // History & Culture
         "https://www.britannica.com",
         "https://www.historicengland.org.uk",
         "https://www.smithsonianmag.com",
-
         // Health & Medicine
         "https://www.nih.gov",
         "https://www.cdc.gov",
         "https://www.who.int",
         "https://www.healthline.com",
-
         // Philosophy & Thought
         "https://plato.stanford.edu",
         "https://www.iep.utm.edu",
-
         // General Knowledge & Reference
         "https://www.merriam-webster.com",
         "https://dictionary.cambridge.org",
         "https://www.oxforddictionaries.com",
-
         // Random Topic Exploration
         "https://en.wikipedia.org/wiki/Special:Random",
         "https://www.reddit.com/r/todayilearned",
@@ -1849,9 +1822,7 @@ fn canonical_prompt_key(input: &str) -> String {
 // ===== TEMPLATE PROPOSAL ENDPOINTS =====
 
 #[post("/api/brain/template-proposals/generate")]
-pub async fn generate_template_proposals_endpoint(
-    state: web::Data<AppState>,
-) -> impl Responder {
+pub async fn generate_template_proposals_endpoint(state: web::Data<AppState>) -> impl Responder {
     match crate::proposals::generate_template_proposals(&state.db).await {
         Some(proposals) => {
             let formatted = crate::proposals::format_template_proposals(&proposals);
@@ -1883,9 +1854,7 @@ pub async fn generate_template_proposals_endpoint(
 }
 
 #[get("/api/brain/template-proposals")]
-pub async fn get_template_proposals_endpoint(
-    state: web::Data<AppState>,
-) -> impl Responder {
+pub async fn get_template_proposals_endpoint(state: web::Data<AppState>) -> impl Responder {
     match crate::proposals::get_template_proposals(&state.db).await {
         Some(proposals) => {
             let formatted = crate::proposals::format_template_proposals(&proposals);
@@ -1954,7 +1923,13 @@ pub async fn update_proposal_status_endpoint(
     req: web::Json<UpdateProposalStatusRequest>,
     state: web::Data<AppState>,
 ) -> impl Responder {
-    let valid_statuses = vec!["proposed", "accepted", "rejected", "in_progress", "completed"];
+    let valid_statuses = vec![
+        "proposed",
+        "accepted",
+        "rejected",
+        "in_progress",
+        "completed",
+    ];
 
     if !valid_statuses.contains(&req.status.as_str()) {
         return HttpResponse::BadRequest().json(json!({
@@ -1963,7 +1938,9 @@ pub async fn update_proposal_status_endpoint(
         }));
     }
 
-    if crate::proposals::update_template_proposal_status(&state.db, &req.proposal_id, &req.status).await {
+    if crate::proposals::update_template_proposal_status(&state.db, &req.proposal_id, &req.status)
+        .await
+    {
         HttpResponse::Ok().json(json!({
             "success": true,
             "message": format!("Proposal {} status updated to {}", req.proposal_id, req.status)
@@ -1977,9 +1954,7 @@ pub async fn update_proposal_status_endpoint(
 }
 
 #[get("/api/brain/template-proposals/statistics")]
-pub async fn get_proposal_statistics_endpoint(
-    state: web::Data<AppState>,
-) -> impl Responder {
+pub async fn get_proposal_statistics_endpoint(state: web::Data<AppState>) -> impl Responder {
     match crate::proposals::get_proposal_statistics(&state.db).await {
         Some(stats) => HttpResponse::Ok().json(json!({
             "success": true,
@@ -2028,21 +2003,17 @@ pub async fn start_deep_learning(
     state: web::Data<AppState>,
 ) -> impl Responder {
     match crate::deep_learning::start_deep_learning_session(&state.db, &req.topic).await {
-        Ok(session) => {
-            HttpResponse::Ok().json(json!({
-                "success": true,
-                "session_id": session.id,
-                "topic": session.topic,
-                "subtopics": session.subtopics,
-                "message": format!("Started deep learning session on: {}", session.topic)
-            }))
-        }
-        Err(e) => {
-            HttpResponse::InternalServerError().json(json!({
-                "success": false,
-                "error": e
-            }))
-        }
+        Ok(session) => HttpResponse::Ok().json(json!({
+            "success": true,
+            "session_id": session.id,
+            "topic": session.topic,
+            "subtopics": session.subtopics,
+            "message": format!("Started deep learning session on: {}", session.topic)
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(json!({
+            "success": false,
+            "error": e
+        })),
     }
 }
 
@@ -2057,19 +2028,17 @@ pub async fn add_learned_fact(
         &req.fact,
         &req.source,
         req.importance.unwrap_or(0.7),
-    ).await {
-        Ok(_) => {
-            HttpResponse::Ok().json(json!({
-                "success": true,
-                "message": "Fact learned and stored"
-            }))
-        }
-        Err(e) => {
-            HttpResponse::InternalServerError().json(json!({
-                "success": false,
-                "error": e
-            }))
-        }
+    )
+    .await
+    {
+        Ok(_) => HttpResponse::Ok().json(json!({
+            "success": true,
+            "message": "Fact learned and stored"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(json!({
+            "success": false,
+            "error": e
+        })),
     }
 }
 
@@ -2085,91 +2054,71 @@ pub async fn add_practice_problem(
         &req.solution,
         &req.explanation,
         &req.difficulty,
-    ).await {
-        Ok(_) => {
-            HttpResponse::Ok().json(json!({
-                "success": true,
-                "message": "Practice problem added for deeper learning"
-            }))
-        }
-        Err(e) => {
-            HttpResponse::InternalServerError().json(json!({
-                "success": false,
-                "error": e
-            }))
-        }
+    )
+    .await
+    {
+        Ok(_) => HttpResponse::Ok().json(json!({
+            "success": true,
+            "message": "Practice problem added for deeper learning"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(json!({
+            "success": false,
+            "error": e
+        })),
     }
 }
 
 #[get("/api/learning/sessions")]
-pub async fn get_learning_sessions(
-    state: web::Data<AppState>,
-) -> impl Responder {
+pub async fn get_learning_sessions(state: web::Data<AppState>) -> impl Responder {
     match crate::deep_learning::get_all_learning_sessions(&state.db).await {
-        Ok(sessions) => {
-            HttpResponse::Ok().json(json!({
-                "success": true,
-                "sessions": sessions.iter().map(|s| {
-                    json!({
-                        "id": s.id,
-                        "topic": s.topic,
-                        "status": s.status,
-                        "depth_level": s.depth_level,
-                        "facts_learned": s.learned_facts.len(),
-                        "study_hours": s.study_hours,
-                        "confidence": s.confidence,
-                        "problems_added": s.practice_problems.len(),
-                    })
-                }).collect::<Vec<_>>(),
-                "total_sessions": sessions.len(),
-            }))
-        }
-        Err(e) => {
-            HttpResponse::InternalServerError().json(json!({
-                "success": false,
-                "error": e
-            }))
-        }
+        Ok(sessions) => HttpResponse::Ok().json(json!({
+            "success": true,
+            "sessions": sessions.iter().map(|s| {
+                json!({
+                    "id": s.id,
+                    "topic": s.topic,
+                    "status": s.status,
+                    "depth_level": s.depth_level,
+                    "facts_learned": s.learned_facts.len(),
+                    "study_hours": s.study_hours,
+                    "confidence": s.confidence,
+                    "problems_added": s.practice_problems.len(),
+                })
+            }).collect::<Vec<_>>(),
+            "total_sessions": sessions.len(),
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(json!({
+            "success": false,
+            "error": e
+        })),
     }
 }
 
 #[get("/api/learning/statistics")]
-pub async fn get_learning_statistics(
-    state: web::Data<AppState>,
-) -> impl Responder {
+pub async fn get_learning_statistics(state: web::Data<AppState>) -> impl Responder {
     match crate::deep_learning::get_learning_stats(&state.db).await {
-        Ok(stats) => {
-            HttpResponse::Ok().json(json!({
-                "success": true,
-                "statistics": stats
-            }))
-        }
-        Err(e) => {
-            HttpResponse::InternalServerError().json(json!({
-                "success": false,
-                "error": e
-            }))
-        }
+        Ok(stats) => HttpResponse::Ok().json(json!({
+            "success": true,
+            "statistics": stats
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(json!({
+            "success": false,
+            "error": e
+        })),
     }
 }
 
 #[get("/api/learning/summary")]
-pub async fn get_learning_summary_endpoint(
-    state: web::Data<AppState>,
-) -> impl Responder {
+pub async fn get_learning_summary_endpoint(state: web::Data<AppState>) -> impl Responder {
     match crate::knowledge_integration::get_learning_summary(&state.db).await {
-        Ok(summary) => {
-            HttpResponse::Ok().json(json!({
-                "success": true,
-                "summary": summary
-            }))
-        }
-        Err(e) => {
-            HttpResponse::InternalServerError().json(json!({
-                "success": false,
-                "error": e
-            }))
-        }
+        Ok(summary) => HttpResponse::Ok().json(json!({
+            "success": true,
+            "summary": summary
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(json!({
+            "success": false,
+            "error": e
+        })),
     }
 }
 
@@ -2196,18 +2145,19 @@ impl Cortex {
         }
 
         // Try to get a response from knowledge retrieval first
-        if let Ok(result) = crate::knowledge_retrieval::retrieve_knowledge(&state.db, prompt, 5).await {
+        if let Ok(result) =
+            crate::knowledge_retrieval::retrieve_knowledge(&state.db, prompt, 5).await
+        {
             if !result.items.is_empty() {
-                let summaries: Vec<String> = result.items.iter()
+                let summaries: Vec<String> = result
+                    .items
+                    .iter()
                     .take(3)
                     .map(|item| format!("{}. {}", item.label, item.summary))
                     .collect();
 
                 // Format a response with knowledge
-                return format!(
-                    "Based on my knowledge: {}",
-                    summaries.join(" ")
-                );
+                return format!("Based on my knowledge: {}", summaries.join(" "));
             }
         }
 
@@ -2216,7 +2166,9 @@ impl Cortex {
             &state.db,
             &format!("I understand your question about: {}", prompt),
             prompt,
-        ).await {
+        )
+        .await
+        {
             return enhanced;
         }
 

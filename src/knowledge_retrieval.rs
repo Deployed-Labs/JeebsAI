@@ -111,10 +111,46 @@ fn extract_query_terms(query: &str) -> Vec<String> {
 fn is_stop_word(word: &str) -> bool {
     matches!(
         word,
-        "the" | "a" | "an" | "and" | "or" | "but" | "in" | "on" | "at" | "to" | "for"
-        | "of" | "with" | "by" | "from" | "is" | "are" | "was" | "were" | "be" | "been"
-        | "have" | "has" | "had" | "do" | "does" | "did" | "will" | "would" | "could"
-        | "should" | "this" | "that" | "what" | "which" | "who" | "when" | "where" | "why" | "how"
+        "the"
+            | "a"
+            | "an"
+            | "and"
+            | "or"
+            | "but"
+            | "in"
+            | "on"
+            | "at"
+            | "to"
+            | "for"
+            | "of"
+            | "with"
+            | "by"
+            | "from"
+            | "is"
+            | "are"
+            | "was"
+            | "were"
+            | "be"
+            | "been"
+            | "have"
+            | "has"
+            | "had"
+            | "do"
+            | "does"
+            | "did"
+            | "will"
+            | "would"
+            | "could"
+            | "should"
+            | "this"
+            | "that"
+            | "what"
+            | "which"
+            | "who"
+            | "when"
+            | "where"
+            | "why"
+            | "how"
     )
 }
 
@@ -133,7 +169,7 @@ async fn search_brain_nodes(
              FROM brain_nodes
              WHERE label LIKE ? OR summary LIKE ? OR id LIKE ?
              ORDER BY created_at DESC
-             LIMIT 20"
+             LIMIT 20",
         )
         .bind(&pattern)
         .bind(&pattern)
@@ -150,7 +186,8 @@ async fn search_brain_nodes(
             let created_at: String = row.get(4);
 
             let content = if let Ok(json_val) = serde_json::from_slice::<serde_json::Value>(&data) {
-                json_val.get("text")
+                json_val
+                    .get("text")
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
                     .to_string()
@@ -188,7 +225,7 @@ async fn search_knowledge_triples(
              FROM knowledge_triples
              WHERE subject LIKE ? OR predicate LIKE ? OR object LIKE ?
              ORDER BY confidence DESC, created_at DESC
-             LIMIT 15"
+             LIMIT 15",
         )
         .bind(&pattern)
         .bind(&pattern)
@@ -226,10 +263,7 @@ async fn search_knowledge_triples(
 }
 
 /// Search stored contexts
-async fn search_contexts(
-    db: &SqlitePool,
-    terms: &[String],
-) -> Result<Vec<KnowledgeItem>, String> {
+async fn search_contexts(db: &SqlitePool, terms: &[String]) -> Result<Vec<KnowledgeItem>, String> {
     let mut items = Vec::new();
 
     let rows = sqlx::query("SELECT key, value FROM jeebs_store WHERE key LIKE 'context:%'")
@@ -241,13 +275,21 @@ async fn search_contexts(
         let _key: String = row.get(0);
         let value: Vec<u8> = row.get(1);
 
-        if let Ok(context) = serde_json::from_slice::<crate::language_learning::ContextualKnowledge>(&value) {
+        if let Ok(context) =
+            serde_json::from_slice::<crate::language_learning::ContextualKnowledge>(&value)
+        {
             // Check if any term matches
             let mut matches = false;
             for term in terms {
                 if context.topic.to_lowercase().contains(term)
-                    || context.key_concepts.iter().any(|c| c.to_lowercase().contains(term))
-                    || context.facts.iter().any(|f| f.to_lowercase().contains(term))
+                    || context
+                        .key_concepts
+                        .iter()
+                        .any(|c| c.to_lowercase().contains(term))
+                    || context
+                        .facts
+                        .iter()
+                        .any(|f| f.to_lowercase().contains(term))
                 {
                     matches = true;
                     break;
@@ -418,7 +460,11 @@ fn synthesize_answer(items: &[KnowledgeItem], query: &str) -> String {
     } else if answer_parts.len() == 1 {
         answer_parts[0].clone()
     } else {
-        format!("{}. Additionally: {}", answer_parts[0], answer_parts[1..].join(". "))
+        format!(
+            "{}. Additionally: {}",
+            answer_parts[0],
+            answer_parts[1..].join(". ")
+        )
     }
 }
 

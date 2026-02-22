@@ -319,9 +319,7 @@ async fn handle_pgp_login(
         "AUTH",
         &format!(
             "Successful login username={} role={} ip={}",
-            username,
-            role,
-            ip
+            username, role, ip
         ),
     )
     .await;
@@ -491,7 +489,11 @@ pub async fn auth_status(
                 .ok()
                 .and_then(|row| row.map(|r| r.get::<Vec<u8>, _>(0)))
                 .and_then(|raw| serde_json::from_slice::<serde_json::Value>(&raw).ok())
-                .and_then(|json| json.get("role").and_then(|v| v.as_str()).map(|s| s.to_string()))
+                .and_then(|json| {
+                    json.get("role")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string())
+                })
                 .unwrap_or_else(|| "user".to_string());
             let is_trainer = role == "trainer";
 

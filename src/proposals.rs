@@ -113,10 +113,22 @@ async fn load_reflection_candidates(db: &SqlitePool) -> ReflectionCandidates {
                 continue;
             }
 
-            actions.extend(parse_markdown_section(&change.new_content, "## Suggested Actions"));
-            learning_topics.extend(parse_markdown_section(&change.new_content, "## Conversation Gaps To Learn"));
-            learning_topics.extend(parse_markdown_section(&change.new_content, "## Search Queries For Knowledge Expansion"));
-            scope_topics.extend(parse_markdown_section(&change.new_content, "## Priority Topics"));
+            actions.extend(parse_markdown_section(
+                &change.new_content,
+                "## Suggested Actions",
+            ));
+            learning_topics.extend(parse_markdown_section(
+                &change.new_content,
+                "## Conversation Gaps To Learn",
+            ));
+            learning_topics.extend(parse_markdown_section(
+                &change.new_content,
+                "## Search Queries For Knowledge Expansion",
+            ));
+            scope_topics.extend(parse_markdown_section(
+                &change.new_content,
+                "## Priority Topics",
+            ));
         }
     }
 
@@ -444,8 +456,7 @@ pub fn format_proposal(proposal: &ProactiveProposal) -> String {
         "scope" => {
             format!(
                 "🧩 **Scope Expansion**: {}\n\n**Why**: {}\n\nShould I expand into this area?",
-                proposal.description,
-                proposal.reason
+                proposal.description, proposal.reason
             )
         }
         "learn" => {
@@ -828,9 +839,7 @@ pub async fn generate_template_proposals(db: &SqlitePool) -> Option<TemplateProp
     ];
 
     // Select 2 different template types randomly
-    let selected_types: Vec<_> = template_types
-        .choose_multiple(&mut rng, 2)
-        .collect();
+    let selected_types: Vec<_> = template_types.choose_multiple(&mut rng, 2).collect();
 
     let mut proposals = Vec::new();
     let round = (Local::now().timestamp() / TEMPLATE_PROPOSAL_INTERVAL_SECS) as u32;
@@ -924,7 +933,10 @@ pub async fn update_template_proposal_status(
 pub fn format_template_proposals(proposal_set: &TemplateProposalSet) -> String {
     let mut output = String::new();
     output.push_str("🎯 **Current Proposal Round**\n\n");
-    output.push_str(&format!("*Selection Round: {}*\n\n", proposal_set.selection_round));
+    output.push_str(&format!(
+        "*Selection Round: {}*\n\n",
+        proposal_set.selection_round
+    ));
 
     for (idx, proposal) in proposal_set.proposals.iter().enumerate() {
         let emoji = match proposal.template_type.as_str() {
@@ -950,7 +962,10 @@ pub fn format_template_proposals(proposal_set: &TemplateProposalSet) -> String {
             output.push_str(&format!("  • {}\n", step));
         }
 
-        output.push_str(&format!("\n**Expected Impact**: {}\n\n", proposal.expected_impact));
+        output.push_str(&format!(
+            "\n**Expected Impact**: {}\n\n",
+            proposal.expected_impact
+        ));
 
         if idx < proposal_set.proposals.len() - 1 {
             output.push_str("---\n\n");

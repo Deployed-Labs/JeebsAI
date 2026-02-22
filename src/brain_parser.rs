@@ -1,8 +1,8 @@
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sqlx::SqlitePool;
 use std::collections::{HashMap, HashSet};
-use regex::Regex;
 
 /// Parser framework for extracting and organizing information from brain nodes
 /// Handles structured and unstructured data extraction, relationship inference,
@@ -54,13 +54,13 @@ pub struct Relationship {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum RelationType {
-    IsA,        // X is a Y
-    PartOf,     // X is part of Y
-    Creates,    // X creates Y
-    Uses,       // X uses Y
-    Knows,      // X knows Y (people)
-    Located,    // X is located in Y
-    Precedes,   // X happens before Y
+    IsA,      // X is a Y
+    PartOf,   // X is part of Y
+    Creates,  // X creates Y
+    Uses,     // X uses Y
+    Knows,    // X knows Y (people)
+    Located,  // X is located in Y
+    Precedes, // X happens before Y
     Custom(String),
 }
 
@@ -115,9 +115,7 @@ impl BrainParser {
         // Person patterns (capitalized words)
         patterns.insert(
             EntityType::Person,
-            vec![
-                Regex::new(r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b").unwrap(),
-            ],
+            vec![Regex::new(r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b").unwrap()],
         );
 
         // Number patterns
@@ -145,13 +143,34 @@ impl BrainParser {
     /// Build relationship detection patterns
     fn build_relationship_patterns() -> Vec<(Regex, RelationType)> {
         vec![
-            (Regex::new(r"(?i)is\s+a(?:\s+kind\s+of)?").unwrap(), RelationType::IsA),
-            (Regex::new(r"(?i)(?:is\s+)?part\s+of").unwrap(), RelationType::PartOf),
-            (Regex::new(r"(?i)(?:creates?|made|builds?)").unwrap(), RelationType::Creates),
-            (Regex::new(r"(?i)(?:uses?|utilizes?)").unwrap(), RelationType::Uses),
-            (Regex::new(r"(?i)(?:knows?|knows\s+about)").unwrap(), RelationType::Knows),
-            (Regex::new(r"(?i)(?:located\s+in|in|at)").unwrap(), RelationType::Located),
-            (Regex::new(r"(?i)(?:before|after|then)").unwrap(), RelationType::Precedes),
+            (
+                Regex::new(r"(?i)is\s+a(?:\s+kind\s+of)?").unwrap(),
+                RelationType::IsA,
+            ),
+            (
+                Regex::new(r"(?i)(?:is\s+)?part\s+of").unwrap(),
+                RelationType::PartOf,
+            ),
+            (
+                Regex::new(r"(?i)(?:creates?|made|builds?)").unwrap(),
+                RelationType::Creates,
+            ),
+            (
+                Regex::new(r"(?i)(?:uses?|utilizes?)").unwrap(),
+                RelationType::Uses,
+            ),
+            (
+                Regex::new(r"(?i)(?:knows?|knows\s+about)").unwrap(),
+                RelationType::Knows,
+            ),
+            (
+                Regex::new(r"(?i)(?:located\s+in|in|at)").unwrap(),
+                RelationType::Located,
+            ),
+            (
+                Regex::new(r"(?i)(?:before|after|then)").unwrap(),
+                RelationType::Precedes,
+            ),
         ]
     }
 
@@ -162,8 +181,18 @@ impl BrainParser {
         keywords.insert(
             "Technology".to_string(),
             vec![
-                "software", "hardware", "code", "program", "algorithm", "database", "api",
-                "framework", "library", "language", "compiler", "debugger",
+                "software",
+                "hardware",
+                "code",
+                "program",
+                "algorithm",
+                "database",
+                "api",
+                "framework",
+                "library",
+                "language",
+                "compiler",
+                "debugger",
             ]
             .iter()
             .map(|s| s.to_string())
@@ -173,8 +202,18 @@ impl BrainParser {
         keywords.insert(
             "Science".to_string(),
             vec![
-                "experiment", "theory", "hypothesis", "research", "study", "physics", "chemistry",
-                "biology", "discovery", "science", "quantum", "molecule",
+                "experiment",
+                "theory",
+                "hypothesis",
+                "research",
+                "study",
+                "physics",
+                "chemistry",
+                "biology",
+                "discovery",
+                "science",
+                "quantum",
+                "molecule",
             ]
             .iter()
             .map(|s| s.to_string())
@@ -184,8 +223,18 @@ impl BrainParser {
         keywords.insert(
             "Business".to_string(),
             vec![
-                "company", "business", "market", "revenue", "sales", "customer", "product",
-                "service", "enterprise", "startup", "investment", "profit",
+                "company",
+                "business",
+                "market",
+                "revenue",
+                "sales",
+                "customer",
+                "product",
+                "service",
+                "enterprise",
+                "startup",
+                "investment",
+                "profit",
             ]
             .iter()
             .map(|s| s.to_string())
@@ -195,8 +244,17 @@ impl BrainParser {
         keywords.insert(
             "History".to_string(),
             vec![
-                "historical", "ancient", "medieval", "war", "revolution", "dynasty",
-                "civilization", "era", "period", "century", "empire",
+                "historical",
+                "ancient",
+                "medieval",
+                "war",
+                "revolution",
+                "dynasty",
+                "civilization",
+                "era",
+                "period",
+                "century",
+                "empire",
             ]
             .iter()
             .map(|s| s.to_string())
@@ -206,8 +264,18 @@ impl BrainParser {
         keywords.insert(
             "Culture".to_string(),
             vec![
-                "art", "music", "culture", "tradition", "festival", "ceremony", "literature",
-                "poetry", "song", "dance", "theater", "film",
+                "art",
+                "music",
+                "culture",
+                "tradition",
+                "festival",
+                "ceremony",
+                "literature",
+                "poetry",
+                "song",
+                "dance",
+                "theater",
+                "film",
             ]
             .iter()
             .map(|s| s.to_string())
@@ -256,7 +324,11 @@ impl BrainParser {
                                 entity_type: entity_type.clone(),
                                 value,
                                 confidence: 0.75,
-                                context: Some(self.extract_context(text, matched.start(), matched.end())),
+                                context: Some(self.extract_context(
+                                    text,
+                                    matched.start(),
+                                    matched.end(),
+                                )),
                             });
                         }
                     }
@@ -278,10 +350,10 @@ impl BrainParser {
             for (pattern, rel_type) in &self.relationship_patterns {
                 if let Some(rel_match) = pattern.find(&sentence) {
                     // Try to find subject and object around the relationship
-                    if let (Some(subject), Some(object)) =
-                        (self.find_nearest_entity_before(&sentence, rel_match.start()),
-                         self.find_nearest_entity_after(&sentence, rel_match.end())) {
-
+                    if let (Some(subject), Some(object)) = (
+                        self.find_nearest_entity_before(&sentence, rel_match.start()),
+                        self.find_nearest_entity_after(&sentence, rel_match.end()),
+                    ) {
                         relationships.push(Relationship {
                             subject,
                             predicate: rel_match.as_str().to_string(),
@@ -330,7 +402,8 @@ impl BrainParser {
         let text_lower = text.to_lowercase();
 
         for (category_name, keywords) in &self.category_keywords {
-            let keyword_matches = keywords.iter()
+            let keyword_matches = keywords
+                .iter()
                 .filter(|kw| text_lower.contains(kw.as_str()))
                 .count();
 
@@ -339,7 +412,9 @@ impl BrainParser {
 
                 let subcategories = topics
                     .iter()
-                    .filter(|topic: &&String| !categories.iter().any(|c: &Category| &c.name == *topic))
+                    .filter(|topic: &&String| {
+                        !categories.iter().any(|c: &Category| &c.name == *topic)
+                    })
                     .take(3)
                     .cloned()
                     .collect();
@@ -408,12 +483,11 @@ pub async fn build_knowledge_graph(
     db: &SqlitePool,
     parser: &BrainParser,
 ) -> Result<KnowledgeGraph, String> {
-    let brain_nodes: Vec<(String, String, String)> = sqlx::query_as(
-        "SELECT id, key, value FROM brain"
-    )
-    .fetch_all(db)
-    .await
-    .map_err(|e| format!("Failed to fetch brain nodes: {}", e))?;
+    let brain_nodes: Vec<(String, String, String)> =
+        sqlx::query_as("SELECT id, key, value FROM brain")
+            .fetch_all(db)
+            .await
+            .map_err(|e| format!("Failed to fetch brain nodes: {}", e))?;
 
     let mut graph = KnowledgeGraph::new();
 
@@ -524,8 +598,12 @@ mod tests {
         let text = "Rust is a programming language created by Mozilla in 2010";
         let entities = parser.extract_entities(text);
 
-        assert!(entities.iter().any(|e| e.entity_type == EntityType::Technology));
-        assert!(entities.iter().any(|e| e.entity_type == EntityType::Date || e.entity_type == EntityType::Number));
+        assert!(entities
+            .iter()
+            .any(|e| e.entity_type == EntityType::Technology));
+        assert!(entities
+            .iter()
+            .any(|e| e.entity_type == EntityType::Date || e.entity_type == EntityType::Number));
     }
 
     #[test]

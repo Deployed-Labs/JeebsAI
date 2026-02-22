@@ -11,10 +11,7 @@ struct TrainingToggleRequest {
 }
 
 #[get("/api/admin/training/status")]
-pub async fn get_training_status(
-    data: web::Data<AppState>,
-    session: Session,
-) -> impl Responder {
+pub async fn get_training_status(data: web::Data<AppState>, session: Session) -> impl Responder {
     if !crate::auth::is_root_admin_session(&session) {
         return HttpResponse::Forbidden()
             .json(json!({"error": "Restricted to 1090mb admin account"}));
@@ -37,12 +34,8 @@ pub async fn set_training_mode(
             .json(json!({"error": "Restricted to 1090mb admin account"}));
     }
 
-    if let Err(err) = crate::cortex::set_training_enabled_for_trainer(
-        &data.db,
-        req.enabled,
-        "root_admin",
-    )
-    .await
+    if let Err(err) =
+        crate::cortex::set_training_enabled_for_trainer(&data.db, req.enabled, "root_admin").await
     {
         return HttpResponse::InternalServerError().json(json!({ "error": err }));
     }

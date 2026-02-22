@@ -28,7 +28,7 @@ pub struct DeepLearningSession {
     pub last_studied: String,
     pub study_hours: f32,
     pub confidence: f32, // 0.0 - 1.0
-    pub status: String, // "novice", "learning", "intermediate", "advanced", "expert"
+    pub status: String,  // "novice", "learning", "intermediate", "advanced", "expert"
 }
 
 /// A fact learned about a topic
@@ -259,11 +259,7 @@ pub async fn add_practice_problem(
 }
 
 /// Record that a fact was used in a chat response
-pub async fn record_fact_usage(
-    db: &SqlitePool,
-    topic: &str,
-    fact: &str,
-) -> Result<(), String> {
+pub async fn record_fact_usage(db: &SqlitePool, topic: &str, fact: &str) -> Result<(), String> {
     let key = format!("{}{}", KNOWLEDGE_APPLICATION_PREFIX, topic.to_lowercase());
 
     let mut applications: Vec<FactApplication> = if let Ok(Some(row)) =
@@ -323,11 +319,16 @@ pub async fn get_relevant_facts_for_chat(
         let value: Vec<u8> = row.get(0);
         if let Ok(session) = serde_json::from_slice::<DeepLearningSession>(&value) {
             if session.topic.to_lowercase() == topic.to_lowercase()
-                || session.subtopics.iter().any(|s| s.to_lowercase() == topic.to_lowercase())
+                || session
+                    .subtopics
+                    .iter()
+                    .any(|s| s.to_lowercase() == topic.to_lowercase())
             {
                 for fact in &session.learned_facts {
                     // Check if fact is relevant to query
-                    if fact.fact.to_lowercase().contains(&query_lower) || matches_any_concept(&query_lower, &fact.related_concepts) {
+                    if fact.fact.to_lowercase().contains(&query_lower)
+                        || matches_any_concept(&query_lower, &fact.related_concepts)
+                    {
                         relevant_facts.push(fact.clone());
                     }
                 }
@@ -339,7 +340,9 @@ pub async fn get_relevant_facts_for_chat(
     relevant_facts.sort_by(|a, b| {
         let score_a = a.importance * (1.0 + (a.used_in_responses as f32) / 10.0);
         let score_b = b.importance * (1.0 + (b.used_in_responses as f32) / 10.0);
-        score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
+        score_b
+            .partial_cmp(&score_a)
+            .unwrap_or(std::cmp::Ordering::Equal)
     });
 
     Ok(relevant_facts.into_iter().take(5).collect())
@@ -360,7 +363,9 @@ pub async fn get_topic_expertise(db: &SqlitePool, topic: &str) -> Option<TopicEx
 }
 
 /// Get all learning sessions
-pub async fn get_all_learning_sessions(db: &SqlitePool) -> Result<Vec<DeepLearningSession>, String> {
+pub async fn get_all_learning_sessions(
+    db: &SqlitePool,
+) -> Result<Vec<DeepLearningSession>, String> {
     let rows = sqlx::query("SELECT value FROM jeebs_store WHERE key LIKE ?")
         .bind(format!("{}%", LEARNING_SESSION_PREFIX))
         .fetch_all(db)
@@ -516,7 +521,8 @@ async fn update_topic_expertise(
             expertise.last_practiced = Local::now().to_rfc3339();
 
             // Calculate expertise level based on facts and study time
-            expertise.expertise_level = ((facts_count / 5) + (expertise.total_study_hours as u32 / 10)).min(10);
+            expertise.expertise_level =
+                ((facts_count / 5) + (expertise.total_study_hours as u32 / 10)).min(10);
 
             let payload = serde_json::to_vec(&expertise).map_err(|e| e.to_string())?;
 

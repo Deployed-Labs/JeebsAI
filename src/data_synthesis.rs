@@ -61,10 +61,11 @@ async fn count_total_knowledge_items(db: &SqlitePool) -> Result<u64, String> {
         .await
         .map_err(|e| e.to_string())?;
 
-    let context_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM jeebs_store WHERE key LIKE 'context:%'")
-        .fetch_one(db)
-        .await
-        .map_err(|e| e.to_string())?;
+    let context_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM jeebs_store WHERE key LIKE 'context:%'")
+            .fetch_one(db)
+            .await
+            .map_err(|e| e.to_string())?;
 
     Ok((brain_count + triple_count + context_count) as u64)
 }
@@ -80,7 +81,7 @@ async fn analyze_knowledge_domains(db: &SqlitePool) -> Result<Vec<DomainSummary>
          WHERE json_extract(data, '$.domain') IS NOT NULL
          GROUP BY domain
          ORDER BY count DESC
-         LIMIT 20"
+         LIMIT 20",
     )
     .fetch_all(db)
     .await
@@ -95,12 +96,11 @@ async fn analyze_knowledge_domains(db: &SqlitePool) -> Result<Vec<DomainSummary>
     }
 
     // Extract from knowledge triples by analyzing subject patterns
-    let rows = sqlx::query(
-        "SELECT subject FROM knowledge_triples ORDER BY created_at DESC LIMIT 100"
-    )
-    .fetch_all(db)
-    .await
-    .map_err(|e| e.to_string())?;
+    let rows =
+        sqlx::query("SELECT subject FROM knowledge_triples ORDER BY created_at DESC LIMIT 100")
+            .fetch_all(db)
+            .await
+            .map_err(|e| e.to_string())?;
 
     for row in rows {
         let subject: String = row.get(0);
@@ -128,11 +128,20 @@ async fn analyze_knowledge_domains(db: &SqlitePool) -> Result<Vec<DomainSummary>
 fn categorize_subject(subject: &str) -> String {
     let lower = subject.to_lowercase();
 
-    if lower.contains("algorithm") || lower.contains("data structure") || lower.contains("sorting") {
+    if lower.contains("algorithm") || lower.contains("data structure") || lower.contains("sorting")
+    {
         "Computer Science".to_string()
-    } else if lower.contains("python") || lower.contains("rust") || lower.contains("javascript") || lower.contains("programming") {
+    } else if lower.contains("python")
+        || lower.contains("rust")
+        || lower.contains("javascript")
+        || lower.contains("programming")
+    {
         "Programming Languages".to_string()
-    } else if lower.contains("machine") || lower.contains("neural") || lower.contains("model") || lower.contains("learning") {
+    } else if lower.contains("machine")
+        || lower.contains("neural")
+        || lower.contains("model")
+        || lower.contains("learning")
+    {
         "Machine Learning".to_string()
     } else if lower.contains("quantum") || lower.contains("physics") {
         "Physics".to_string()
@@ -152,16 +161,22 @@ fn categorize_subject(subject: &str) -> String {
 }
 
 /// Extract key topics from a domain
-async fn extract_key_topics(db: &SqlitePool, domain: &str, limit: usize) -> Result<Vec<String>, String> {
+async fn extract_key_topics(
+    db: &SqlitePool,
+    domain: &str,
+    limit: usize,
+) -> Result<Vec<String>, String> {
     let mut topics = HashSet::new();
 
     // Get from brain nodes
     let pattern = format!("%{}%", domain);
-    let rows = sqlx::query("SELECT label FROM brain_nodes WHERE json_extract(data, '$.domain') LIKE ? LIMIT 20")
-        .bind(&pattern)
-        .fetch_all(db)
-        .await
-        .map_err(|e| e.to_string())?;
+    let rows = sqlx::query(
+        "SELECT label FROM brain_nodes WHERE json_extract(data, '$.domain') LIKE ? LIMIT 20",
+    )
+    .bind(&pattern)
+    .fetch_all(db)
+    .await
+    .map_err(|e| e.to_string())?;
 
     for row in rows {
         let label: String = row.get(0);
@@ -174,7 +189,10 @@ async fn extract_key_topics(db: &SqlitePool, domain: &str, limit: usize) -> Resu
 }
 
 /// Identify knowledge gaps based on what Jeebs knows
-async fn identify_knowledge_gaps(db: &SqlitePool, domains: &[DomainSummary]) -> Result<Vec<String>, String> {
+async fn identify_knowledge_gaps(
+    db: &SqlitePool,
+    domains: &[DomainSummary],
+) -> Result<Vec<String>, String> {
     let mut gaps = Vec::new();
 
     // Common important topics that might not be well covered
@@ -190,7 +208,9 @@ async fn identify_knowledge_gaps(db: &SqlitePool, domains: &[DomainSummary]) -> 
     ];
 
     for (topic, keyword) in important_areas {
-        let has_coverage = domains.iter().any(|d| d.domain.to_lowercase().contains(keyword))
+        let has_coverage = domains
+            .iter()
+            .any(|d| d.domain.to_lowercase().contains(keyword))
             || sqlx::query("SELECT 1 FROM brain_nodes WHERE label LIKE ?")
                 .bind(format!("%{}%", keyword))
                 .fetch_optional(db)
@@ -223,23 +243,35 @@ async fn get_recent_learnings(db: &SqlitePool, limit: usize) -> Result<Vec<Strin
         .into_iter()
         .filter_map(|row| {
             let label: String = row.get(0);
-            if !label.is_empty() { Some(label) } else { None }
+            if !label.is_empty() {
+                Some(label)
+            } else {
+                None
+            }
         })
         .collect())
 }
 
 /// Identify emerging patterns in knowledge
-async fn identify_emerging_patterns(db: &SqlitePool, domains: &[DomainSummary]) -> Result<Vec<String>, String> {
+async fn identify_emerging_patterns(
+    db: &SqlitePool,
+    domains: &[DomainSummary],
+) -> Result<Vec<String>, String> {
     let mut patterns = Vec::new();
 
     // Find rapidly growing domains
-    if let Ok(Some(row)) = sqlx::query("SELECT COUNT(*) FROM brain_nodes WHERE created_at > datetime('now', '-7 days')")
-        .fetch_optional(db)
-        .await
+    if let Ok(Some(row)) = sqlx::query(
+        "SELECT COUNT(*) FROM brain_nodes WHERE created_at > datetime('now', '-7 days')",
+    )
+    .fetch_optional(db)
+    .await
     {
         let recent_count: i64 = row.get(0);
         if recent_count > 50 {
-            patterns.push(format!("Rapid knowledge acquisition: {} items in past week", recent_count));
+            patterns.push(format!(
+                "Rapid knowledge acquisition: {} items in past week",
+                recent_count
+            ));
         }
     }
 
@@ -259,7 +291,10 @@ async fn identify_emerging_patterns(db: &SqlitePool, domains: &[DomainSummary]) 
 
     // Identify cross-domain patterns
     if domains.len() > 3 {
-        patterns.push(format!("Building diverse knowledge across {} domains", domains.len()));
+        patterns.push(format!(
+            "Building diverse knowledge across {} domains",
+            domains.len()
+        ));
     }
 
     Ok(patterns)
@@ -319,8 +354,12 @@ pub async fn generate_response_context(db: &SqlitePool, query: &str) -> Result<S
     let relevant_domains: Vec<String> = profile
         .domains
         .iter()
-        .filter(|d| d.domain.to_lowercase().contains(&query.to_lowercase())
-            || d.key_topics.iter().any(|t| t.to_lowercase().contains(&query.to_lowercase())))
+        .filter(|d| {
+            d.domain.to_lowercase().contains(&query.to_lowercase())
+                || d.key_topics
+                    .iter()
+                    .any(|t| t.to_lowercase().contains(&query.to_lowercase()))
+        })
         .map(|d| d.domain.clone())
         .collect();
 
@@ -328,10 +367,7 @@ pub async fn generate_response_context(db: &SqlitePool, query: &str) -> Result<S
         return Ok(String::new());
     }
 
-    let context = format!(
-        "Based on my knowledge in {}: ",
-        relevant_domains.join(", ")
-    );
+    let context = format!("Based on my knowledge in {}: ", relevant_domains.join(", "));
     Ok(context)
 }
 
@@ -345,7 +381,10 @@ pub async fn get_knowledge_summary(db: &SqlitePool) -> Result<String, String> {
 
     summary.push_str("**Key Domains:**\n");
     for domain in profile.domains.iter().take(5) {
-        summary.push_str(&format!("• {}: {} items\n", domain.domain, domain.item_count));
+        summary.push_str(&format!(
+            "• {}: {} items\n",
+            domain.domain, domain.item_count
+        ));
     }
 
     if !profile.knowledge_gaps.is_empty() {

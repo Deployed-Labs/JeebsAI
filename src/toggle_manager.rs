@@ -1,18 +1,14 @@
 use chrono::Local;
-use sqlx::{Row, SqlitePool};
 use serde_json::json;
+use sqlx::{Row, SqlitePool};
 
 /// Initialize toggle states from persistent storage
 pub async fn load_toggle_states(db: &SqlitePool) -> Result<(bool, bool), String> {
     // Load internet_enabled state
-    let internet_enabled = load_internet_enabled_state(db)
-        .await
-        .unwrap_or(false);
+    let internet_enabled = load_internet_enabled_state(db).await.unwrap_or(false);
 
     // Load training_enabled state
-    let training_enabled = load_training_enabled_state(db)
-        .await
-        .unwrap_or(false);
+    let training_enabled = load_training_enabled_state(db).await.unwrap_or(false);
 
     Ok((internet_enabled, training_enabled))
 }

@@ -6,8 +6,8 @@ use serde_json::json;
 use sqlx::Row;
 use std::env;
 
-use crate::state::AppState;
 use crate::logging;
+use crate::state::AppState;
 
 const DEFAULT_JWT_SECRET: &str = "jeebs-secret-key-change-in-production";
 
@@ -122,7 +122,11 @@ pub async fn user_chat(
                 .ok()
                 .and_then(|row| row.map(|r| r.get::<Vec<u8>, _>(0)))
                 .and_then(|raw| serde_json::from_slice::<serde_json::Value>(&raw).ok())
-                .and_then(|json| json.get("role").and_then(|v| v.as_str()).map(|s| s.to_string()))
+                .and_then(|json| {
+                    json.get("role")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string())
+                })
                 .unwrap_or_else(|| "user".to_string());
             let is_trainer = role == "trainer";
 
@@ -212,10 +216,7 @@ pub async fn user_chat(
                     &data.db,
                     "INFO",
                     "CHAT",
-                    &format!(
-                        "Jeebs reply to {} (.google): {}",
-                        username, summary
-                    ),
+                    &format!("Jeebs reply to {} (.google): {}", username, summary),
                 )
                 .await;
 
@@ -245,7 +246,8 @@ pub async fn user_chat(
                     • `train: <topic>` - Set training focus topic\n\
                     • `train on` - Enable training mode\n\
                     • `train off` - Disable training mode\n\n\
-                    Example: `train: improve rust error handling`".to_string(),
+                    Example: `train: improve rust error handling`"
+                    .to_string(),
                 username,
                 is_admin,
                 is_trainer,
@@ -259,12 +261,8 @@ pub async fn user_chat(
                 }));
             }
 
-            if let Err(err) = crate::cortex::set_training_focus_for_trainer(
-                &data.db,
-                topic,
-                &username,
-            )
-            .await
+            if let Err(err) =
+                crate::cortex::set_training_focus_for_trainer(&data.db, topic, &username).await
             {
                 return HttpResponse::InternalServerError().json(json!({
                     "error": err
@@ -302,7 +300,9 @@ pub async fn user_chat(
         }
 
         if message.eq_ignore_ascii_case("train stop") || message.eq_ignore_ascii_case("train off") {
-            if let Err(err) = crate::cortex::set_training_enabled_for_trainer(&data.db, false, &username).await {
+            if let Err(err) =
+                crate::cortex::set_training_enabled_for_trainer(&data.db, false, &username).await
+            {
                 return HttpResponse::InternalServerError().json(json!({
                     "error": err
                 }));
@@ -336,7 +336,9 @@ pub async fn user_chat(
         }
 
         if message.eq_ignore_ascii_case("train on") || message.eq_ignore_ascii_case("train start") {
-            if let Err(err) = crate::cortex::set_training_enabled_for_trainer(&data.db, true, &username).await {
+            if let Err(err) =
+                crate::cortex::set_training_enabled_for_trainer(&data.db, true, &username).await
+            {
                 return HttpResponse::InternalServerError().json(json!({
                     "error": err
                 }));
@@ -371,8 +373,7 @@ pub async fn user_chat(
     }
 
     // Get response from Jeebs
-    let response = crate::cortex::Cortex::think(message, &data)
-        .await;
+    let response = crate::cortex::Cortex::think(message, &data).await;
 
     logging::log(
         &data.db,
@@ -397,9 +398,7 @@ pub async fn chat_preflight() -> impl Responder {
 
 /// Get chat status (check if user is authenticated)
 #[get("/api/chat/status")]
-pub async fn chat_status(
-    session: Session,
-) -> impl Responder {
+pub async fn chat_status(session: Session) -> impl Responder {
     if !is_user_authenticated(&session) {
         return HttpResponse::Ok().json(json!({
             "authenticated": false,

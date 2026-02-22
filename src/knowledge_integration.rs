@@ -1,7 +1,7 @@
 // Knowledge Integration Module - Uses learned information in chat responses
 
-use sqlx::SqlitePool;
 use crate::{deep_learning, knowledge_retrieval};
+use sqlx::SqlitePool;
 
 #[derive(Debug, Clone)]
 struct LinkedInsight {
@@ -72,7 +72,8 @@ pub async fn build_enhanced_context(
         let base_topic = topic.split('(').next().unwrap_or(topic).trim();
 
         // Get facts related to this topic
-        let facts = deep_learning::get_relevant_facts_for_chat(db, base_topic, user_message).await?;
+        let facts =
+            deep_learning::get_relevant_facts_for_chat(db, base_topic, user_message).await?;
         for fact in facts {
             relevant_facts.push(fact.fact.clone());
         }
@@ -121,19 +122,30 @@ fn tokens_lower(s: &str) -> Vec<String> {
         .collect()
 }
 
-fn connection_score(a: &knowledge_retrieval::KnowledgeItem, b: &knowledge_retrieval::KnowledgeItem) -> f32 {
+fn connection_score(
+    a: &knowledge_retrieval::KnowledgeItem,
+    b: &knowledge_retrieval::KnowledgeItem,
+) -> f32 {
     let mut score = 0.0;
     // Tag overlap
-    let a_tags: std::collections::HashSet<_> = a.tags.iter().map(|t| t.to_ascii_lowercase()).collect();
-    let b_tags: std::collections::HashSet<_> = b.tags.iter().map(|t| t.to_ascii_lowercase()).collect();
+    let a_tags: std::collections::HashSet<_> =
+        a.tags.iter().map(|t| t.to_ascii_lowercase()).collect();
+    let b_tags: std::collections::HashSet<_> =
+        b.tags.iter().map(|t| t.to_ascii_lowercase()).collect();
     let overlap = a_tags.intersection(&b_tags).count() as f32;
     if overlap > 0.0 {
         score += overlap * 1.5;
     }
 
     // Label/content token overlap
-    let a_tokens: std::collections::HashSet<_> = tokens_lower(&format!("{} {}", a.label, a.summary)).into_iter().collect();
-    let b_tokens: std::collections::HashSet<_> = tokens_lower(&format!("{} {}", b.label, b.summary)).into_iter().collect();
+    let a_tokens: std::collections::HashSet<_> =
+        tokens_lower(&format!("{} {}", a.label, a.summary))
+            .into_iter()
+            .collect();
+    let b_tokens: std::collections::HashSet<_> =
+        tokens_lower(&format!("{} {}", b.label, b.summary))
+            .into_iter()
+            .collect();
     let word_overlap = a_tokens.intersection(&b_tokens).count() as f32;
     if word_overlap > 0.0 {
         score += word_overlap * 0.8;
@@ -164,11 +176,7 @@ fn build_linked_insights(items: &[knowledge_retrieval::KnowledgeItem]) -> Vec<Li
     for (score, a, b) in pairs.into_iter().take(3) {
         let rationale = format!(
             "Linking '{}' ({}) with '{}' ({}) based on shared concepts/tags (score {:.2}).",
-            a.label,
-            a.category,
-            b.label,
-            b.category,
-            score
+            a.label, a.category, b.label, b.category, score
         );
         out.push(LinkedInsight {
             left: a.label.clone(),
@@ -184,7 +192,7 @@ async fn persist_link_if_new(db: &SqlitePool, left: &str, right: &str, confidenc
     // Store as a knowledge_triples row with predicate related_to; ignore failures quietly.
     let _ = sqlx::query(
         "INSERT INTO knowledge_triples (subject, predicate, object, confidence, created_at)
-         VALUES (?, 'related_to', ?, ?, datetime('now'))"
+         VALUES (?, 'related_to', ?, ?, datetime('now'))",
     )
     .bind(left)
     .bind(right)
@@ -200,12 +208,14 @@ pub async fn enhance_response_with_knowledge(
     user_message: &str,
 ) -> Result<String, String> {
     let context = build_enhanced_context(db, user_message).await?;
-    let retrieval = knowledge_retrieval::retrieve_knowledge(db, user_message, 10).await.unwrap_or_else(|_| knowledge_retrieval::RetrievalResult {
-        items: Vec::new(),
-        total_searched: 0,
-        query_terms: Vec::new(),
-        synthesized_answer: None,
-    });
+    let retrieval = knowledge_retrieval::retrieve_knowledge(db, user_message, 10)
+        .await
+        .unwrap_or_else(|_| knowledge_retrieval::RetrievalResult {
+            items: Vec::new(),
+            total_searched: 0,
+            query_terms: Vec::new(),
+            synthesized_answer: None,
+        });
     let linked = build_linked_insights(&retrieval.items);
 
     if context.relevant_learned_facts.is_empty() && context.expertise_areas.is_empty() {
@@ -258,10 +268,7 @@ pub async fn enhance_response_with_knowledge(
 
     // Add learning opportunity suggestions
     if !context.learning_opportunities.is_empty() && rand::random::<f32>() > 0.7 {
-        let learning_section = format!(
-            "\n\n*Note: {}*",
-            context.learning_opportunities[0]
-        );
+        let learning_section = format!("\n\n*Note: {}*", context.learning_opportunities[0]);
         enhanced.push_str(&learning_section);
     }
 
@@ -274,10 +281,7 @@ pub async fn enhance_response_with_knowledge(
             .collect::<Vec<_>>()
             .join("\n");
 
-        enhanced.push_str(&format!(
-            "\n\n**Connected insight:**\n{}",
-            bullet_points
-        ));
+        enhanced.push_str(&format!("\n\n**Connected insight:**\n{}", bullet_points));
 
         for link in linked.iter().take(3) {
             persist_link_if_new(db, &link.left, &link.right, 0.55).await;
@@ -291,10 +295,22 @@ pub async fn enhance_response_with_knowledge(
 pub async fn get_learning_summary(db: &SqlitePool) -> Result<String, String> {
     let stats = deep_learning::get_learning_stats(db).await?;
 
-    let sessions = stats.get("total_learning_sessions").and_then(|v| v.as_u64()).unwrap_or(0);
-    let hours = stats.get("total_study_hours").and_then(|v| v.as_f64()).unwrap_or(0.0);
-    let facts = stats.get("total_facts_learned").and_then(|v| v.as_u64()).unwrap_or(0);
-    let confidence = stats.get("average_confidence").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let sessions = stats
+        .get("total_learning_sessions")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let hours = stats
+        .get("total_study_hours")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    let facts = stats
+        .get("total_facts_learned")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let confidence = stats
+        .get("average_confidence")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
 
     let summary = format!(
         "📚 **Learning Summary**\n\

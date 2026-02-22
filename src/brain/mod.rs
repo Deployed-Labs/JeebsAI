@@ -41,11 +41,13 @@ pub async fn get_triples_for_subject(db: &SqlitePool, subject: &str) -> Vec<Know
 }
 
 pub async fn store_triple(db: &SqlitePool, triple: &KnowledgeTriple) {
-    let _ = sqlx::query("INSERT INTO triples (subject, predicate, object, confidence) VALUES (?, ?, ?, ?)")
-        .bind(&triple.subject)
-        .bind(&triple.predicate)
-        .bind(&triple.object)
-        .bind(triple.confidence)
-        .execute(db)
-        .await;
+    let _ = sqlx::query(
+        "INSERT INTO triples (subject, predicate, object, confidence) VALUES (?, ?, ?, ?)",
+    )
+    .bind(&triple.subject)
+    .bind(&triple.predicate)
+    .bind(&triple.object)
+    .bind(triple.confidence)
+    .execute(db)
+    .await;
 }

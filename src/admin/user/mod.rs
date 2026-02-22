@@ -133,8 +133,7 @@ pub async fn admin_update_user_role(
     }
 
     if req.role == "admin" {
-        return HttpResponse::BadRequest()
-            .json(json!({"error": "Only root admin can be admin"}));
+        return HttpResponse::BadRequest().json(json!({"error": "Only root admin can be admin"}));
     }
 
     if req.role != "user" && req.role != "trainer" {

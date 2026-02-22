@@ -1,8 +1,8 @@
+use crate::brain_parser::{build_knowledge_graph, BrainParser, ParsedBrainContent};
+use crate::state::AppState;
 use actix_web::{get, post, web, HttpResponse, Responder};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use crate::brain_parser::{BrainParser, build_knowledge_graph, ParsedBrainContent};
-use crate::state::AppState;
 
 #[derive(Debug, Deserialize)]
 pub struct ParseNodeRequest {
@@ -57,11 +57,7 @@ pub async fn parse_brain_node(
     _state: web::Data<AppState>,
 ) -> impl Responder {
     let parser = BrainParser::new();
-    let parsed = parser.parse(
-        req.node_id.clone(),
-        req.key.clone(),
-        req.value.clone(),
-    );
+    let parsed = parser.parse(req.node_id.clone(), req.key.clone(), req.value.clone());
 
     HttpResponse::Ok().json(ParseResponse {
         success: true,
@@ -72,26 +68,20 @@ pub async fn parse_brain_node(
 
 /// Build a complete knowledge graph from all brain nodes
 #[post("/api/brain/graph/build")]
-pub async fn build_brain_graph(
-    state: web::Data<AppState>,
-) -> impl Responder {
+pub async fn build_brain_graph(state: web::Data<AppState>) -> impl Responder {
     let db = &state.db;
     let parser = BrainParser::new();
     match build_knowledge_graph(db, &parser).await {
-        Ok(graph) => {
-            HttpResponse::Ok().json(json!({
-                "success": true,
-                "graph_stats": graph.to_json(),
-                "node_count": graph.nodes.len(),
-                "edge_count": graph.edges.len(),
-            }))
-        },
-        Err(e) => {
-            HttpResponse::InternalServerError().json(json!({
-                "success": false,
-                "error": e,
-            }))
-        }
+        Ok(graph) => HttpResponse::Ok().json(json!({
+            "success": true,
+            "graph_stats": graph.to_json(),
+            "node_count": graph.nodes.len(),
+            "edge_count": graph.edges.len(),
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(json!({
+            "success": false,
+            "error": e,
+        })),
     }
 }
 
@@ -113,7 +103,7 @@ pub async fn query_graph_entity(
                     results,
                     query_type: "entity".to_string(),
                 });
-            },
+            }
             Err(e) => {
                 return HttpResponse::InternalServerError().json(json!({
                     "success": false,
@@ -147,7 +137,7 @@ pub async fn query_graph_category(
                     results,
                     query_type: "category".to_string(),
                 });
-            },
+            }
             Err(e) => {
                 return HttpResponse::InternalServerError().json(json!({
                     "success": false,
@@ -165,9 +155,7 @@ pub async fn query_graph_category(
 
 /// Get statistics about the complete knowledge graph
 #[get("/api/brain/graph/statistics")]
-pub async fn get_graph_statistics(
-    state: web::Data<AppState>,
-) -> impl Responder {
+pub async fn get_graph_statistics(state: web::Data<AppState>) -> impl Responder {
     let db = &state.db;
     let parser = BrainParser::new();
     match build_knowledge_graph(db, &parser).await {
@@ -180,7 +168,12 @@ pub async fn get_graph_statistics(
                     key: node.content.original_key.clone(),
                     entities_count: node.content.extracted_entities.len(),
                     relationships_count: node.content.relationships.len(),
-                    categories: node.content.categories.iter().map(|c| c.name.clone()).collect(),
+                    categories: node
+                        .content
+                        .categories
+                        .iter()
+                        .map(|c| c.name.clone())
+                        .collect(),
                 });
             }
 
@@ -191,21 +184,17 @@ pub async fn get_graph_statistics(
                 total_entities: graph.entity_index.len(),
                 nodes: nodes_summary,
             })
-        },
-        Err(e) => {
-            HttpResponse::InternalServerError().json(json!({
-                "success": false,
-                "error": e,
-            }))
         }
+        Err(e) => HttpResponse::InternalServerError().json(json!({
+            "success": false,
+            "error": e,
+        })),
     }
 }
 
 /// Analyze relationships between nodes in the knowledge graph
 #[get("/api/brain/graph/relationships")]
-pub async fn analyze_relationships(
-    state: web::Data<AppState>,
-) -> impl Responder {
+pub async fn analyze_relationships(state: web::Data<AppState>) -> impl Responder {
     let db = &state.db;
     let parser = BrainParser::new();
     match build_knowledge_graph(db, &parser).await {
@@ -230,21 +219,17 @@ pub async fn analyze_relationships(
                 "total_relationships": all_relationships.len(),
                 "relationships": all_relationships,
             }))
-        },
-        Err(e) => {
-            HttpResponse::InternalServerError().json(json!({
-                "success": false,
-                "error": e,
-            }))
         }
+        Err(e) => HttpResponse::InternalServerError().json(json!({
+            "success": false,
+            "error": e,
+        })),
     }
 }
 
 /// Get a detailed report on extracted entities across all brain nodes
 #[get("/api/brain/graph/entities")]
-pub async fn get_entities_report(
-    state: web::Data<AppState>,
-) -> impl Responder {
+pub async fn get_entities_report(state: web::Data<AppState>) -> impl Responder {
     let db = &state.db;
     let parser = BrainParser::new();
     match build_knowledge_graph(db, &parser).await {
@@ -270,12 +255,10 @@ pub async fn get_entities_report(
                 "entities_by_type": entities_by_type,
                 "total_entities": graph.entity_index.len(),
             }))
-        },
-        Err(e) => {
-            HttpResponse::InternalServerError().json(json!({
-                "success": false,
-                "error": e,
-            }))
         }
+        Err(e) => HttpResponse::InternalServerError().json(json!({
+            "success": false,
+            "error": e,
+        })),
     }
 }

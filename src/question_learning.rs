@@ -42,7 +42,7 @@ pub async fn store_qa_pair(
 
     sqlx::query(
         "INSERT OR REPLACE INTO brain_nodes (id, label, summary, data, created_at)
-         VALUES (?, ?, ?, ?, ?)"
+         VALUES (?, ?, ?, ?, ?)",
     )
     .bind(&qa_id)
     .bind(format!("Q: {}", question))
@@ -91,7 +91,10 @@ pub async fn store_qa_pair(
 }
 
 /// Search for an answer in stored Q&A pairs
-pub async fn find_answer_in_memory(db: &SqlitePool, question: &str) -> Result<Option<LearnedQA>, String> {
+pub async fn find_answer_in_memory(
+    db: &SqlitePool,
+    question: &str,
+) -> Result<Option<LearnedQA>, String> {
     // Try exact match first
     let qa_key = format!("qa:{}", blake3::hash(question.as_bytes()).to_hex());
 
@@ -119,7 +122,7 @@ pub async fn find_answer_in_memory(db: &SqlitePool, question: &str) -> Result<Op
          WHERE json_extract(data, '$.type') = 'question_answer'
          AND json_extract(data, '$.question') LIKE ?
          ORDER BY created_at DESC
-         LIMIT 1"
+         LIMIT 1",
     )
     .bind(&pattern)
     .fetch_optional(db)
@@ -170,7 +173,7 @@ pub async fn get_learned_qa_by_category(
          WHERE json_extract(data, '$.type') = 'question_answer'
          AND json_extract(data, '$.category') = ?
          ORDER BY created_at DESC
-         LIMIT ?"
+         LIMIT ?",
     )
     .bind(category)
     .bind(limit as i32)
@@ -210,15 +213,15 @@ pub async fn ask_web_question(
 ) -> Result<(String, String), String> {
     // Build a Google search URL
     let search_query = urlencoding::encode(question);
-    let search_url = format!(
-        "https://www.google.com/search?q={}",
-        search_query
-    );
+    let search_url = format!("https://www.google.com/search?q={}", search_query);
 
     // Try to fetch the search results page
     let response = client
         .get(&search_url)
-        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        .header(
+            "User-Agent",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        )
         .send()
         .await
         .map_err(|e| format!("Failed to search: {}", e))?;
@@ -227,7 +230,9 @@ pub async fn ask_web_question(
         return Err(format!("Search failed with status: {}", response.status()));
     }
 
-    let html = response.text().await
+    let html = response
+        .text()
+        .await
         .map_err(|e| format!("Failed to read response: {}", e))?;
 
     // Extract answer from Google's featured snippet or search results
@@ -379,7 +384,7 @@ fn strip_html_tags(html: &str) -> String {
 /// Get Q&A statistics
 pub async fn get_qa_statistics(db: &SqlitePool) -> Result<serde_json::Value, String> {
     let total: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM brain_nodes WHERE json_extract(data, '$.type') = 'question_answer'"
+        "SELECT COUNT(*) FROM brain_nodes WHERE json_extract(data, '$.type') = 'question_answer'",
     )
     .fetch_one(db)
     .await
@@ -390,7 +395,7 @@ pub async fn get_qa_statistics(db: &SqlitePool) -> Result<serde_json::Value, Str
          FROM brain_nodes
          WHERE json_extract(data, '$.type') = 'question_answer'
          GROUP BY category
-         ORDER BY count DESC"
+         ORDER BY count DESC",
     )
     .fetch_all(db)
     .await
@@ -424,10 +429,7 @@ pub async fn ask_jeebs_question(
 }
 
 /// Get most recent learned questions
-pub async fn get_recent_questions(
-    db: &SqlitePool,
-    limit: usize,
-) -> Result<Vec<LearnedQA>, String> {
+pub async fn get_recent_questions(db: &SqlitePool, limit: usize) -> Result<Vec<LearnedQA>, String> {
     let rows = sqlx::query(
         "SELECT id, json_extract(data, '$.question') as question,
                 json_extract(data, '$.answer') as answer,
@@ -438,7 +440,7 @@ pub async fn get_recent_questions(
          FROM brain_nodes
          WHERE json_extract(data, '$.type') = 'question_answer'
          ORDER BY created_at DESC
-         LIMIT ?"
+         LIMIT ?",
     )
     .bind(limit as i32)
     .fetch_all(db)

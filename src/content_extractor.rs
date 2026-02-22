@@ -1,5 +1,5 @@
-use scraper::{Html, Selector};
 use regex::Regex;
+use scraper::{Html, Selector};
 
 /// Strip HTML and extract meaningful text content
 pub fn strip_html_extract_text(html_content: &str) -> String {
@@ -169,7 +169,7 @@ pub fn extract_links(html_content: &str) -> Vec<String> {
         .filter_map(|el| el.value().attr("href"))
         .filter(|href| !href.is_empty() && !href.starts_with('#'))
         .map(|href| href.to_string())
-        .take(100)  // Limit to 100 links per page
+        .take(100) // Limit to 100 links per page
         .collect()
 }
 
@@ -183,7 +183,8 @@ pub struct ExtractedMetadata {
 
 /// Create a summary from extracted text
 pub fn create_summary(text: &str, max_length: usize) -> String {
-    let sentences: Vec<&str> = text.split(|c| c == '.' || c == '!' || c == '?')
+    let sentences: Vec<&str> = text
+        .split(|c| c == '.' || c == '!' || c == '?')
         .map(|s| s.trim())
         .filter(|s| !s.is_empty() && s.len() > 5)
         .collect();

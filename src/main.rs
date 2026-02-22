@@ -3,16 +3,16 @@ use actix_files::Files;
 use actix_governor::{Governor, GovernorConfigBuilder, KeyExtractor, SimpleKeyExtractionError};
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
 use actix_web::cookie::Key;
-use base64;
 use actix_web::dev::ServiceRequest;
 use actix_web::{web, App, HttpServer};
-use jeebs::{
-    admin, auth, brain_parsing_api, chat, cortex, evolution, logging, user_chat, AppState,
-};
+use base64;
 use jeebs::plugins::{
     Base64Plugin, CalcPlugin, ContactPlugin, ErrorPlugin, HashPlugin, LogicPlugin, MemoryPlugin,
     NewsPlugin, PasswordPlugin, SummaryPlugin, SystemPlugin, TimePlugin, TodoPlugin,
     TranslatePlugin, WeatherPlugin, WebsiteStatusPlugin,
+};
+use jeebs::{
+    admin, auth, brain_parsing_api, chat, cortex, evolution, logging, user_chat, AppState,
 };
 use sqlx::{Row, SqlitePool};
 use std::collections::HashSet;
@@ -31,7 +31,10 @@ impl KeyExtractor for WhitelistedKeyExtractor {
 
     fn extract(&self, req: &ServiceRequest) -> Result<Self::Key, Self::KeyExtractionError> {
         if let Some(state) = req.app_data::<web::Data<AppState>>() {
-            let ip = req.peer_addr().map(|a| a.ip().to_string()).unwrap_or_else(|| "unknown".to_string());
+            let ip = req
+                .peer_addr()
+                .map(|a| a.ip().to_string())
+                .unwrap_or_else(|| "unknown".to_string());
             if let Ok(whitelist) = state.ip_whitelist.read() {
                 if whitelist.contains(&ip) {
                     return Ok(format!("whitelist:{}", uuid::Uuid::new_v4()));
@@ -175,7 +178,10 @@ async fn main() -> std::io::Result<()> {
                 }
             }
             Err(e) => {
-                eprintln!("Failed to decode SESSION_KEY_B64: {}. Generating ephemeral key", e);
+                eprintln!(
+                    "Failed to decode SESSION_KEY_B64: {}. Generating ephemeral key",
+                    e
+                );
                 Key::generate()
             }
         },
