@@ -41,8 +41,7 @@ pub async fn get_system_status(data: web::Data<AppState>, session: Session) -> i
 }
 
 /// Public health check — no auth required
-#[get("/api/health")]
-pub async fn health_check(data: web::Data<AppState>) -> impl Responder {
+pub async fn health_check(data: web::Data<AppState>) -> HttpResponse {
     // Quick DB ping
     let db_ok = sqlx::query("SELECT 1").fetch_one(&data.db).await.is_ok();
     let status = if db_ok { "ok" } else { "degraded" };
