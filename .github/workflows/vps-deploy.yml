@@ -7,7 +7,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  PKG_CONFIG_PATH: "/usr/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig"
 
 jobs:
   deploy:
@@ -20,8 +19,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config libssl-dev libsqlite3-dev \
-            clang llvm nettle-dev libnettle-dev libhogweed-dev
+          sudo apt-get install -y build-essential pkg-config libssl-dev libsqlite3-dev clang llvm
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -60,11 +58,11 @@ jobs:
             export PATH="$HOME/.cargo/bin:/usr/local/bin:$PATH"
 
             # Install build deps on VPS if missing
-            if ! pkg-config --exists nettle 2>/dev/null; then
+            if ! command -v pkg-config &>/dev/null; then
               echo "Installing build dependencies on VPS..."
               apt-get update -qq
               apt-get install -y -qq build-essential pkg-config libssl-dev libsqlite3-dev \
-                clang llvm nettle-dev libnettle-dev libhogweed-dev curl git
+                clang llvm curl git
             fi
 
             # Install Rust if missing
@@ -86,7 +84,6 @@ jobs:
 
             # Build release
             echo "Building release binary on VPS..."
-            export PKG_CONFIG_PATH="/usr/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig"
             cargo build --release
 
             # Ensure DB exists

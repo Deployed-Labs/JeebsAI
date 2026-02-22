@@ -8,7 +8,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  PKG_CONFIG_PATH: "/usr/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig"
 
 permissions:
   contents: read
@@ -22,16 +21,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Install system dependencies (nettle bulletproof)
+    - name: Install system dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y build-essential pkg-config libssl-dev sqlite3 clang llvm
-        sudo apt-get install -y nettle-dev || sudo apt-get install -y libnettle-dev
-        echo "PKG_CONFIG_PATH=/usr/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig" >> $GITHUB_ENV
-        echo "--- Verifying nettle install ---"
-        dpkg -l | grep nettle || true
-        pkg-config --libs --cflags nettle
-        echo "✅ nettle found by pkg-config"
     
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
@@ -123,7 +116,6 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y build-essential pkg-config libssl-dev libgit2-dev ca-certificates curl
-        sudo apt-get install -y nettle-dev || sudo apt-get install -y libnettle-dev
 
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable

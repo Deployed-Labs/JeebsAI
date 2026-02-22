@@ -28,7 +28,7 @@ sha1 = "0.10"
 regex = "1"
 actix-multipart = "0.6"
 futures-util = "0.3"
-sequoia-openpgp = "1.21"
+sequoia-openpgp = { version = "1.21", default-features = false, features = ["crypto-openssl"] }
 sysinfo = "0.38.2"
 scraper = "0.25.0"
 aes-gcm = "0.10.3"
