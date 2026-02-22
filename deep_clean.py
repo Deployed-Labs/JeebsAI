@@ -1,6 +1,12 @@
 import re
 
-files_to_clean = ["/root/JeebsAI/src/auth/mod.rs", "/root/JeebsAI/src/security.rs", "/root/JeebsAI/src/lib.rs"]
+import os
+APP_DIR = os.environ.get("APP_DIR", "/root/JeebsAI")
+files_to_clean = [
+    os.path.join(APP_DIR, "src/auth/mod.rs"),
+    os.path.join(APP_DIR, "src/security.rs"),
+    os.path.join(APP_DIR, "src/lib.rs"),
+]
 
 for file_path in files_to_clean:
     try:

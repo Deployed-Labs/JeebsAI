@@ -1,5 +1,6 @@
 #!/bin/bash
 CONF_PATH="/etc/nginx/sites-available/jeebs"
+APP_DIR=${APP_DIR:-"/root/JeebsAI"}
 
 echo "🛠️ Applying CORS and Login Fixes..."
 
@@ -17,7 +18,7 @@ server {
     ssl_certificate /etc/letsencrypt/live/jeebs.club/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/jeebs.club/privkey.pem;
 
-    root /root/JeebsAI;
+    root ${APP_DIR};
     index index.html;
 
     # Security headers for logins
@@ -60,7 +61,7 @@ EON
 
 # Ensure Nginx permissions are still solid
 chmod 755 /root
-chmod 755 /root/JeebsAI
+chmod 755 "$APP_DIR"
 
 if sudo nginx -t; then
     sudo systemctl restart nginx

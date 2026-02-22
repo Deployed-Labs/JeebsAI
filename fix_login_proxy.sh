@@ -15,7 +15,7 @@ server {
     ssl_certificate /etc/letsencrypt/live/jeebs.club/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/jeebs.club/privkey.pem;
 
-    root /root/JeebsAI;
+    root ${APP_DIR:-/root/JeebsAI};
     index index.html;
 
     location / {

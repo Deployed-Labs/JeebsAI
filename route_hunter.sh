@@ -1,5 +1,6 @@
 #!/bin/bash
-cd /root/JeebsAI
+APP_DIR=${APP_DIR:-"/root/JeebsAI"}
+cd "$APP_DIR"
 echo "🔍 LISTING ALL REGISTERED ROUTES IN CODE..."
 
 # Look for the App initialization block
