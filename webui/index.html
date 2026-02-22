@@ -9,13 +9,24 @@
     <link rel="stylesheet" href="/webui/style.css"/>
 </head>
 <body>
-
-
-        
-    </head>
-    <body>
-        <nav id="topnav"></nav>
-        <div class="shell" style="padding-top:60px;max-width:900px">
+    <header class="header">
+        <div class="dropdown">
+            <button class="dropbtn">Menu ▼</button>
+            <div class="dropdown-content">
+                <a href="/webui/index.html">Home</a>
+                <a href="/webui/search.html">Brain Search</a>
+                <a href="/webui/trainer_panel.html" id="menuTrainer">Trainer Panel</a>
+                <a href="/webui/admin_dashboard.html" id="menuAdmin">Admin Dashboard</a>
+                <a href="/webui/logs.html">Logs</a>
+                <a href="/webui/status.html">Status</a>
+            </div>
+        </div>
+        <h1>JeebsAI</h1>
+        <div class="theme-switcher">
+            <button class="theme-btn" id="themeBtn">Theme: Dark</button>
+        </div>
+    </header>
+    <div class="shell" style="padding-top:80px;max-width:900px">
             <div class="card card-glow" style="margin-bottom:24px;text-align:center">
                 <h1 style="margin-bottom:8px">JeebsAI Console</h1>
                 <p class="text-muted">Welcome to JeebsAI. Use the navigation above or quick actions below.</p>
@@ -124,8 +135,20 @@
         </main>
 
         <script src="/webui/auth.js"></script>
-        <script src="/webui/nav.js"></script>
         <script>
+            // Theme switching
+            const themes = ['dark', 'light', 'neon'];
+            let currentTheme = localStorage.getItem('jeebs-theme') || 'dark';
+            document.body.setAttribute('data-theme', currentTheme);
+            document.getElementById('themeBtn').textContent = `Theme: ${currentTheme.charAt(0).toUpperCase() + currentTheme.slice(1)}`;
+            document.getElementById('themeBtn').addEventListener('click', () => {
+                const nextIndex = (themes.indexOf(currentTheme) + 1) % themes.length;
+                currentTheme = themes[nextIndex];
+                document.body.setAttribute('data-theme', currentTheme);
+                localStorage.setItem('jeebs-theme', currentTheme);
+                document.getElementById('themeBtn').textContent = `Theme: ${currentTheme.charAt(0).toUpperCase() + currentTheme.slice(1)}`;
+            });
+
             // Show/hide quick actions based on role
             async function updateQuickActions() {
                 const auth = await getAuthState();
@@ -133,7 +156,6 @@
                 document.getElementById('trainerQuick').style.display = (auth.isTrainer || (auth.isAdmin && auth.username === JEEBS_ROOT_ADMIN)) ? '' : 'none';
             }
             updateQuickActions();
-            JeebsNav.init('home');
 
             function setStatus(message, level = "info") {
                 statusBar.textContent = message || "";
@@ -175,6 +197,20 @@
                 chatFeed.scrollTop = chatFeed.scrollHeight;
             }
 
+            function showTyping() {
+                const indicator = document.createElement('div');
+                indicator.className = 'typing-indicator';
+                indicator.id = 'typingIndicator';
+                indicator.innerHTML = '<span>JeebsAI is typing</span><div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+                chatFeed.appendChild(indicator);
+                chatFeed.scrollTop = chatFeed.scrollHeight;
+            }
+
+            function hideTyping() {
+                const indicator = document.getElementById('typingIndicator');
+                if (indicator) indicator.remove();
+            }
+
             function renderAuthState() {
                 if (!state.loggedIn) {
                     authPanel.style.display = "block";
@@ -182,6 +218,8 @@
                     statusChip.textContent = "Not logged in";
                     adminControlsLink.style.display = "none";
                     trainerPanelLink.style.display = "none";
+                    document.getElementById('menuAdmin').style.display = 'none';
+                    document.getElementById('menuTrainer').style.display = 'none';
                     stopSessionPing();
                     return;
                 }
@@ -199,6 +237,8 @@
                 trainerPanelLink.style.display = canAccessTrainerPanel()
                     ? "inline-flex"
                     : "none";
+                document.getElementById('menuAdmin').style.display = (state.isAdmin && state.username === JEEBS_ROOT_ADMIN) ? 'block' : 'none';
+                document.getElementById('menuTrainer').style.display = (state.isTrainer || (state.isAdmin && state.username === JEEBS_ROOT_ADMIN)) ? 'block' : 'none';
                 promptInput.focus();
                 startSessionPing();
             }
@@ -391,17 +431,20 @@
 
                     appendMessage("user", prompt);
                     promptInput.value = "";
+                    showTyping();
 
                     try {
                         const data = await requestJson("/api/chat", {
                             method: "POST",
                             body: JSON.stringify({ message: prompt }),
                         });
+                        hideTyping();
                         appendMessage(
                             "jeebs",
                             data.response || "(No response body)",
                         );
                     } catch (error) {
+                        hideTyping();
                         appendMessage("jeebs", `Error: ${error.message}`);
                         setStatus(
                             `Chat request failed: ${error.message}`,
