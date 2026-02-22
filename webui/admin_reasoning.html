@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Admin — Reasoning Traces</title>
+  <style>body{font-family:Arial,Helvetica,sans-serif;margin:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:8px}th{background:#f4f4f4}</style>
+</head>
+<body>
+  <h1>Reasoning Traces</h1>
+  <p class="small">Recent reasoning traces from chat responses (admin only).</p>
+  <div>
+    <button id="refresh">Refresh</button>
+    <button id="export">Export CSV</button>
+  </div>
+  <div style="margin-top:12px">
+    <table id="traces-table"><thead><tr><th>ID</th><th>Timestamp</th><th>User</th><th>Prompt</th><th>Response</th></tr></thead><tbody></tbody></table>
+  </div>
+  <script src="/webui/js/admin_reasoning.js"></script>
+</body>
+</html>

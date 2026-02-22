@@ -383,6 +383,16 @@ pub async fn user_chat(
     )
     .await;
 
+    // Persist a lightweight reasoning trace for analysis (best-effort)
+    let _ = crate::logging::record_reasoning_trace(
+        &data.db,
+        Some(&username),
+        message,
+        &response,
+        Some("{\"source\":\"cortex::think\"}"),
+    )
+    .await;
+
     HttpResponse::Ok().json(UserChatResponse {
         response,
         username,

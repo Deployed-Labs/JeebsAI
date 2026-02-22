@@ -83,6 +83,10 @@ pub struct ProposedUpdate {
     #[serde(default)]
     pub requires_restart: bool,
     #[serde(default)]
+    pub feeling: Option<String>,
+    #[serde(default)]
+    pub feeling_confidence: f32,
+    #[serde(default)]
     pub applied_at: Option<String>,
     #[serde(default)]
     pub denied_at: Option<String>,
@@ -381,6 +385,22 @@ fn normalize_update(mut update: ProposedUpdate) -> ProposedUpdate {
     }
     if update.confidence > 1.0 {
         update.confidence = 1.0;
+    }
+    // Normalize feeling field and clamp confidence
+    if let Some(ref f) = update.feeling {
+        let low = f.to_ascii_lowercase();
+        if !(low == "like" || low == "dislike" || low == "neutral") {
+            update.feeling = None;
+        }
+    }
+    if update.feeling_confidence.is_nan() {
+        update.feeling_confidence = 0.0;
+    }
+    if update.feeling_confidence < 0.0 {
+        update.feeling_confidence = 0.0;
+    }
+    if update.feeling_confidence > 1.0 {
+        update.feeling_confidence = 1.0;
     }
     update
 }
@@ -1452,6 +1472,13 @@ fn build_update_from_signals(signals: &SignalSnapshot) -> ProposedUpdate {
         rationale,
         source_signals,
         confidence,
+        feeling: {
+            // simple heuristic: confidence -> feeling
+            if confidence >= 0.6_f32 { Some("like".to_string()) }
+            else if confidence <= 0.35_f32 { Some("dislike".to_string()) }
+            else { Some("neutral".to_string()) }
+        },
+        feeling_confidence: confidence,
         fingerprint: String::new(),
         requires_restart: false,
         applied_at: None,

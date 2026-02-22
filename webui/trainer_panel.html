@@ -113,6 +113,21 @@
             <button class="btn" onclick="clearOutput()">Clear</button>
         </div>
     </div>
+
+    <div class="card">
+        <h3>Proposals</h3>
+        <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+            <label style="margin:0">Filter:</label>
+            <select id="proposalFilter" onchange="renderProposals()">
+                <option value="all">All</option>
+                <option value="pending">Pending</option>
+                <option value="applied">Applied</option>
+                <option value="denied">Denied</option>
+            </select>
+            <button class="btn" onclick="loadProposals()">Refresh</button>
+        </div>
+        <div id="proposalsList" class="output">Loading proposals...</div>
+    </div>
 </div>
 
 <script src="/webui/auth.js"></script>
@@ -123,8 +138,9 @@
     var auth = await requireAuth("trainer");
     if (!auth) return;
     authStatusEl.textContent = "Trainer access granted for " + auth.username + ".";
-    startSessionPing(30000);
-    startAuthGuard("trainer", 60000);
+    // use defaults from auth.js (60s ping, longer guard) to reduce transient redirects
+    startSessionPing();
+    startAuthGuard("trainer");
 
     function stamp() { return new Date().toLocaleTimeString(); }
 
@@ -183,6 +199,41 @@
             log("Ping ok for " + (data.username||"?") + ", last_seen=" + (data.last_seen||"n/a"));
         } catch (e) { log("Ping failed: " + e, true); }
     };
+
+    // Proposals: load and render evolution proposals in a compact, readable list
+    async function loadProposals() {
+        try {
+            const res = await safeFetch('/api/admin/evolution/updates', { credentials: 'same-origin', headers: authHeaders() });
+            if (!res.ok) {
+                document.getElementById('proposalsList').textContent = 'Failed to load proposals';
+                return;
+            }
+            const data = await res.json();
+            window._proposals = data.updates || [];
+            renderProposals();
+        } catch (e) {
+            document.getElementById('proposalsList').textContent = 'Error loading proposals: ' + e;
+        }
+    }
+
+    function renderProposals() {
+        const filter = document.getElementById('proposalFilter').value;
+        const listEl = document.getElementById('proposalsList');
+        const updates = (window._proposals || []).filter(u => filter === 'all' ? true : u.status === filter);
+        if (updates.length === 0) { listEl.textContent = 'No proposals found.'; return; }
+        listEl.innerHTML = updates.map(u => {
+            const title = (u.title || 'Untitled').replace(/</g,'&lt;');
+            const feeling = (u.feeling || '').toLowerCase();
+            const feelIcon = feeling === 'like' ? '👍' : feeling === 'dislike' ? '👎' : feeling === 'neutral' ? '😐' : '';
+            const desc = (u.description || '').replace(/</g,'&lt;');
+            const when = new Date(u.created_at).toLocaleString();
+            const status = (u.status || 'unknown');
+            return `<div style="padding:8px; border-bottom:1px solid rgba(255,255,255,0.03);"><div style="font-weight:700">${title} <span style="margin-left:6px; font-size:1.1em">${feelIcon}</span></div><div style="opacity:.8; font-size:0.9em;">${desc}</div><div style="margin-top:6px; font-size:0.85em; color:#9da7bd">${when} — <strong>${status}</strong></div></div>`;
+        }).join('');
+    }
+
+    // Load proposals after auth granted
+    loadProposals();
 })();
 </script>
 </body>

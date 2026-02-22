@@ -81,7 +81,20 @@ async function getAuthState() {
  *  Returns auth state if authorised; redirects otherwise.
  */
 async function requireAuth(role) {
-    const auth = await getAuthState();
+    let auth = await getAuthState();
+
+    // If not logged in but we have a token locally, try a lightweight session ping
+    if (!auth.loggedIn && jeebsGetToken()) {
+        try {
+            const pingRes = await safeFetch("/api/session/ping", { method: "POST", headers: authHeaders() });
+            if (pingRes.ok) {
+                // refresh auth state
+                auth = await getAuthState();
+            }
+        } catch (e) {
+            // network issue; fall through to redirect below
+        }
+    }
 
     if (!auth.loggedIn) {
         window.location.replace("/webui/index.html");
@@ -116,18 +129,21 @@ async function logout() {
 /* ── periodic auth guard ─────────────────────────────── */
 
 function startAuthGuard(role, intervalMs) {
-    if (!intervalMs) intervalMs = 60000;
+    // default to a longer interval to avoid transient redirects (5 minutes)
+    if (!intervalMs) intervalMs = 300000;
 
     // Re-check token validity in background
     setInterval(async function () {
         var auth = await getAuthState();
         if (!auth.loggedIn) {
             jeebsClearToken();
-            window.location.replace("/webui/index.html");
+            // Session expired; do not auto-redirect from admin/trainer panels.
+            // Show a non-blocking warning instead so the user can re-auth without losing context.
+            try { alert("Session expired — please re-authenticate to continue."); } catch(e) { console.warn("session expired"); }
             return;
         }
         if (role === "admin" && (!auth.isAdmin || auth.username !== JEEBS_ROOT_ADMIN)) {
-            window.location.replace("/webui/index.html");
+            try { alert("Admin privileges revoked — please re-authenticate."); } catch(e) { console.warn("admin revoked"); }
         }
     }, intervalMs);
 
@@ -137,14 +153,14 @@ function startAuthGuard(role, intervalMs) {
         var auth = await getAuthState();
         if (!auth.loggedIn) {
             jeebsClearToken();
-            window.location.replace("/webui/index.html");
+            try { alert("Session expired — please re-authenticate to continue."); } catch(e) { console.warn("session expired"); }
         }
     });
 
     // Watch for token removal in another tab
     window.addEventListener("storage", function (e) {
         if (e.key === JEEBS_TOKEN_KEY && !e.newValue) {
-            window.location.replace("/webui/index.html");
+            try { console.warn("Auth token removed in another tab"); } catch(e) {}
         }
     });
 }
@@ -155,7 +171,8 @@ var _jeebsPingTimer = null;
 
 function startSessionPing(intervalMs) {
     if (_jeebsPingTimer) return;
-    if (!intervalMs) intervalMs = 30000;
+    // ping every 60s by default to keep server-side session fresh
+    if (!intervalMs) intervalMs = 60000;
     _jeebsPingTimer = setInterval(function () {
         safeFetch("/api/session/ping", { method: "POST", headers: authHeaders() }).catch(function () {});
     }, intervalMs);

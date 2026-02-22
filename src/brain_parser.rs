@@ -108,7 +108,11 @@ impl BrainParser {
             vec![
                 Regex::new(r"\b(\d{1,2}/\d{1,2}/\d{2,4})\b").unwrap(),
                 Regex::new(r"\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:,?\s+\d{4})?\b").unwrap(),
-                Regex::new(r"\b(\d{4})\b").unwrap_or_else(|_| Regex::new(r"(?!)").unwrap()),
+                // If the simple year regex fails to compile for any reason,
+                // fall back to a regex that never matches. `(?!)` is not
+                // supported by Rust's regex crate, so use `$^` as a no-match
+                // pattern instead.
+                Regex::new(r"\b(\d{4})\b").unwrap_or_else(|_| Regex::new(r"$^").unwrap()),
             ],
         );
 

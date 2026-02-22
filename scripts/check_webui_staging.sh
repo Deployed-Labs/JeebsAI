@@ -6,7 +6,7 @@ set -euo pipefail
 # - Lists the deployed webui directory.
 # - Probes /webui/ on the configured port.
 
-REPO_DIR=${REPO_DIR:-"/root/JeebsAI"}
+APP_DIR=${APP_DIR:-"/root/JeebsAI"}
 SERVICE_NAME=${SERVICE_NAME:-"jeebs-staging"}
 APP_DIR=${APP_DIR:-"/opt/jeebs-staging"}
 ENV_FILE=${ENV_FILE:-"/etc/jeebs-staging.env"}
@@ -22,7 +22,7 @@ fi
 
 systemctl status "$SERVICE_NAME" --no-pager
 
-grep -n 'Files::new("/webui"' "$REPO_DIR/src/main.rs" || true
+grep -n 'Files::new("/webui"' "$APP_DIR/src/main.rs" || true
 
 ls -la "$APP_DIR/webui" || true
 

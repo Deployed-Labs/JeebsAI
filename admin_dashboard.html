@@ -20,7 +20,10 @@
 <body>
     <div class="container">
         <h1>Admin Dashboard</h1>
-        
+        <div style="display:flex; gap:8px; justify-content:flex-end; margin-bottom:10px;">
+            <a href="/admin_reasoning.html" style="padding:8px 12px; background:#7fffd4; color:#181c24; border-radius:6px; text-decoration:none; font-weight:bold;">Reasoning Traces</a>
+        </div>
+
         <div id="systemStatus" style="background: #23283a; padding: 16px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #7fffd4; text-align: center;">
             <h3 style="margin-top: 0; color: #7fffd4;">System Status</h3>
             <div id="statusContent">Loading...</div>
@@ -70,6 +73,14 @@
             <a href="/admin_whitelist.html" class="card">
                 <h3>IP Whitelist</h3>
                 <p>Manage whitelisted IP addresses that are allowed to bypass rate limits.</p>
+            </a>
+            <a href="/admin_anomalies.html" class="card">
+                <h3>Anomalies</h3>
+                <p>Review recent auto-detected anomalies (errors, repeated messages, suspicious keywords).</p>
+            </a>
+            <a href="/admin_reasoning.html" class="card">
+                <h3>Reasoning Traces</h3>
+                <p>Inspect recent reasoning traces generated during chat responses.</p>
             </a>
             <a href="/api/admin/export" class="card" target="_blank">
                 <h3>Export Database</h3>

@@ -147,129 +147,7 @@
                 style="margin-top: 8px; font-size: 0.85rem; color: #b0bec5"
             ></div>
         </div>
-        <div class="thinker-panel">
-            <div
-                style="
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    gap: 8px;
-                    flex-wrap: wrap;
-                "
-            >
-                <strong>Training Mode</strong>
-                <span id="training-updated-at" style="color: #90caf9"></span>
-            </div>
-            <div class="thinker-grid">
-                <div class="thinker-metric" id="training-enabled">
-                    Enabled: -
-                </div>
-                <div class="thinker-metric" id="training-internet">
-                    Internet: -
-                </div>
-                <div class="thinker-metric" id="training-cycles">Cycles: -</div>
-                <div class="thinker-metric" id="training-nodes">
-                    Nodes written: -
-                </div>
-            </div>
-            <div
-                id="training-topics"
-                style="margin-top: 8px; font-size: 0.85rem; color: #b0bec5"
-            ></div>
-            <div
-                id="training-websites"
-                style="margin-top: 8px; font-size: 0.85rem; color: #b0bec5"
-            ></div>
-            <div
-                id="training-live"
-                style="
-                    margin-top: 10px;
-                    font-size: 0.85rem;
-                    border: 1px solid var(--border);
-                    border-radius: 4px;
-                    padding: 8px;
-                    background: rgba(0, 0, 0, 0.12);
-                "
-            >
-                Live state: -
-            </div>
-            <div
-                id="training-detail"
-                style="
-                    margin-top: 8px;
-                    font-size: 0.85rem;
-                    color: #cfd8dc;
-                    border: 1px solid var(--border);
-                    border-radius: 4px;
-                    padding: 8px;
-                    background: rgba(0, 0, 0, 0.1);
-                "
-            >
-                Detailed totals will appear here.
-            </div>
-            <div
-                id="training-last-cycle"
-                style="
-                    margin-top: 8px;
-                    font-size: 0.85rem;
-                    color: #cfd8dc;
-                    border: 1px solid var(--border);
-                    border-radius: 4px;
-                    padding: 8px;
-                    background: rgba(0, 0, 0, 0.1);
-                "
-            >
-                Last cycle details will appear here.
-            </div>
-            <div
-                id="training-cycle-history"
-                style="
-                    margin-top: 8px;
-                    max-height: 180px;
-                    overflow-y: auto;
-                    border: 1px solid var(--border);
-                    border-radius: 4px;
-                    padding: 8px;
-                    background: rgba(0, 0, 0, 0.1);
-                    font-size: 0.82rem;
-                "
-            >
-                No cycle history yet.
-            </div>
-            <div
-                id="training-learned"
-                style="
-                    margin-top: 10px;
-                    max-height: 220px;
-                    overflow-y: auto;
-                    border: 1px solid var(--border);
-                    border-radius: 4px;
-                    padding: 8px;
-                    background: rgba(0, 0, 0, 0.12);
-                    font-size: 0.85rem;
-                "
-            >
-                No learned node writes yet.
-            </div>
-            <div
-                style="
-                    margin-top: 10px;
-                    display: flex;
-                    gap: 8px;
-                    flex-wrap: wrap;
-                "
-            >
-                <button class="btn-apply" onclick="setTrainingMode(true)">
-                    Enable Training
-                </button>
-                <button class="btn-deny" onclick="setTrainingMode(false)">
-                    Stop Training Now
-                </button>
-                <button class="btn-resolve" onclick="runTrainingNow()">
-                    Run Training Now
-                </button>
-            </div>
-        </div>
+        <!-- Training UI moved to Trainer Panel for a cleaner workflow -->
         <div id="notifications-area"></div>
         <div
             style="
@@ -386,7 +264,6 @@
                 setStatus(`Loaded ${allUpdates.length} evolution proposal(s).`);
                 loadNotifications();
                 loadEvolutionStatus();
-                loadTrainingStatus();
                 renderUpdates();
             }
 
@@ -466,6 +343,8 @@
             }
 
             function renderTrainingStatus() {
+                // If training elements were removed from this page, skip rendering.
+                if (!document.getElementById('training-enabled')) return;
                 const updatedAt = document.getElementById(
                     "training-updated-at",
                 );
@@ -493,7 +372,7 @@
                     nodes.textContent = "Nodes written: -";
                     topics.textContent = "";
                     websites.textContent = "";
-                    live.textContent = "Live state: -";
+                        live.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#999;margin-right:8px;vertical-align:middle"></span> Live: -`;
                     detail.textContent = "Detailed totals will appear here.";
                     lastCycle.textContent =
                         "Last cycle details will appear here.";
@@ -537,12 +416,9 @@
                 const activeNodes = training.active_nodes_written ?? 0;
                 const activeWebsites = training.active_websites_completed ?? 0;
                 const activeTopics = training.active_topics_completed ?? 0;
-                live.innerHTML = `
-                    <div><strong>Live State:</strong> ${running ? "RUNNING" : "idle"}</div>
-                    <div>Phase: ${escapeHtml(activePhase)} | Target: ${escapeHtml(activeTarget)}</div>
-                    <div>Started: ${escapeHtml(activeStarted)} | Last heartbeat: ${escapeHtml(activeUpdated)}</div>
-                    <div>Live progress: nodes=${activeNodes}, websites=${activeWebsites}, topics=${activeTopics}</div>
-                `;
+                    const dotColor = running ? '#66bb6a' : '#ef5350';
+                    const liveMsg = running ? `Running (${training.active_phase || 'active'})` : `Idle`;
+                    live.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${dotColor};margin-right:8px;vertical-align:middle"></span> ${liveMsg}`;
 
                 const totalWebsites = training.total_websites_scraped ?? 0;
                 const totalVisited = training.total_crawl_pages_visited ?? 0;
@@ -765,6 +641,13 @@
                         <div>
                             <span class="severity ${severityClass}">${severityLabel}</span>
                             <span class="status ${u.status}">${u.status}</span>
+                            ${(() => {
+                                const feeling = (u.feeling || '').toLowerCase();
+                                if (!feeling) return '';
+                                const icon = feeling === 'like' ? '👍' : feeling === 'dislike' ? '👎' : '😐';
+                                const color = feeling === 'like' ? '#66bb6a' : feeling === 'dislike' ? '#ef5350' : '#999';
+                                return `<span style="margin-left:8px; color:${color}; font-size:1.1em;">${icon}</span>`;
+                            })()}
                         </div>
                     </div>
                     <div style="font-size: 0.9em; color: #aaa; margin-bottom: 5px;">Author: ${escapeHtml(u.author)}</div>
@@ -966,9 +849,7 @@
                 if (!allowed) return;
                 loadUpdates();
                 loadEvolutionStatus();
-                loadTrainingStatus();
                 setInterval(loadEvolutionStatus, 15000);
-                setInterval(loadTrainingStatus, 3000);
             })();
         </script>
         </div> <!-- /.shell -->
