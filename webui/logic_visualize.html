@@ -1,129 +1,51 @@
 <!doctype html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Jeebs Logic Graph</title>
-        <script
-            type="text/javascript"
-            src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"
-        ></script>
-        <style>
-            body {
-                margin: 0;
-                padding: 0;
-                overflow: hidden;
-                font-family: sans-serif;
-                background: #181c24;
-                color: #f3f3f3;
-            }
-            #mynetwork {
-                width: 100vw;
-                height: 100vh;
-            }
-            #loading {
-                position: absolute;
-                top: 20px;
-                left: 20px;
-                background: #23283a;
-                padding: 10px;
-                border-radius: 4px;
-                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
-                z-index: 10;
-                color: #7fffd4;
-                border: 1px solid #7fffd4;
-            }
-            .back-btn {
-                position: absolute;
-                top: 20px;
-                right: 20px;
-                background: #23283a;
-                color: #7fffd4;
-                padding: 10px 20px;
-                text-decoration: none;
-                border-radius: 6px;
-                font-weight: bold;
-                z-index: 10;
-                border: 1px solid #7fffd4;
-                transition: background 0.2s;
-            }
-            .back-btn:hover {
-                background: #2a3044;
-            }
-        </style>
-    </head>
-    <body>
-        <div id="loading">Loading Logic Graph...</div>
-        <a href="/webui/admin_dashboard.html" class="back-btn"
-            >Back to Dashboard</a
-        >
-        <div id="mynetwork"></div>
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Logic Graph — JeebsAI</title>
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#07121a;color:#e8edf4;font-family:'Space Grotesk',sans-serif;overflow:hidden}
+#mynetwork{width:100vw;height:100vh}
+#loading{position:fixed;top:20px;left:20px;background:rgba(15,22,30,0.9);backdrop-filter:blur(12px);padding:14px 20px;border-radius:10px;border:1px solid rgba(83,216,251,0.2);color:#53d8fb;z-index:10;font-size:0.95em;display:flex;align-items:center;gap:10px}
+#loading .spinner{width:18px;height:18px;border:2px solid rgba(83,216,251,0.2);border-top-color:#53d8fb;border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.back-btn{position:fixed;top:20px;right:20px;background:rgba(15,22,30,0.9);backdrop-filter:blur(12px);color:#53d8fb;padding:10px 18px;text-decoration:none;border-radius:10px;font-weight:600;z-index:10;border:1px solid rgba(83,216,251,0.2);transition:all .2s}
+.back-btn:hover{background:rgba(83,216,251,0.1);border-color:#53d8fb}
+</style>
+</head>
+<body>
+<div id="loading"><div class="spinner"></div> Loading Logic Graph&hellip;</div>
+<a href="/webui/admin_dashboard.html" class="back-btn">&larr; Dashboard</a>
+<div id="mynetwork"></div>
 
-        <script src="/webui/auth.js"></script>
-        <script type="text/javascript">
-            async function loadGraph() {
-                try {
-                    const res = await safeFetch("/api/brain/logic_graph");
-                    if (!res.ok) {
-                        const body = await res.text();
-                        throw new Error(
-                            `HTTP ${res.status}${body ? `: ${body}` : ""}`,
-                        );
-                    }
-                    const data = await res.json();
-
-                    const container = document.getElementById("mynetwork");
-                    const nodes = new vis.DataSet(
-                        Array.isArray(data.nodes) ? data.nodes : [],
-                    );
-                    const edges = new vis.DataSet(
-                        Array.isArray(data.edges) ? data.edges : [],
-                    );
-
-                    const graphData = { nodes: nodes, edges: edges };
-                    const options = {
-                        nodes: {
-                            font: { size: 14, color: "#f3f3f3" },
-                            borderWidth: 1,
-                            color: {
-                                background: "#23283a",
-                                border: "#7fffd4",
-                                highlight: {
-                                    background: "#2a3044",
-                                    border: "#7fffd4",
-                                },
-                            },
-                        },
-                        edges: {
-                            width: 1,
-                            color: { color: "#555", highlight: "#7fffd4" },
-                            smooth: { type: "continuous" },
-                            font: {
-                                align: "middle",
-                                size: 12,
-                                color: "#aaa",
-                                strokeWidth: 0,
-                            },
-                        },
-                        physics: {
-                            stabilization: false,
-                            barnesHut: {
-                                gravitationalConstant: -2000,
-                                springConstant: 0.04,
-                                springLength: 150,
-                            },
-                        },
-                    };
-
-                    new vis.Network(container, graphData, options);
-                    document.getElementById("loading").style.display = "none";
-                } catch (e) {
-                    document.getElementById("loading").innerText =
-                        "Error loading graph: " + e;
-                    document.getElementById("loading").style.color = "#ff6b6b";
-                }
-            }
-            loadGraph();
-        </script>
-    </body>
+<script src="/webui/auth.js"></script>
+<script>
+async function loadGraph(){
+  try{
+    var res=await safeFetch("/api/brain/logic_graph");
+    if(!res.ok){var body=await res.text();throw new Error("HTTP "+res.status+(body?": "+body:""));}
+    var data=await res.json();
+    var container=document.getElementById("mynetwork");
+    var nodes=new vis.DataSet(Array.isArray(data.nodes)?data.nodes:[]);
+    var edges=new vis.DataSet(Array.isArray(data.edges)?data.edges:[]);
+    var options={
+      nodes:{font:{size:14,color:"#e8edf4"},borderWidth:1,color:{background:"#1a2a3a",border:"#53d8fb",highlight:{background:"#1f3548",border:"#53d8fb"}}},
+      edges:{width:1,color:{color:"#2b3a4a",highlight:"#53d8fb"},smooth:{type:"continuous"},font:{align:"middle",size:12,color:"#6b7b8b",strokeWidth:0}},
+      physics:{stabilization:false,barnesHut:{gravitationalConstant:-2000,springConstant:0.04,springLength:150}},
+      interaction:{hover:true}
+    };
+    new vis.Network(container,{nodes:nodes,edges:edges},options);
+    document.getElementById("loading").style.display="none";
+  }catch(e){
+    var l=document.getElementById("loading");l.innerHTML="Error loading graph: "+e;l.style.color="#ff6b6b";
+  }
+}
+loadGraph();
+</script>
+</body>
 </html>

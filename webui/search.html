@@ -1,120 +1,83 @@
 <!doctype html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Jeebs Brain Search</title>
-        <style>
-            body {
-                font-family: sans-serif;
-                max-width: 800px;
-                margin: 2rem auto;
-                padding: 0 1rem;
-                background: #f4f4f4;
-            }
-            h1 {
-                color: #333;
-            }
-            .search-box {
-                margin-bottom: 2rem;
-                display: flex;
-                gap: 10px;
-            }
-            input {
-                flex-grow: 1;
-                padding: 10px;
-                font-size: 16px;
-                border: 1px solid #ccc;
-                border-radius: 4px;
-            }
-            button {
-                padding: 10px 20px;
-                font-size: 16px;
-                background: #007bff;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-            }
-            button:hover {
-                background: #0056b3;
-            }
-            .result {
-                background: white;
-                padding: 1.5rem;
-                margin-bottom: 1rem;
-                border-radius: 8px;
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            }
-            .result h3 {
-                margin-top: 0;
-                color: #2c3e50;
-            }
-            .meta {
-                color: #888;
-                font-size: 0.85em;
-                margin-top: 10px;
-                border-top: 1px solid #eee;
-                padding-top: 10px;
-            }
-        </style>
-    </head>
-    <body>
-        <h1>Search Jeebs Brain</h1>
-
-        <div class="search-box">
-            <input
-                type="text"
-                id="query"
-                placeholder="Enter search term..."
-                onkeydown="if (event.key === 'Enter') doSearch();"
-            />
-            <button onclick="doSearch()">Search</button>
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Brain Search - JeebsAI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/webui/style.css" />
+    <style>
+        .search-hero { text-align: center; padding: 40px 20px 24px; animation: slide-up 0.4s ease; }
+        .search-hero h1 { margin-bottom: 8px; }
+        .search-box { display: flex; gap: 10px; max-width: 640px; margin: 0 auto 32px; }
+        .search-box input { flex: 1; font-size: 1rem; padding: 14px 18px; }
+        .result-card { margin-bottom: 12px; }
+        .result-card h3 { color: var(--accent); margin-bottom: 6px; font-size: 1.05rem; }
+        .result-card p { color: var(--text-secondary); font-size: 0.92rem; line-height: 1.5; }
+        .result-meta { color: var(--muted); font-size: 0.8rem; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); font-family: var(--font-mono); }
+        #resultCount { text-align: center; color: var(--muted); font-size: 0.88rem; margin-bottom: 16px; }
+    </style>
+</head>
+<body>
+    <nav id="topnav"></nav>
+    <main class="shell shell--narrow">
+        <div class="search-hero">
+            <h1>Brain Search</h1>
+            <p class="text-muted">Search the JeebsAI knowledge graph for facts, concepts, and learned information.</p>
         </div>
-
+        <div class="search-box">
+            <input type="text" id="query" placeholder="Enter search term..." autofocus />
+            <button class="btn btn-primary" onclick="doSearch()">Search</button>
+        </div>
+        <div id="resultCount"></div>
         <div id="results"></div>
+    </main>
+    <script src="/webui/auth.js"></script>
+    <script src="/webui/nav.js"></script>
+    <script>JeebsNav.init('search');</script>
+    <script>
+    document.getElementById('query').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') doSearch();
+    });
 
-        <script src="/webui/auth.js"></script><script>
-            async function doSearch() {
-                const query = document.getElementById("query").value;
-                const container = document.getElementById("results");
-                container.innerHTML = "<p>Searching...</p>";
-
-                let data;
-                try {
-                    const res = await safeFetch("/api/brain/search", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ query }),
-                    });
-                    if (!res.ok) {
-                        const body = await res.text();
-                        throw new Error(
-                            `HTTP ${res.status}${body ? `: ${body}` : ""}`,
-                        );
-                    }
-                    data = await res.json();
-                } catch (err) {
-                    container.innerHTML = `<p>Error: ${err}</p>`;
-                    return;
-                }
-
-                container.innerHTML = "";
-                if (data.length === 0) {
-                    container.innerHTML = "<p>No results found.</p>";
-                    return;
-                }
-                data.forEach((node) => {
-                    const div = document.createElement("div");
-                    div.className = "result";
-                    div.innerHTML = `
-                    <h3>${node.label}</h3>
-                    <p>${node.summary}</p>
-                    <div class="meta">ID: ${node.id} | Sources: ${Array.isArray(node.sources) ? node.sources.length : 0}</div>
-                `;
-                    container.appendChild(div);
-                });
+    async function doSearch() {
+        var query = document.getElementById('query').value.trim();
+        if (!query) return;
+        var container = document.getElementById('results');
+        var countEl = document.getElementById('resultCount');
+        container.innerHTML = '<div class="loading-text" style="justify-content:center;"><span class="spinner"></span> Searching...</div>';
+        countEl.textContent = '';
+        try {
+            var res = await safeFetch('/api/brain/search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query: query }),
+            });
+            if (!res.ok) {
+                var body = await res.text();
+                throw new Error('HTTP ' + res.status + (body ? ': ' + body : ''));
             }
-        </script>
-    </body>
+            var data = await res.json();
+            container.innerHTML = '';
+            if (!data || data.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="icon">&#x1F50D;</div><p>No results found. Try different search terms.</p></div>';
+                countEl.textContent = '0 results';
+                return;
+            }
+            countEl.textContent = data.length + ' result' + (data.length !== 1 ? 's' : '') + ' found';
+            data.forEach(function(node) {
+                var div = document.createElement('div');
+                div.className = 'card result-card';
+                var sourcesCount = Array.isArray(node.sources) ? node.sources.length : 0;
+                div.innerHTML = '<h3>' + (node.label || 'Untitled') + '</h3><p>' + (node.summary || 'No summary available.') + '</p><div class="result-meta">ID: ' + (node.id || 'n/a') + ' | Sources: ' + sourcesCount + '</div>';
+                container.appendChild(div);
+            });
+        } catch(err) {
+            container.innerHTML = '<div class="card"><p class="text-bad">Error: ' + err + '</p></div>';
+        }
+    }
+    </script>
+</body>
 </html>

@@ -1,418 +1,186 @@
 <!doctype html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>User Profile - JeebsAI</title>
-        <style>
-            :root {
-                --bg-main: #181c24;
-                --bg-card: #23283a;
-                --text-main: #f3f3f3;
-                --accent: #7fffd4;
-                --border: #333;
-            }
-            body.light-mode {
-                --bg-main: #f4f4f9;
-                --bg-card: #ffffff;
-                --text-main: #333;
-                --accent: #00796b;
-                --border: #ccc;
-            }
-            body {
-                font-family: "Segoe UI", sans-serif;
-                background: var(--bg-main);
-                color: var(--text-main);
-                padding: 20px;
-                margin: 0;
-                transition:
-                    background 0.3s,
-                    color 0.3s;
-            }
-            .container {
-                max-width: 800px;
-                margin: 0 auto;
-            }
-            .card {
-                background: var(--bg-card);
-                padding: 20px;
-                border-radius: 8px;
-                margin-bottom: 20px;
-                border: 1px solid var(--border);
-            }
-            h1,
-            h2 {
-                color: var(--accent);
-                margin-top: 0;
-            }
-            label {
-                display: block;
-                margin-bottom: 5px;
-                font-weight: bold;
-            }
-            input {
-                width: 100%;
-                padding: 10px;
-                margin-bottom: 15px;
-                border-radius: 4px;
-                border: 1px solid var(--border);
-                background: var(--bg-main);
-                color: var(--text-main);
-                box-sizing: border-box;
-            }
-            button {
-                padding: 10px 20px;
-                background: var(--accent);
-                color: var(--bg-main);
-                border: none;
-                border-radius: 4px;
-                font-weight: bold;
-                cursor: pointer;
-            }
-            button:hover {
-                opacity: 0.9;
-            }
-            .log-entry {
-                padding: 8px;
-                border-bottom: 1px solid var(--border);
-                font-family: monospace;
-                font-size: 0.9em;
-            }
-            .log-entry:last-child {
-                border-bottom: none;
-            }
-            .timestamp {
-                color: #888;
-                margin-right: 10px;
-            }
-            a {
-                color: var(--accent);
-                text-decoration: none;
-            }
-            .status {
-                margin-top: 10px;
-                font-weight: bold;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div
-                style="
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    margin-bottom: 20px;
-                "
-            >
-                <h1>User Profile</h1>
-                <a href="/webui/index.html">Back to Home</a>
-            </div>
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Profile — JeebsAI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/webui/style.css"/>
+</head>
+<body>
+<nav id="topnav"></nav>
+<div class="shell" style="max-width:800px;padding-top:60px">
+  <h1 style="margin-bottom:24px">User Profile</h1>
 
-            <div class="card">
-                <h2>Account Details</h2>
-                <div id="profileInfo">Loading...</div>
+  <div class="card card-glow">
+    <h3>Account Details</h3>
+    <div id="profileInfo" class="data-list"><div class="text-muted">Loading...</div></div>
+    <form id="changeUsernameForm" style="margin-top:16px">
+      <label class="form-label">Change Username</label>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="newUsername" class="form-input" placeholder="New username" required style="flex:1"/>
+        <button type="submit" class="btn btn-primary">Update</button>
+      </div>
+      <div id="usernameStatus" class="text-muted" style="margin-top:6px"></div>
+    </form>
+  </div>
 
-                <form id="changeUsernameForm" style="margin-top:12px">
-                    <label>Change Username</label>
-                    <input type="text" id="newUsername" placeholder="New username" required />
-                    <button type="submit">Change Username</button>
-                    <div id="usernameStatus" class="status"></div>
-                </form>
-            </div>
+  <div class="card">
+    <h3>Profile Picture</h3>
+    <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+      <img id="avatarImg" src="" alt="Avatar" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);background:var(--bg-1)"/>
+      <form id="avatarForm" style="display:flex;flex-direction:column;gap:10px;flex:1;min-width:200px">
+        <input type="file" id="avatarInput" accept="image/*" required class="form-input"/>
+        <button type="submit" class="btn btn-primary btn-sm">Upload Picture</button>
+      </form>
+    </div>
+  </div>
 
-            <div class="card">
-                <h2>Profile Picture</h2>
-                <div style="display: flex; align-items: center; gap: 20px">
-                    <img
-                        id="avatarImg"
-                        src=""
-                        style="
-                            width: 100px;
-                            height: 100px;
-                            border-radius: 50%;
-                            object-fit: cover;
-                            border: 2px solid var(--accent);
-                            background: var(--bg-main);
-                        "
-                    />
-                    <form
-                        id="avatarForm"
-                        style="display: flex; flex-direction: column; gap: 10px"
-                    >
-                        <input
-                            type="file"
-                            id="avatarInput"
-                            accept="image/*"
-                            required
-                            style="margin: 0"
-                        />
-                        <button type="submit">Upload New Picture</button>
-                    </form>
-                </div>
-            </div>
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
+    <div class="card">
+      <h3>Update Email</h3>
+      <form id="changeEmailForm" class="stack">
+        <div><label class="form-label">New Email</label><input type="email" id="newEmail" class="form-input" required/></div>
+        <div><label class="form-label">Current Password</label><input type="password" id="emailPass" class="form-input" required/></div>
+        <button type="submit" class="btn btn-primary">Update Email</button>
+        <div id="emailStatus" class="text-muted"></div>
+      </form>
+    </div>
+    <div class="card">
+      <h3>Change Password</h3>
+      <form id="changePassForm" class="stack">
+        <div><label class="form-label">Current Password</label><input type="password" id="oldPass" class="form-input" required/></div>
+        <div><label class="form-label">New Password</label><input type="password" id="newPass" class="form-input" required/></div>
+        <button type="submit" class="btn btn-primary">Update Password</button>
+        <div id="passStatus" class="text-muted"></div>
+      </form>
+    </div>
+  </div>
 
-            <div class="card">
-                <h2>Update Email</h2>
-                <form id="changeEmailForm">
-                    <label>New Email Address</label>
-                    <input type="email" id="newEmail" required />
-                    <label>Current Password</label>
-                    <input type="password" id="emailPass" required />
-                    <button type="submit">Update Email</button>
-                    <div id="emailStatus" class="status"></div>
-                </form>
-            </div>
+  <div class="card" style="border-color:var(--danger)">
+    <h3 style="color:var(--danger)">Danger Zone</h3>
+    <p class="text-muted" style="margin-bottom:12px">This action is permanent and cannot be undone.</p>
+    <form id="deleteAccountForm" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+      <div style="flex:1;min-width:200px"><label class="form-label">Confirm Password</label><input type="password" id="deletePass" class="form-input" required/></div>
+      <button type="submit" class="btn btn-danger">Delete My Account</button>
+    </form>
+    <div id="deleteStatus" class="text-muted" style="margin-top:6px"></div>
+  </div>
 
-            <div class="card">
-                <h2>Change Password</h2>
-                <form id="changePassForm">
-                    <label>Current Password</label>
-                    <input type="password" id="oldPass" required />
-                    <label>New Password</label>
-                    <input type="password" id="newPass" required />
-                    <button type="submit">Update Password</button>
-                    <div id="passStatus" class="status"></div>
-                </form>
-            </div>
+  <div class="card">
+    <h3>Recent Activity</h3>
+    <div id="activityLog" class="scroll-box" style="max-height:300px"><div class="text-muted">Loading activity...</div></div>
+  </div>
+</div>
 
-            <div class="card">
-                <h2 style="color: #ff6b6b">Delete Account</h2>
-                <p>Warning: This action is permanent and cannot be undone.</p>
-                <form id="deleteAccountForm">
-                    <label>Confirm Password</label>
-                    <input type="password" id="deletePass" required />
-                    <button type="submit" style="background: #ff6b6b">
-                        Delete My Account
-                    </button>
-                    <div id="deleteStatus" class="status"></div>
-                </form>
-            </div>
+<script src="/webui/auth.js"></script>
+<script src="/webui/nav.js"></script>
+<script>
+JeebsNav.init('profile');
 
-            <div class="card">
-                <h2>Recent Activity</h2>
-                <div id="activityLog">Loading activity...</div>
-            </div>
-        </div>
+function escapeHtml(text){
+  if(!text)return"";
+  return text.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+}
 
-        <script src="/webui/auth.js"></script><script>
-            // Theme Init
-            if (localStorage.getItem("theme") === "light")
-                document.body.classList.add("light-mode");
+async function loadProfile(){
+  try{
+    const res=await safeFetch("/api/profile",{credentials:"same-origin",headers:authHeaders()});
+    if(res.ok){
+      const data=await res.json();
+      window.currentProfile=data;
+      document.getElementById("profileInfo").innerHTML=
+        '<div class="data-list-item"><span>Username</span><span>'+escapeHtml(data.username)+'</span></div>'+
+        '<div class="data-list-item"><span>Email</span><span>'+escapeHtml(data.email)+'</span></div>'+
+        '<div class="data-list-item"><span>Role</span><span class="badge badge-accent">'+escapeHtml(data.role)+'</span></div>';
+      document.getElementById("avatarImg").src="/api/avatar/"+data.username+"?t="+Date.now();
+    }else{
+      document.getElementById("profileInfo").innerHTML='<div class="text-muted">Please log in to view profile.</div>';
+    }
+  }catch(e){
+    document.getElementById("profileInfo").innerHTML='<div class="text-muted">Error loading profile.</div>';
+  }
+}
 
-            async function loadProfile() {
-                try {
-                    const res = await safeFetch("/api/profile", { credentials: "same-origin", headers: authHeaders() });
-                    if (res.ok) {
-                        const data = await res.json();
-                        // expose profile to other functions (used to hide admin activity)
-                        window.currentProfile = data;
-                        document.getElementById("profileInfo").innerHTML = `
-                        <p><strong>Username:</strong> ${data.username}</p>
-                        <p><strong>Email:</strong> ${data.email}</p>
-                        <p><strong>Role:</strong> ${data.role}</p>
-                    `;
-                        document.getElementById("avatarImg").src =
-                            `/api/avatar/${data.username}?t=${new Date().getTime()}`;
-                    } else {
-                        document.getElementById("profileInfo").innerHTML =
-                            "<p>Please log in to view profile.</p>";
-                    }
-                } catch (e) {
-                    document.getElementById("profileInfo").innerHTML =
-                        "<p>Error loading profile.</p>";
-                }
-            }
+async function loadActivity(){
+  try{
+    if(window.currentProfile&&(window.currentProfile.role==='admin'||window.currentProfile.username==='1090mb')){
+      document.getElementById("activityLog").innerHTML='<div class="text-muted">Recent activity hidden for privacy.</div>';
+      return;
+    }
+    const res=await safeFetch("/api/my_logs",{credentials:"same-origin",headers:authHeaders()});
+    if(res.ok){
+      const logs=await res.json();
+      if(logs.length===0){document.getElementById("activityLog").innerHTML='<div class="text-muted">No recent activity found.</div>';return;}
+      document.getElementById("activityLog").innerHTML=logs.map(function(l){
+        return '<div class="data-list-item" style="flex-direction:column;align-items:flex-start"><span class="text-muted" style="font-size:0.8em">['+new Date(l.timestamp).toLocaleString()+']</span><span style="font-family:var(--font-mono);font-size:0.9em">'+escapeHtml(l.message)+'</span></div>';
+      }).join("");
+    }else{
+      document.getElementById("activityLog").innerHTML='<div class="text-muted">Could not load activity.</div>';
+    }
+  }catch(e){
+    document.getElementById("activityLog").innerHTML='<div class="text-muted">Error loading activity.</div>';
+  }
+}
 
-            async function loadActivity() {
-                try {
-                    // hide recent activity when the profile belongs to an admin or username '1090mb'
-                    if (window.currentProfile && (window.currentProfile.role === 'admin' || window.currentProfile.username === '1090mb')) {
-                        document.getElementById("activityLog").innerHTML = '<p>Recent activity hidden for privacy.</p>';
-                        return;
-                    }
-                    const res = await safeFetch("/api/my_logs", { credentials: "same-origin", headers: authHeaders() });
-                    if (res.ok) {
-                        const logs = await res.json();
-                        if (logs.length === 0) {
-                            document.getElementById("activityLog").innerHTML =
-                                "<p>No recent activity found.</p>";
-                            return;
-                        }
-                        document.getElementById("activityLog").innerHTML = logs
-                            .map(
-                                (l) => `
-                        <div class="log-entry">
-                            <span class="timestamp">[${new Date(l.timestamp).toLocaleString()}]</span>
-                            ${escapeHtml(l.message)}
-                        </div>
-                    `,
-                            )
-                            .join("");
-                    } else {
-                        document.getElementById("activityLog").innerHTML =
-                            "<p>Could not load activity.</p>";
-                    }
-                } catch (e) {
-                    document.getElementById("activityLog").innerHTML =
-                        "<p>Error loading activity.</p>";
-                }
-            }
+document.getElementById("changePassForm").onsubmit=async function(e){
+  e.preventDefault();
+  var status=document.getElementById("passStatus");
+  status.textContent="Updating...";status.style.color="var(--text-1)";
+  var res=await safeFetch("/api/change_password",{method:"POST",credentials:"same-origin",headers:authHeaders(true),body:JSON.stringify({old_password:document.getElementById("oldPass").value,new_password:document.getElementById("newPass").value})});
+  var data=await res.json();
+  status.textContent=res.ok?"Password updated!":"Error: "+(data.error||"Unknown");
+  status.style.color=res.ok?"var(--accent)":"var(--danger)";
+  if(res.ok)document.getElementById("changePassForm").reset();
+};
 
-            document.getElementById("changePassForm").onsubmit = async (e) => {
-                e.preventDefault();
-                const oldPass = document.getElementById("oldPass").value;
-                const newPass = document.getElementById("newPass").value;
-                const status = document.getElementById("passStatus");
+document.getElementById("changeUsernameForm").onsubmit=async function(e){
+  e.preventDefault();
+  var newUsername=document.getElementById("newUsername").value.trim();
+  var status=document.getElementById("usernameStatus");
+  if(!newUsername)return;
+  status.textContent="Updating...";status.style.color="var(--text-1)";
+  var res=await safeFetch("/api/profile/username",{method:"POST",credentials:"same-origin",headers:authHeaders(true),body:JSON.stringify({new_username:newUsername})});
+  var data=await res.json().catch(function(){return{}});
+  if(res.ok){status.textContent="Username updated.";status.style.color="var(--accent)";document.getElementById("changeUsernameForm").reset();loadProfile();loadActivity();}
+  else{status.textContent="Error: "+(data.error||"Unknown");status.style.color="var(--danger)";}
+};
 
-                status.textContent = "Updating...";
-                status.style.color = "var(--text-main)";
+document.getElementById("changeEmailForm").onsubmit=async function(e){
+  e.preventDefault();
+  var status=document.getElementById("emailStatus");
+  status.textContent="Updating...";status.style.color="var(--text-1)";
+  var res=await safeFetch("/api/update_email",{method:"POST",credentials:"same-origin",headers:authHeaders(true),body:JSON.stringify({new_email:document.getElementById("newEmail").value,password:document.getElementById("emailPass").value})});
+  var data=await res.json();
+  status.textContent=res.ok?"Email updated!":"Error: "+(data.error||"Unknown");
+  status.style.color=res.ok?"var(--accent)":"var(--danger)";
+  if(res.ok){document.getElementById("changeEmailForm").reset();loadProfile();}
+};
 
-                const res = await safeFetch("/api/change_password", {
-                    method: "POST",
-                    credentials: "same-origin",
-                    headers: authHeaders(true),
-                    body: JSON.stringify({
-                        old_password: oldPass,
-                        new_password: newPass,
-                    }),
-                });
+document.getElementById("avatarForm").onsubmit=async function(e){
+  e.preventDefault();
+  var fileInput=document.getElementById("avatarInput");
+  if(fileInput.files.length===0)return;
+  var formData=new FormData();formData.append("avatar",fileInput.files[0]);
+  var btn=e.target.querySelector("button");var orig=btn.textContent;btn.textContent="Uploading...";
+  var res=await safeFetch("/api/upload_avatar",{method:"POST",credentials:"same-origin",headers:{Authorization:"Bearer "+jeebsGetToken()},body:formData});
+  if(res.ok)loadProfile();
+  btn.textContent=orig;fileInput.value="";
+};
 
-                const data = await res.json();
-                status.textContent = res.ok
-                    ? "Password updated successfully!"
-                    : "Error: " + (data.error || "Unknown");
-                status.style.color = res.ok ? "var(--accent)" : "#ff6b6b";
-                if (res.ok) document.getElementById("changePassForm").reset();
-            };
+document.getElementById("deleteAccountForm").onsubmit=async function(e){
+  e.preventDefault();
+  if(!confirm("Are you absolutely sure you want to delete your account? This cannot be undone."))return;
+  var status=document.getElementById("deleteStatus");
+  status.textContent="Deleting...";
+  var res=await safeFetch("/api/delete_account",{method:"POST",credentials:"same-origin",headers:authHeaders(true),body:JSON.stringify({password:document.getElementById("deletePass").value})});
+  var data=await res.json();
+  if(res.ok){alert("Account deleted. Goodbye!");window.location.href="/webui/index.html";}
+  else{status.textContent="Error: "+(data.error||"Unknown");status.style.color="var(--danger)";}
+};
 
-            document.getElementById("changeUsernameForm").onsubmit = async (e) => {
-                e.preventDefault();
-                const newUsername = document.getElementById("newUsername").value.trim();
-                const status = document.getElementById("usernameStatus");
-                if (!newUsername) return;
-
-                status.textContent = "Updating...";
-                status.style.color = "var(--text-main)";
-
-                const res = await safeFetch("/api/profile/username", {
-                    method: "POST",
-                    credentials: "same-origin",
-                    headers: authHeaders(true),
-                    body: JSON.stringify({ new_username: newUsername }),
-                });
-
-                const data = await res.json().catch(() => ({}));
-                if (res.ok) {
-                    status.textContent = "Username updated.";
-                    status.style.color = "var(--accent)";
-                    document.getElementById("changeUsernameForm").reset();
-                    loadProfile();
-                    loadActivity();
-                } else {
-                    status.textContent = "Error: " + (data.error || "Unknown");
-                    status.style.color = "#ff6b6b";
-                }
-            };
-
-            document.getElementById("changeEmailForm").onsubmit = async (e) => {
-                e.preventDefault();
-                const newEmail = document.getElementById("newEmail").value;
-                const pass = document.getElementById("emailPass").value;
-                const status = document.getElementById("emailStatus");
-
-                status.textContent = "Updating...";
-                status.style.color = "var(--text-main)";
-
-                const res = await safeFetch("/api/update_email", {
-                    method: "POST",
-                    credentials: "same-origin",
-                    headers: authHeaders(true),
-                    body: JSON.stringify({
-                        new_email: newEmail,
-                        password: pass,
-                    }),
-                });
-
-                const data = await res.json();
-                status.textContent = res.ok
-                    ? "Email updated successfully!"
-                    : "Error: " + (data.error || "Unknown");
-                status.style.color = res.ok ? "var(--accent)" : "#ff6b6b";
-                if (res.ok) {
-                    document.getElementById("changeEmailForm").reset();
-                    loadProfile();
-                }
-            };
-
-            document.getElementById("avatarForm").onsubmit = async (e) => {
-                e.preventDefault();
-                const fileInput = document.getElementById("avatarInput");
-                if (fileInput.files.length === 0) return;
-
-                const formData = new FormData();
-                formData.append("avatar", fileInput.files[0]);
-
-                const btn = e.target.querySelector("button");
-                const originalText = btn.textContent;
-                btn.textContent = "Uploading...";
-
-                const res = await safeFetch("/api/upload_avatar", {
-                    method: "POST",
-                    credentials: "same-origin",
-                    headers: { Authorization: "Bearer " + jeebsGetToken() },
-                    body: formData,
-                });
-                if (res.ok) loadProfile(); // Reloads avatar image
-                btn.textContent = originalText;
-                fileInput.value = "";
-            };
-
-            document.getElementById("deleteAccountForm").onsubmit = async (
-                e,
-            ) => {
-                e.preventDefault();
-                if (
-                    !confirm(
-                        "Are you absolutely sure you want to delete your account? This cannot be undone.",
-                    )
-                )
-                    return;
-
-                const pass = document.getElementById("deletePass").value;
-                const status = document.getElementById("deleteStatus");
-
-                status.textContent = "Deleting...";
-
-                const res = await safeFetch("/api/delete_account", {
-                    method: "POST",
-                    credentials: "same-origin",
-                    headers: authHeaders(true),
-                    body: JSON.stringify({ password: pass }),
-                });
-
-                const data = await res.json();
-                if (res.ok) {
-                    alert("Account deleted. Goodbye!");
-                    window.location.href = "/webui/index.html";
-                } else {
-                    status.textContent = "Error: " + (data.error || "Unknown");
-                    status.style.color = "#ff6b6b";
-                }
-            };
-
-            function escapeHtml(text) {
-                if (!text) return "";
-                return text
-                    .replace(/&/g, "&amp;")
-                    .replace(/</g, "&lt;")
-                    .replace(/>/g, "&gt;")
-                    .replace(/"/g, "&quot;")
-                    .replace(/'/g, "&#039;");
-            }
-
-            // ensure activity loads after profile has been fetched
-            loadProfile().then(loadActivity);
-        </script>
-    </body>
+loadProfile().then(loadActivity);
+</script>
+</body>
 </html>

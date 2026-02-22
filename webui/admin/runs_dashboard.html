@@ -1,79 +1,64 @@
 <!doctype html>
 <html lang="en">
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Runs Dashboard</title>
-    <link rel="stylesheet" href="/webui/style.css" />
-    <style>
-        body { padding:20px; background:#0f1117; color:#f6f8fb; font-family:Arial,Helvetica,sans-serif }
-        .card { background:#181c24; border:1px solid #2b3245; border-radius:10px; padding:14px; margin-bottom:12px }
-        .muted { color:#9da7bd }
-        .output { background:#121417; padding:10px; border-radius:8px; font-family:monospace; }
-        .row { display:flex; gap:12px; align-items:center }
-        .btn { padding:8px 10px; border-radius:8px; background:#1f2533; border:1px solid #2b3245; color:#f6f8fb }
-    </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Runs Dashboard — JeebsAI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/webui/style.css"/>
 </head>
 <body>
-<div style="max-width:1000px;margin:0 auto">
-    <h1>Background Runs Dashboard</h1>
-    <div class="card">
-        <div class="row">
-            <div>
-                <div class="muted">Total runs</div>
-                <div id="metric-total" style="font-weight:700; font-size:18px">-</div>
-            </div>
-            <div>
-                <div class="muted">Running</div>
-                <div id="metric-running" style="font-weight:700; font-size:18px">-</div>
-            </div>
-            <div>
-                <div class="muted">Cancelled</div>
-                <div id="metric-cancelled" style="font-weight:700; font-size:18px">-</div>
-            </div>
-            <div>
-                <div class="muted">Avg progress</div>
-                <div id="metric-avg" style="font-weight:700; font-size:18px">-</div>
-            </div>
-        </div>
-    </div>
+<nav id="topnav"></nav>
+<div class="shell" style="max-width:1000px;padding-top:60px">
+  <h1 style="margin-bottom:24px">Background Runs Dashboard</h1>
 
-    <div class="card">
-        <h3>Recent Runs</h3>
-        <div id="runs-list" class="output">Loading...</div>
+  <div class="card card-glow">
+    <div class="metrics-grid" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr))">
+      <div class="metric-card"><div id="metric-total" class="metric-value">-</div><div class="metric-label">Total Runs</div></div>
+      <div class="metric-card"><div id="metric-running" class="metric-value">-</div><div class="metric-label">Running</div></div>
+      <div class="metric-card"><div id="metric-cancelled" class="metric-value">-</div><div class="metric-label">Cancelled</div></div>
+      <div class="metric-card"><div id="metric-avg" class="metric-value">-</div><div class="metric-label">Avg Progress</div></div>
     </div>
+  </div>
+
+  <div class="card">
+    <h3>Recent Runs</h3>
+    <div id="runs-list" class="scroll-box" style="max-height:50vh"><div class="text-muted" style="padding:20px;text-align:center">Loading...</div></div>
+  </div>
 </div>
+
 <script src="/webui/auth.js"></script>
+<script src="/webui/nav.js"></script>
 <script>
-async function loadDashboard() {
-    const res = await safeFetch('/api/learning/extended-runs', { credentials:'same-origin', headers: authHeaders() });
-    const el = document.getElementById('runs-list');
-    if (!res.ok) { el.textContent = 'Failed to load runs'; return; }
-    const data = await res.json();
-    const runs = data.runs || [];
-    document.getElementById('metric-total').textContent = runs.length;
-    const running = runs.filter(r => (r.status||'').toString() === 'running').length;
-    document.getElementById('metric-running').textContent = running;
-    const cancelled = runs.filter(r => r.cancelled===true).length;
-    document.getElementById('metric-cancelled').textContent = cancelled;
-    const avg = runs.length ? (runs.reduce((s,r)=>s+(Number(r.progress_percent||0)),0)/runs.length).toFixed(0) : 0;
-    document.getElementById('metric-avg').textContent = avg + '%';
+JeebsNav.init('trainer');
 
-    el.innerHTML = runs.map(r=>{
-        const id = r.run_id||''; const sess=r.session_id||''; const pct=Number(r.progress_percent||0).toFixed(0); const status=r.status||''; const started=r.started_at||'';
-        return `<div style="padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);display:flex;justify-content:space-between;align-items:center"><div style="flex:1;min-width:0"><div style="font-weight:700">${id} <span style="color:#9da7bd;font-weight:400">${status}</span></div><div style="color:#9da7bd">Session: ${sess} • ${started} • ${pct}%</div></div><div style="flex-shrink:0"><button class="btn" onclick="viewRun('${id}')">View</button></div></div>`;
-    }).join('');
+function escapeHtml(s){if(!s)return"";return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+
+async function loadDashboard(){
+  var res=await safeFetch("/api/learning/extended-runs",{credentials:"same-origin",headers:authHeaders()});
+  var el=document.getElementById("runs-list");
+  if(!res.ok){el.textContent="Failed to load runs";return;}
+  var data=await res.json();var runs=data.runs||[];
+  document.getElementById("metric-total").textContent=runs.length;
+  document.getElementById("metric-running").textContent=runs.filter(function(r){return(r.status||"").toString()==="running"}).length;
+  document.getElementById("metric-cancelled").textContent=runs.filter(function(r){return r.cancelled===true}).length;
+  var avg=runs.length?(runs.reduce(function(s,r){return s+Number(r.progress_percent||0)},0)/runs.length).toFixed(0):0;
+  document.getElementById("metric-avg").textContent=avg+"%";
+  if(!runs.length){el.innerHTML='<div class="empty-state"><div class="empty-state-icon">&#x1F3C3;</div><div>No runs found</div></div>';return;}
+  el.innerHTML=runs.map(function(r){
+    var id=r.run_id||"";var sess=r.session_id||"";var pct=Number(r.progress_percent||0).toFixed(0);var status=r.status||"";var started=r.started_at||"";
+    return '<div class="data-list-item"><div style="flex:1;min-width:0"><div style="font-weight:700">'+escapeHtml(id)+' <span class="text-muted">'+escapeHtml(status)+'</span></div><div class="text-muted" style="font-size:0.85em">Session: '+escapeHtml(sess)+' &bull; '+escapeHtml(started)+' &bull; '+pct+'%</div><div class="progress" style="margin-top:6px"><div class="progress-fill" style="width:'+pct+'%"></div></div></div><button class="btn btn-ghost btn-sm" onclick="viewRun(\''+escapeHtml(id)+'\')">View</button></div>';
+  }).join("");
 }
 
-async function viewRun(id) {
-    const res = await safeFetch('/api/learning/extended-run/' + encodeURIComponent(id), { credentials:'same-origin', headers: authHeaders() });
-    if (!res.ok) { alert('Failed to load run'); return; }
-    const data = await res.json();
-    alert(JSON.stringify(data.run, null, 2));
+async function viewRun(id){
+  var res=await safeFetch("/api/learning/extended-run/"+encodeURIComponent(id),{credentials:"same-origin",headers:authHeaders()});
+  if(!res.ok){alert("Failed to load run");return;}
+  var data=await res.json();alert(JSON.stringify(data.run,null,2));
 }
 
-loadDashboard();
-setInterval(loadDashboard,8000);
+loadDashboard();setInterval(loadDashboard,8000);
 </script>
 </body>
 </html>

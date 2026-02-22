@@ -190,13 +190,13 @@ function renderUpdates() {
 
         var commentsHtml = (u.comments || []).map(function(c) {
             return '<div style="background:#0e1114;padding:8px;margin:4px 0;font-size:0.9em;border-radius:6px"><strong>' + escapeHtml(c.author) + '</strong>: ' + escapeHtml(c.content) + '</div>';
-        }).join("") || '<div class="text-muted" style="font-style:italic;font-size:0.85em">No comments yet.</div>';
+        }).join("") || '<div class="muted" style="font-style:italic;font-size:0.85em">No comments yet.</div>';
 
         var actions = '<div style="display:flex;gap:8px;align-items:center"><button class="btn" onclick="voteUpdate(\'' + u.id + '\',\'up\')">&#x1F44D; ' + (u.votes_up || 0) + '</button><button class="btn" onclick="voteUpdate(\'' + u.id + '\',\'down\')">&#x1F44E; ' + (u.votes_down || 0) + '</button></div>';
         if (rootAdmin && u.status === "pending") {
-            actions += '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-accent" onclick="applyUpdate(\'' + u.id + '\')">Apply</button><button class="btn btn-danger" onclick="denyUpdate(\'' + u.id + '\')">Deny</button><button class="btn" onclick="resolveUpdate(\'' + u.id + '\')">Resolve</button></div>';
+            actions += '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn accent" onclick="applyUpdate(\'' + u.id + '\')">Apply</button><button class="btn danger" onclick="denyUpdate(\'' + u.id + '\')">Deny</button><button class="btn" onclick="resolveUpdate(\'' + u.id + '\')">Resolve</button></div>';
         } else if (rootAdmin && u.status === "applied") {
-            actions += '<div style="margin-top:6px"><button class="btn btn-danger" onclick="rollbackUpdate(\'' + u.id + '\')">Rollback</button></div>';
+            actions += '<div style="margin-top:6px"><button class="btn danger" onclick="rollbackUpdate(\'' + u.id + '\')">Rollback</button></div>';
         }
 
         var feeling = (u.feeling || "").toLowerCase();
@@ -221,7 +221,7 @@ function renderUpdates() {
         prevBtn.onclick = function() { currentPage = Math.max(1, currentPage - 1); renderUpdates(); };
         var nextBtn = document.createElement("button"); nextBtn.className = "btn"; nextBtn.textContent = "Next"; nextBtn.disabled = currentPage >= pages;
         nextBtn.onclick = function() { currentPage = Math.min(pages, currentPage + 1); renderUpdates(); };
-        var label = document.createElement("div"); label.className = "text-muted"; label.textContent = "Page " + currentPage + " / " + pages;
+        var label = document.createElement("div"); label.className = "muted"; label.textContent = "Page " + currentPage + " / " + pages;
         pager.appendChild(prevBtn); pager.appendChild(label); pager.appendChild(nextBtn);
         container.appendChild(pager);
     }

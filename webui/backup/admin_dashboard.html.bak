@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Jeebs Admin Dashboard</title>
+    <style>
+        :root {
+            --bg: #0f1117; --panel: #181c24; --panel-2: #1f2533;
+            --text: #f6f8fb; --muted: #9da7bd; --accent: #7fffd4;
+            --danger: #ff6b6b; --success: #8bc34a; --border: #2b3245;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: radial-gradient(circle at 10% 20%, #1c2234, #0f1117 45%),
+                radial-gradient(circle at 80% 0%, #162036, #0f1117 40%), var(--bg);
+            color: var(--text);
+            font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+            min-height: 100vh; padding: 24px 16px 64px;
+        }
+        .shell { max-width: 1200px; margin: 0 auto; }
+        header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+        h1 { margin: 0; font-size: 26px; letter-spacing: .3px; color: var(--accent); }
+        .nav-links { display: flex; gap: 10px; flex-wrap: wrap; }
+        .nav-link {
+            color: var(--text); text-decoration: none; padding: 8px 12px;
+            background: var(--panel-2); border: 1px solid var(--border);
+            border-radius: 8px; transition: all .15s ease; font-size: 14px;
+        }
+        .nav-link:hover { border-color: var(--accent); transform: translateY(-1px); }
+        .grid { display: grid; gap: 16px; }
+        .grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+        .grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+        .card {
+            background: var(--panel); border: 1px solid var(--border);
+            border-radius: 12px; padding: 18px;
+            box-shadow: 0 8px 24px rgba(0,0,0,.25);
+        }
+        .card h3 { margin: 0 0 12px; font-size: 16px; letter-spacing: .2px; color: var(--text); }
+        .muted { color: var(--muted); font-size: 13px; }
+        .badge {
+            display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px;
+            border-radius: 999px; font-size: 13px; font-weight: 600;
+            border: 1px solid var(--border); background: var(--panel-2);
+        }
+        .badge.success { color: var(--success); border-color: #335c2d; }
+        .badge.danger { color: var(--danger); border-color: #613138; }
+        .btn {
+            border: 1px solid var(--border); background: var(--panel-2); color: var(--text);
+            padding: 10px 14px; border-radius: 8px; font-weight: 600; cursor: pointer;
+            transition: all .15s ease;
+        }
+        .btn.accent { background: var(--accent); color: #0e1a1f; border-color: #9fffe3; }
+        .btn.success { background: var(--success); color: #0f1a0f; border-color: #9ddf7f; }
+        .btn.danger { background: var(--danger); color: #1a0f0f; border-color: #f8a3a3; }
+        .btn:disabled { opacity: .5; cursor: not-allowed; }
+        .btn:hover:not(:disabled) { transform: translateY(-1px); }
+        .stack { display: flex; flex-direction: column; gap: 8px; }
+        .row { display: flex; gap: 10px; align-items: center; }
+        .input {
+            background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
+            padding: 10px; border-radius: 8px; width: 100%;
+        }
+        .list {
+            background: var(--panel-2); border: 1px solid var(--border);
+            border-radius: 10px; padding: 10px; max-height: 220px; overflow: auto; font-size: 13px;
+        }
+        .log-list { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+        .spacer { flex: 1; }
+        .pill {
+            padding: 6px 10px; border-radius: 999px; background: var(--panel-2);
+            border: 1px solid var(--border); font-size: 12px; color: var(--muted);
+        }
+        .link-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 12px; }
+        .link-tile {
+            background: var(--panel-2); border: 1px solid var(--border); padding: 12px;
+            border-radius: 10px; text-decoration: none; color: var(--text); font-size: 14px;
+            transition: all .15s ease;
+        }
+        .link-tile:hover { border-color: var(--accent); transform: translateY(-1px); }
+    </style>
+</head>
+<body>
+<div class="shell">
+    <header>
+        <div>
+            <h1>Jeebs Admin</h1>
+            <div class="muted">Root admin controls for status, sessions, training, and backups.</div>
+        </div>
+        <div class="nav-links">
+            <a class="nav-link" href="/webui/index.html">Home</a>
+            <a class="nav-link" href="/webui/trainer_panel.html">Trainer Panel</a>
+            <a class="nav-link" href="/webui/evolution.html">Evolution</a>
+            <a class="nav-link" href="/webui/logs.html">Advanced Logs</a>
+        </div>
+    </header>
+
+    <div class="grid cols-2" style="margin-bottom:16px">
+        <div class="card" id="systemStatus">
+            <div class="row" style="justify-content:space-between">
+                <h3>System Status</h3>
+                <span class="pill" id="uptimePill">Uptime: --</span>
+            </div>
+            <div class="muted" id="statusContent">Loading status...</div>
+        </div>
+        <div class="card">
+            <div class="row" style="justify-content:space-between;gap:12px">
+                <div>
+                    <h3 style="margin-bottom:6px">Toggles</h3>
+                    <div class="muted">Control internet and training mode.</div>
+                </div>
+                <div class="row" style="gap:8px">
+                    <span id="internetBadge" class="badge">Internet: --</span>
+                    <span id="trainingBadge" class="badge">Training: --</span>
+                </div>
+            </div>
+            <div class="row" style="gap:8px;margin-top:12px">
+                <button class="btn" id="internetToggleBtn">Toggle Internet</button>
+                <button class="btn" id="trainingToggleBtn">Toggle Training</button>
+                <div class="muted spacer" style="text-align:right" id="intervalInfo"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid cols-3" style="margin-bottom:16px">
+        <div class="card">
+            <h3>Trainer Roles</h3>
+            <div class="row" style="gap:8px;margin-bottom:8px;flex-wrap:wrap">
+                <input id="trainerUsername" class="input" type="text" placeholder="Username" />
+                <button class="btn accent" id="makeTrainerBtn">Make Trainer</button>
+                <button class="btn" id="removeTrainerBtn">Remove Trainer</button>
+            </div>
+            <div class="muted" id="trainerRoleStatus"></div>
+            <div class="muted" id="trainerList" style="margin-top:10px">Loading trainers...</div>
+        </div>
+        <div class="card">
+            <h3>Active Sessions</h3>
+            <div class="list" id="sessionsContent">Loading sessions...</div>
+        </div>
+        <div class="card">
+            <h3>All Users</h3>
+            <div class="list" id="usersContent">Loading users...</div>
+        </div>
+    </div>
+
+    <div class="grid cols-2" style="margin-bottom:16px">
+        <div class="card">
+            <div class="row" style="justify-content:space-between;align-items:center">
+                <h3>Server Logs</h3>
+                <button class="btn" id="refreshLogsBtn">Refresh</button>
+            </div>
+            <div class="list log-list" id="logsContent">Loading logs...</div>
+        </div>
+        <div class="card">
+            <h3>Backups</h3>
+            <div class="stack">
+                <a class="btn accent" href="/api/admin/export" target="_blank">Export Database (JSON)</a>
+                <label class="btn" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;justify-content:center">
+                    <input type="file" id="importFile" accept=".json" style="display:none" />
+                    Import Database (JSON)
+                </label>
+                <div class="muted">Imports overwrite existing data. Use with care.</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>Quick Links</h3>
+        <div class="link-grid">
+            <a class="link-tile" href="/webui/search.html">Brain Search</a>
+            <a class="link-tile" href="/webui/visualize.html">Brain Visualization</a>
+            <a class="link-tile" href="/webui/logic_visualize.html">Logic Graph</a>
+            <a class="link-tile" href="/webui/admin_blacklist.html">IP Blacklist</a>
+            <a class="link-tile" href="/webui/admin_whitelist.html">IP Whitelist</a>
+            <a class="link-tile" href="/webui/status.html">Server Status</a>
+            <a class="link-tile" href="/webui/profile.html">User Profile</a>
+        </div>
+    </div>
+</div>
+
+<script src="/webui/auth.js"></script>
+<script>
+(async () => {
+    var auth = await requireAuth("admin");
+    if (!auth) return;
+    startAuthGuard("admin", 60000);
+    startSessionPing(30000);
+
+    var $ = function(id) { return document.getElementById(id); };
+    var internetBadge     = $("internetBadge");
+    var trainingBadge     = $("trainingBadge");
+    var internetToggleBtn = $("internetToggleBtn");
+    var trainingToggleBtn = $("trainingToggleBtn");
+    var statusContent     = $("statusContent");
+    var uptimePill        = $("uptimePill");
+    var logsContent       = $("logsContent");
+    var sessionsContent   = $("sessionsContent");
+    var usersContent      = $("usersContent");
+    var trainerListEl     = $("trainerList");
+    var trainerRoleStatus = $("trainerRoleStatus");
+    var intervalInfo      = $("intervalInfo");
+    var logsInFlight = false, lastLogsSig = "", refreshBusy = false, refreshTimer = null;
+
+    function esc(s) {
+        if (!s) return "";
+        return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+    }
+
+    async function loadStatus() {
+        try {
+            var res = await safeFetch("/api/admin/status", { headers: authHeaders() });
+            if (!res.ok) throw new Error(await res.text());
+            var d = await res.json();
+            var usedMb  = Number(d.used_memory_mb  ?? (d.used_memory  || 0) / 1048576);
+            var totalMb = Number(d.total_memory_mb ?? (d.total_memory || 1) / 1048576);
+            var pct = totalMb > 0 ? (usedMb / totalMb) * 100 : 0;
+            uptimePill.textContent = "Uptime: " + (d.uptime_formatted || "--");
+            statusContent.innerHTML =
+                "Memory: " + usedMb.toFixed(1) + " MB / " + totalMb.toFixed(1) + " MB (" + pct.toFixed(1) + "%)" +
+                "<br/>Available: " + (d.available_memory_mb ?? 0).toFixed(1) + " MB";
+        } catch (e) { statusContent.textContent = "Status unavailable: " + e; }
+    }
+
+    async function loadInternet() {
+        try {
+            var res = await safeFetch("/api/admin/internet/status", { headers: authHeaders() });
+            if (!res.ok) throw new Error(await res.text());
+            var d = await res.json(), on = !!d.enabled;
+            internetBadge.textContent = "Internet: " + (on ? "ENABLED" : "DISABLED");
+            internetBadge.className = "badge " + (on ? "success" : "danger");
+            internetToggleBtn.textContent = on ? "Disable" : "Enable";
+            return on;
+        } catch (e) {
+            internetBadge.textContent = "Internet: error";
+            internetBadge.className = "badge danger";
+            return null;
+        }
+    }
+
+    async function loadTraining() {
+        try {
+            var res = await safeFetch("/api/admin/training/status", { headers: authHeaders() });
+            if (!res.ok) throw new Error(await res.text());
+            var d = await res.json(), on = d.training?.enabled === true;
+            trainingBadge.textContent = "Training: " + (on ? "RUNNING" : "STOPPED");
+            trainingBadge.className = "badge " + (on ? "success" : "danger");
+            trainingToggleBtn.textContent = on ? "Stop Training" : "Start Training";
+            intervalInfo.textContent = d.interval_seconds ? "Interval: " + d.interval_seconds + "s" : "";
+            return on;
+        } catch (e) {
+            trainingBadge.textContent = "Training: error"; trainingBadge.className = "badge danger";
+            intervalInfo.textContent = ""; return null;
+        }
+    }
+
+    async function loadUsersData() {
+        try {
+            var res = await safeFetch("/api/admin/users", { headers: authHeaders() });
+            if (!res.ok) throw new Error(await res.text());
+            var users = await res.json();
+            var trainers = users.filter(function(u){return u.role==="trainer";}).map(function(u){return u.username;});
+            trainerListEl.textContent = trainers.length ? "Trainers: " + trainers.join(", ") : "No trainers assigned.";
+            if (!users.length) { usersContent.textContent = "No users found."; return; }
+            usersContent.innerHTML = users.map(function(u) {
+                return '<div class="row" style="justify-content:space-between;border-bottom:1px solid var(--border);padding:6px 2px">' +
+                    '<span><strong>' + esc(u.username) + '</strong></span>' +
+                    '<span class="muted">' + esc(u.role || "user") + '</span></div>';
+            }).join("");
+        } catch (e) {
+            trainerListEl.textContent = "Trainer list error: " + e;
+            usersContent.textContent = "Users error: " + e;
+        }
+    }
+
+    async function loadSessions() {
+        try {
+            var res = await safeFetch("/api/admin/sessions", { headers: authHeaders() });
+            if (!res.ok) throw new Error(await res.text());
+            var sessions = await res.json();
+            if (!sessions.length) { sessionsContent.textContent = "No active sessions."; return; }
+            sessionsContent.innerHTML = sessions.map(function(s) {
+                return '<div class="row" style="justify-content:space-between;border-bottom:1px solid var(--border);padding:6px 2px">' +
+                    '<span><strong>' + esc(s.username) + '</strong> (' + esc(s.ip) + ')</span>' +
+                    '<span class="muted">' + new Date(s.last_seen).toLocaleTimeString() + '</span>' +
+                    '<button class="btn danger" onclick="window._terminateSession(\'' + esc(s.username) + '\')">Terminate</button></div>';
+            }).join("");
+        } catch (e) { sessionsContent.textContent = "Sessions error: " + e; }
+    }
+
+    async function loadLogs() {
+        if (logsInFlight) return;
+        logsInFlight = true;
+        try {
+            var res = await safeFetch("/api/admin/logs", { headers: authHeaders() });
+            if (!res.ok) throw new Error(await res.text());
+            var logs = await res.json();
+            var ordered = logs.slice().reverse();
+            var sig = JSON.stringify(ordered);
+            if (sig === lastLogsSig) return;
+            lastLogsSig = sig;
+            if (!ordered.length) { logsContent.textContent = "No logs captured yet."; return; }
+            var atBottom = Math.abs((logsContent.scrollTop + logsContent.clientHeight) - logsContent.scrollHeight) < 8;
+            logsContent.textContent = ordered.map(function(l) {
+                if (typeof l === "string") return l;
+                return "[" + (l.timestamp||"") + "] " + (l.category||"LOG") + "/" + (l.level||"INFO") + ": " + (l.message || JSON.stringify(l));
+            }).join("\n");
+            if (atBottom) logsContent.scrollTop = logsContent.scrollHeight;
+        } catch (e) { logsContent.textContent = "Logs error: " + e; }
+        finally { logsInFlight = false; }
+    }
+
+    async function toggleInternet() {
+        internetToggleBtn.disabled = true;
+        var cur = await loadInternet();
+        if (cur === null) { internetToggleBtn.disabled = false; return; }
+        try {
+            var res = await safeFetch("/api/admin/internet/set", { method:"POST", headers:authHeaders(true), body:JSON.stringify({enabled:!cur}) });
+            if (!res.ok) throw new Error(await res.text());
+        } catch (e) { alert("Failed to toggle internet: " + e); }
+        await loadInternet(); internetToggleBtn.disabled = false;
+    }
+
+    async function toggleTraining() {
+        trainingToggleBtn.disabled = true;
+        var cur = await loadTraining();
+        if (cur === null) { trainingToggleBtn.disabled = false; return; }
+        try {
+            var res = await safeFetch("/api/admin/training/mode", { method:"POST", headers:authHeaders(true), body:JSON.stringify({enabled:!cur}) });
+            if (!res.ok) throw new Error(await res.text());
+        } catch (e) { alert("Failed to toggle training: " + e); }
+        await loadTraining(); trainingToggleBtn.disabled = false;
+    }
+
+    async function updateRole(role) {
+        var username = $("trainerUsername").value.trim();
+        if (!username) { trainerRoleStatus.textContent = "Enter a username first."; return; }
+        trainerRoleStatus.textContent = "Updating " + username + "...";
+        try {
+            var res = await safeFetch("/api/admin/user/role", { method:"POST", headers:authHeaders(true), body:JSON.stringify({username:username,role:role}) });
+            if (!res.ok) throw new Error(await res.text());
+            trainerRoleStatus.textContent = "Role set: " + username + " → " + role;
+            await loadUsersData();
+        } catch (e) { trainerRoleStatus.textContent = "Failed: " + e; }
+    }
+
+    window._terminateSession = async function(username) {
+        if (!confirm("Terminate session for " + username + "?")) return;
+        try {
+            var res = await safeFetch("/api/admin/session/" + username, { method:"DELETE", headers:authHeaders() });
+            if (!res.ok) throw new Error(await res.text());
+            await loadSessions();
+        } catch (e) { alert("Failed to terminate: " + e); }
+    };
+
+    $("importFile").addEventListener("change", async function() {
+        var input = $("importFile");
+        if (!input.files || !input.files[0]) return;
+        var file = input.files[0];
+        if (!confirm("Import " + file.name + "? This overwrites existing data.")) { input.value = ""; return; }
+        try {
+            var text = await file.text();
+            var json = JSON.parse(text);
+            var res = await safeFetch("/api/admin/import", { method:"POST", headers:authHeaders(true), body:JSON.stringify(json) });
+            if (!res.ok) throw new Error(await res.text());
+            alert("Import complete.");
+        } catch (e) { alert("Import failed: " + e); }
+        input.value = "";
+    });
+
+    async function refreshAll() {
+        if (refreshBusy) return;
+        refreshBusy = true;
+        await loadStatus();
+        await loadInternet();
+        await loadTraining();
+        await loadUsersData();
+        await loadSessions();
+        await loadLogs();
+        refreshBusy = false;
+    }
+
+    internetToggleBtn.addEventListener("click", toggleInternet);
+    trainingToggleBtn.addEventListener("click", toggleTraining);
+    $("makeTrainerBtn").addEventListener("click", function(){ updateRole("trainer"); });
+    $("removeTrainerBtn").addEventListener("click", function(){ updateRole("user"); });
+    $("refreshLogsBtn").addEventListener("click", function(){ loadLogs(); });
+
+    await refreshAll();
+    refreshTimer = setInterval(function(){ refreshAll(); }, 15000);
+})();
+</script>
+</body>
+</html>

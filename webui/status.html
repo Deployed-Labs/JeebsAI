@@ -1,128 +1,85 @@
 <!doctype html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Server Status - JeebsAI</title>
-        <style>
-            :root {
-                --bg-main: #181c24;
-                --bg-card: #23283a;
-                --text-main: #f3f3f3;
-                --accent: #7fffd4;
-                --status-ok: #2e7d32;
-                --status-error: #c62828;
-            }
-            body.light-mode {
-                --bg-main: #f4f4f9;
-                --bg-card: #ffffff;
-                --text-main: #333;
-                --accent: #00796b;
-            }
-            body {
-                font-family: "Segoe UI", sans-serif;
-                background: var(--bg-main);
-                color: var(--text-main);
-                padding: 20px;
-                margin: 0;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                min-height: 100vh;
-                box-sizing: border-box;
-            }
-            .status-container {
-                background: var(--bg-card);
-                padding: 40px;
-                border-radius: 8px;
-                text-align: center;
-                width: 100%;
-                max-width: 500px;
-            }
-            h1 {
-                color: var(--accent);
-                margin-top: 0;
-            }
-            #status-indicator {
-                font-size: 1.5em;
-                font-weight: bold;
-            }
-            #dependencies-status {
-                margin-top: 15px;
-                text-align: left;
-            }
-            #timestamp {
-                color: #888;
-                font-size: 0.9em;
-            }
-            .ok {
-                color: var(--status-ok);
-            }
-            .error {
-                color: var(--status-error);
-            }
-            a {
-                color: var(--accent);
-                display: block;
-                margin-top: 20px;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="status-container">
-            <h1>Server Status</h1>
-            <div id="status-indicator">Checking...</div>
-            <div id="dependencies-status"></div>
-            <div id="timestamp"></div>
-            <a href="/webui/index.html">Back to Home</a>
-        </div>
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Server Status — JeebsAI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/webui/style.css"/>
+</head>
+<body>
+<nav id="topnav"></nav>
+<div class="shell" style="max-width:640px;padding-top:60px">
+  <div style="text-align:center;margin-bottom:32px">
+    <h1 style="margin-bottom:8px">Server Status</h1>
+    <p class="text-muted">Real-time health monitoring</p>
+  </div>
 
-        <script src="/webui/auth.js"></script><script>
-            // Theme Init
-            if (localStorage.getItem("theme") === "light")
-                document.body.classList.add("light-mode");
+  <div class="card card-glow" style="text-align:center;padding:32px">
+    <div id="status-icon" style="font-size:3em;margin-bottom:12px">
+      <div class="spinner" style="margin:0 auto"></div>
+    </div>
+    <div id="status-indicator" style="font-size:1.4em;font-weight:700;margin-bottom:8px">Checking...</div>
+    <div id="timestamp" class="text-muted"></div>
+  </div>
 
-            async function checkHealth() {
-                const statusEl = document.getElementById("status-indicator");
-                const timeEl = document.getElementById("timestamp");
-                const depsEl = document.getElementById("dependencies-status");
-                try {
-                    const res = await safeFetch("/health");
-                    const data = await res.json();
+  <div class="card" id="deps-card" style="display:none">
+    <h3>Dependencies</h3>
+    <div id="dependencies-status" class="data-list"></div>
+  </div>
 
-                    if (res.ok || res.status === 503) {
-                        // Handle OK and Service Unavailable
-                        statusEl.textContent = `Overall Status: ${data.status.toUpperCase()}`;
-                        statusEl.className =
-                            data.status === "ok" ? "ok" : "error";
-                        timeEl.textContent = `Last Check: ${new Date(data.timestamp).toLocaleString()}`;
+  <div class="card" style="margin-top:12px">
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="checkHealth()">Refresh Now</button>
+      <a href="/webui/admin_dashboard.html" class="btn btn-ghost">Admin Dashboard</a>
+    </div>
+  </div>
+</div>
 
-                        if (data.dependencies) {
-                            let depsHtml = "<h4>Dependencies:</h4><ul>";
-                            for (const [key, value] of Object.entries(
-                                data.dependencies,
-                            )) {
-                                depsHtml += `<li>${key}: <span class="${value === "ok" ? "ok" : "error"}">${value.toUpperCase()}</span></li>`;
-                            }
-                            depsHtml += "</ul>";
-                            depsEl.innerHTML = depsHtml;
-                        }
-                    } else {
-                        statusEl.textContent = `Error: ${data.error || "Access Denied"}`;
-                        statusEl.className = "error";
-                        timeEl.textContent = "";
-                        depsEl.innerHTML = "";
-                    }
-                } catch (e) {
-                    statusEl.textContent =
-                        "Error: Could not connect to server.";
-                    statusEl.className = "error";
-                    timeEl.textContent = "";
-                }
-            }
+<script src="/webui/auth.js"></script>
+<script src="/webui/nav.js"></script>
+<script>
+JeebsNav.init('status');
 
-            checkHealth();
-            setInterval(checkHealth, 10000); // Re-check every 10 seconds
-        </script>
-    </body>
+async function checkHealth(){
+  const statusEl=document.getElementById('status-indicator');
+  const timeEl=document.getElementById('timestamp');
+  const depsEl=document.getElementById('dependencies-status');
+  const depsCard=document.getElementById('deps-card');
+  const iconEl=document.getElementById('status-icon');
+  try{
+    const res=await safeFetch('/health');
+    const data=await res.json();
+    if(res.ok||res.status===503){
+      const ok=data.status==='ok';
+      statusEl.textContent='Status: '+data.status.toUpperCase();
+      statusEl.style.color=ok?'var(--accent)':'var(--danger)';
+      iconEl.innerHTML=ok?'<span style="color:var(--accent)">&#x2714;</span>':'<span style="color:var(--danger)">&#x26A0;</span>';
+      timeEl.textContent='Last check: '+new Date(data.timestamp).toLocaleString();
+      if(data.dependencies){
+        depsCard.style.display='';
+        let html='';
+        for(const[key,value]of Object.entries(data.dependencies)){
+          const isOk=value==='ok';
+          html+='<div class="data-list-item"><span>'+key+'</span><span class="badge '+(isOk?'badge-success':'badge-danger')+'">'+(isOk?'\u2714':'\u2718')+' '+value.toUpperCase()+'</span></div>';
+        }
+        depsEl.innerHTML=html;
+      }
+    }else{
+      statusEl.textContent='Error: '+(data.error||'Access Denied');
+      statusEl.style.color='var(--danger)';
+      iconEl.innerHTML='<span style="color:var(--danger)">&#x26A0;</span>';
+    }
+  }catch(e){
+    statusEl.textContent='Error: Could not connect to server.';
+    statusEl.style.color='var(--danger)';
+    iconEl.innerHTML='<span style="color:var(--danger)">&#x2718;</span>';
+    timeEl.textContent='';
+  }
+}
+checkHealth();
+setInterval(checkHealth,10000);
+</script>
+</body>
 </html>

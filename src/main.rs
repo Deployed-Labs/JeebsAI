@@ -1,6 +1,6 @@
 use actix_cors::Cors;
 use actix_files::Files;
-use actix_governor::{Governor, GovernorConfigBuilder, KeyExtractor, SimpleKeyExtractionError};
+// Rate limiting removed: actix-governor disabled to avoid 429 responses
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
 use actix_web::cookie::Key;
 use actix_web::dev::ServiceRequest;
@@ -22,30 +22,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 use sysinfo::System;
 
-#[derive(Clone)]
-struct WhitelistedKeyExtractor;
-
-impl KeyExtractor for WhitelistedKeyExtractor {
-    type Key = String;
-    type KeyExtractionError = SimpleKeyExtractionError<String>;
-
-    fn extract(&self, req: &ServiceRequest) -> Result<Self::Key, Self::KeyExtractionError> {
-        if let Some(state) = req.app_data::<web::Data<AppState>>() {
-            let ip = req
-                .peer_addr()
-                .map(|a| a.ip().to_string())
-                .unwrap_or_else(|| "unknown".to_string());
-            if let Ok(whitelist) = state.ip_whitelist.read() {
-                if whitelist.contains(&ip) {
-                    return Ok(format!("whitelist:{}", uuid::Uuid::new_v4()));
-                }
-            }
-            Ok(ip)
-        } else {
-            Ok("unknown".to_string())
-        }
-    }
-}
+// Rate limiter key extractor removed — no per-IP throttling.
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -191,24 +168,7 @@ async fn main() -> std::io::Result<()> {
         }
     };
 
-    // Governor configuration — throttles requests per client IP.
-    // Defaults kept low because the VPS is modest; adjust via environment
-    // variables if you need a higher rate.
-    let per_second: u64 = std::env::var("RATE_PER_SECOND")
-        .ok()
-        .and_then(|v| v.parse::<u64>().ok())
-        .unwrap_or(20); // default 20 req/sec
-    let burst_size: u32 = std::env::var("RATE_BURST")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(60); // default burst of 60
-
-    let governor_conf = GovernorConfigBuilder::default()
-        .key_extractor(WhitelistedKeyExtractor)
-        .per_second(per_second)
-        .burst_size(burst_size)
-        .finish()
-        .unwrap();
+    // Rate limiting disabled: no governor config created.
 
     HttpServer::new(move || {
         App::new()
@@ -217,7 +177,7 @@ async fn main() -> std::io::Result<()> {
                 CookieSessionStore::default(),
                 secret_key.clone(),
             ))
-            .wrap(Governor::new(&governor_conf))
+            // Rate limiter removed to prevent 429 "Too Many Requests"
             .app_data(state.clone())
             .service(auth::register)
             .service(auth::login)

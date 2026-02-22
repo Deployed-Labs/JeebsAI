@@ -1,199 +1,115 @@
 <!doctype html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Jeebs Evolution</title>
-        <style>
-        :root {
-            --bg: #0f1117; --panel: #181c24; --panel-2: #1f2533;
-            --text: #f6f8fb; --muted: #9da7bd; --accent: #7fffd4;
-            --danger: #ff6b6b; --success: #8bc34a; --border: #2b3245;
-            --glow: rgba(127,255,212,0.08);
-        }
-        * { box-sizing: border-box; }
-        body {
-            margin: 0;
-            background: radial-gradient(circle at 10% 20%, #1c2234, #0f1117 45%),
-                radial-gradient(circle at 80% 0%, #162036, #0f1117 40%), var(--bg);
-            color: var(--text);
-            font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-            min-height: 100vh; padding: 24px 16px 64px;
-        }
-        .shell { max-width: 1200px; margin: 0 auto; }
-        header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
-        h1 { margin: 0; font-size: 26px; letter-spacing: .3px; color: var(--accent); }
-        h2 { margin: 0 0 12px; font-size: 18px; color: var(--accent); }
-        h3 { margin: 0 0 8px; font-size: 15px; }
-        .nav-links { display: flex; gap: 10px; flex-wrap: wrap; }
-        .nav-link {
-            color: var(--text); text-decoration: none; padding: 8px 12px;
-            background: var(--panel-2); border: 1px solid var(--border);
-            border-radius: 8px; transition: all .15s ease; font-size: 14px;
-        }
-        .nav-link:hover { border-color: var(--accent); transform: translateY(-1px); }
-        .grid { display: grid; gap: 16px; }
-        .grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
-        .grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
-        .grid.cols-4 { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
-        .card {
-            background: var(--panel); border: 1px solid var(--border);
-            border-radius: 12px; padding: 18px;
-            box-shadow: 0 8px 24px rgba(0,0,0,.25);
-        }
-        .card.glow { border-color: rgba(127,255,212,0.2); box-shadow: 0 0 20px var(--glow), 0 8px 24px rgba(0,0,0,.25); }
-        .muted { color: var(--muted); font-size: 13px; }
-        .badge { display:inline-block; padding:4px 10px; border-radius:999px; background:var(--panel-2); border:1px solid var(--border); font-size: 13px; }
-        .btn { border: 1px solid var(--border); background: var(--panel-2); color: var(--text); padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; transition: all .15s; }
-        .btn:hover { border-color: var(--accent); transform: translateY(-1px); }
-        .btn.accent { background: var(--accent); color: #0e1a1f; border-color: var(--accent); font-weight: 600; }
-        .btn.danger { background: var(--danger); color: #1a0f0f; border-color: var(--danger); }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-        .stack { display:flex; flex-direction:column; gap:8px; }
-        .update-header { display:flex; justify-content:space-between; align-items:center; gap:8px; }
-        .status { padding: 3px 8px; border-radius: 3px; font-size: 0.8em; text-transform: uppercase; }
-        .status.pending { background: #d4a017; color: #000; }
-        .status.applied { background: #2e7d32; color: #fff; }
-        .status.denied { background: #c62828; color: #fff; }
-        .severity { padding: 3px 8px; border-radius: 3px; font-size: 0.8em; margin-right: 5px; text-transform: uppercase; font-weight: bold; }
-        .severity.low { background: #1b5e20; color: #a5d6a7; border: 1px solid #2e7d32; }
-        .severity.medium { background: #e65100; color: #ffcc80; border: 1px solid #ef6c00; }
-        .severity.high { background: #b71c1c; color: #ef9a9a; border: 1px solid #c62828; }
-        .metric-box { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; transition: all .2s; }
-        .metric-box:hover { border-color: rgba(127,255,212,0.3); box-shadow: 0 0 14px var(--glow); }
-        .metric-value { font-size: 28px; font-weight: 700; color: var(--accent); line-height: 1.2; }
-        .metric-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-top: 4px; }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-        .live-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--success); margin-right:6px; animation: pulse 2s infinite; }
-        .live-dot.off { background: var(--danger); animation: none; }
-        .progress-bar { height:6px; background:var(--panel-2); border-radius:3px; overflow:hidden; margin-top:6px; }
-        .progress-fill { height:100%; background: linear-gradient(90deg, var(--accent), #4ac29a); border-radius:3px; transition: width .5s ease; }
-        .session-row { display:flex; gap:8px; align-items:center; padding:8px; border-bottom:1px solid var(--border); }
-        .session-row:last-child { border-bottom: none; }
-        </style>
-    </head>
-    <body>
-        <div class="shell">
-        <header>
-            <div>
-                <h1>&#x1F9E0; Jeebs Evolution</h1>
-                <div class="muted">Brain intelligence, growth metrics, and self-evolution proposals.</div>
-            </div>
-            <div class="nav-links">
-                <a class="nav-link" href="/webui/index.html">Home</a>
-                <a class="nav-link" href="/webui/admin_dashboard.html">Admin</a>
-                <a class="nav-link" href="/webui/evolution.html" style="border-color:var(--accent)">Evolution</a>
-            </div>
-        </header>
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Evolution Dashboard - JeebsAI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/webui/style.css"/>
+<style>
+.live-dot{width:10px;height:10px;border-radius:50%;background:var(--good);display:inline-block}
+.live-dot.off{background:var(--muted)}
+.live-dot:not(.off){animation:pulse-ring 2s ease-out infinite}
+@keyframes pulse-ring{0%{box-shadow:0 0 0 0 rgba(74,222,128,.5)}70%{box-shadow:0 0 0 8px transparent}100%{box-shadow:0 0 0 0 transparent}}
+.severity{padding:2px 8px;border-radius:4px;font-size:0.8em;font-weight:600;text-transform:uppercase}
+.severity.high{background:rgba(248,113,113,.15);color:#f87171}
+.severity.medium{background:rgba(251,191,36,.15);color:#fbbf24}
+.severity.low{background:rgba(74,222,128,.15);color:#4ade80}
+.status{padding:2px 8px;border-radius:4px;font-size:0.8em;font-weight:600}
+.status.pending{background:rgba(96,165,250,.12);color:#60a5fa}
+.status.applied{background:rgba(74,222,128,.12);color:#4ade80}
+.status.denied{background:rgba(248,113,113,.12);color:#f87171}
+.update-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.session-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)}
+.session-row:last-child{border-bottom:none}
+</style>
+</head>
+<body>
+<nav id="topnav"></nav>
+<div class="shell" style="padding-top:60px">
+  <div style="margin-bottom:24px;animation:slide-up .4s ease">
+    <h1 style="margin-bottom:4px">Evolution Dashboard</h1>
+    <p class="text-muted">Brain metrics, self-evolution proposals, and autonomous thinking.</p>
+    <div id="auth-debug-banner" style="margin-top:8px"></div>
+  </div>
 
-        <div id="auth-debug-banner" style="margin-bottom:12px"></div>
+  <!-- Metrics -->
+  <div class="metrics-grid" style="margin-bottom:24px">
+    <div class="metric-card"><div id="m-brain-nodes" class="metric-value">-</div><div class="metric-label">Brain Nodes</div></div>
+    <div class="metric-card"><div id="m-learned-facts" class="metric-value">-</div><div class="metric-label">Learned Facts</div></div>
+    <div class="metric-card"><div id="m-chats-24h" class="metric-value">-</div><div class="metric-label">Chats (24h)</div></div>
+    <div class="metric-card"><div id="m-proposals" class="metric-value">-</div><div class="metric-label">Proposals</div></div>
+    <div class="metric-card"><div id="m-cycles" class="metric-value">-</div><div class="metric-label">Think Cycles</div></div>
+    <div class="metric-card"><div id="m-unanswered" class="metric-value">-</div><div class="metric-label">Unanswered</div></div>
+    <div class="metric-card"><div id="m-warnings" class="metric-value">-</div><div class="metric-label">Warnings</div></div>
+    <div class="metric-card"><div id="m-errors" class="metric-value">-</div><div class="metric-label">Errors</div></div>
+  </div>
 
-        <!-- Brain Metrics -->
-        <section style="margin-bottom:20px">
-            <div class="grid cols-4" id="brain-metrics">
-                <div class="metric-box">
-                    <div class="metric-value" id="m-brain-nodes">&mdash;</div>
-                    <div class="metric-label">Brain Nodes</div>
-                </div>
-                <div class="metric-box">
-                    <div class="metric-value" id="m-learned-facts">&mdash;</div>
-                    <div class="metric-label">Learned Facts</div>
-                </div>
-                <div class="metric-box">
-                    <div class="metric-value" id="m-chats-24h">&mdash;</div>
-                    <div class="metric-label">Chats (24h)</div>
-                </div>
-                <div class="metric-box">
-                    <div class="metric-value" id="m-proposals">&mdash;</div>
-                    <div class="metric-label">Proposals</div>
-                </div>
-                <div class="metric-box">
-                    <div class="metric-value" id="m-cycles">&mdash;</div>
-                    <div class="metric-label">Think Cycles</div>
-                </div>
-                <div class="metric-box">
-                    <div class="metric-value" id="m-unanswered">&mdash;</div>
-                    <div class="metric-label">Unanswered (24h)</div>
-                </div>
-                <div class="metric-box">
-                    <div class="metric-value" id="m-warnings">&mdash;</div>
-                    <div class="metric-label">Warnings (24h)</div>
-                </div>
-                <div class="metric-box">
-                    <div class="metric-value" id="m-errors">&mdash;</div>
-                    <div class="metric-label">Errors (24h)</div>
-                </div>
-            </div>
-        </section>
+  <!-- Thinker & Topics -->
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));margin-bottom:24px">
+    <div class="card card-glow">
+      <h3>Autonomous Thinker</h3>
+      <div class="data-list">
+        <div class="data-list-item"><span>Status</span><span class="row" style="gap:6px"><span id="thinker-dot" class="live-dot off"></span><span id="thinker-status">UNKNOWN</span></span></div>
+        <div class="data-list-item"><span>Knowledge Drive</span><span id="thinker-drive" style="font-weight:700">0%</span></div>
+      </div>
+      <div class="progress" id="drive-bar" style="margin:8px 0"><div class="progress-fill" style="width:0%"></div></div>
+      <div class="data-list">
+        <div class="data-list-item"><span>Last Cycle</span><span id="thinker-last-cycle" class="text-muted">n/a</span></div>
+        <div class="data-list-item"><span>Last Reason</span><span id="thinker-reason" class="text-muted">n/a</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Unknown Topics</h3>
+      <div id="unknown-topics" class="scroll-box" style="max-height:200px"><span class="text-muted">Loading...</span></div>
+    </div>
+  </div>
 
-        <!-- Thinker + Topics -->
-        <div class="grid cols-2" style="margin-bottom:20px">
-            <div class="card glow">
-                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px">
-                    <h2 style="margin:0"><span class="live-dot" id="thinker-dot"></span> Autonomous Thinker</h2>
-                    <span class="badge" id="thinker-status">&mdash;</span>
-                </div>
-                <div class="stack" style="gap:6px; font-size:0.9rem">
-                    <div>Knowledge Drive: <strong id="thinker-drive">&mdash;</strong></div>
-                    <div id="drive-bar" class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
-                    <div style="margin-top:4px">Last cycle: <span id="thinker-last-cycle" class="muted">&mdash;</span></div>
-                    <div>Last reason: <span id="thinker-reason" class="muted">&mdash;</span></div>
-                </div>
-            </div>
-            <div class="card">
-                <h2>Unknown Topics</h2>
-                <div id="unknown-topics" class="muted" style="font-size:0.9rem">Loading...</div>
-            </div>
-        </div>
+  <!-- Admin Controls -->
+  <div class="card" id="admin-controls-card" style="display:none;margin-bottom:24px">
+    <h3>Admin Controls</h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <button class="btn btn-primary" onclick="brainstormUpdate()">Think Now</button>
+      <button class="btn btn-accent" onclick="setTrainingMode(true)">Train On</button>
+      <button class="btn btn-danger" onclick="setTrainingMode(false)">Train Off</button>
+      <button class="btn btn-ghost" onclick="runTrainingNow()">Run Training</button>
+      <button class="btn btn-ghost" onclick="fullRefresh()">Full Refresh</button>
+    </div>
+    <div id="training-status" class="text-muted">Loading training status...</div>
+    <div id="status-message" class="text-muted" style="margin-top:6px"></div>
+  </div>
 
-        <!-- Controls -->
-        <div style="margin-bottom: 15px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-            <label for="statusFilter" style="margin:0; font-size:14px">Filter:</label>
-            <select id="statusFilter" onchange="renderUpdates()" style="padding:6px 10px; border-radius:6px; background:var(--panel-2); color:var(--text); border:1px solid var(--border);">
-                <option value="all">All</option>
-                <option value="pending">Pending</option>
-                <option value="applied">Applied</option>
-                <option value="denied">Denied</option>
-                <option value="resolved">Resolved</option>
-                <option value="rolled_back">Rolled Back</option>
-            </select>
-            <button class="btn accent" onclick="brainstormUpdate()">&#x1F4A1; Think Now</button>
-            <button class="btn" onclick="fullRefresh()">&#x1F504; Refresh</button>
-            <div style="margin-left:auto">
-                <span class="muted" style="font-size:12px">Auto-refresh: 15s</span>
-            </div>
-        </div>
+  <!-- Proposals -->
+  <div style="margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <h2 style="margin:0">Evolution Proposals</h2>
+    <select id="statusFilter" class="form-input" onchange="renderUpdates()" style="width:auto">
+      <option value="all">All</option>
+      <option value="pending">Pending</option>
+      <option value="applied">Applied</option>
+      <option value="denied">Denied</option>
+    </select>
+    <button class="btn btn-ghost btn-sm" onclick="fullRefresh()">Refresh</button>
+  </div>
+  <div id="updates-list"><div class="text-muted" style="padding:30px;text-align:center">Loading proposals...</div></div>
 
-        <div id="status-message" style="margin-bottom:12px; min-height:20px; color:#90caf9; font-size:14px"></div>
+  <!-- Active Sessions -->
+  <div class="card" style="margin-top:24px">
+    <h3>Active Sessions</h3>
+    <div id="active-sessions" class="scroll-box" style="max-height:250px"><span class="text-muted">Loading sessions...</span></div>
+  </div>
+</div>
 
-        <!-- Main Content -->
-        <div class="grid cols-2">
-            <div id="updates-list" style="min-height:200px">
-                <div class="card"><div class="muted" style="text-align:center; padding:20px">Loading evolution proposals...</div></div>
-            </div>
-            <div>
-                <div class="card" style="margin-bottom:16px">
-                    <h3>Active Sessions</h3>
-                    <div id="active-sessions"><div class="muted">Loading sessions...</div></div>
-                </div>
-                <div class="card" id="admin-controls-card" style="display:none">
-                    <h3>Admin Controls</h3>
-                    <div class="stack">
-                        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
-                            <span style="font-size:14px">Training:</span>
-                            <button class="btn" onclick="setTrainingMode(true)">Start</button>
-                            <button class="btn danger" onclick="setTrainingMode(false)">Stop</button>
-                            <button class="btn" onclick="runTrainingNow()">Run Now</button>
-                        </div>
-                        <div id="training-status" class="muted" style="font-size:0.85rem">&mdash;</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        </div>
-
-        <script src="/webui/auth.js"></script>
-        <script src="/webui/js/evolution.js"></script>
-    </body>
+<script src="/webui/auth.js"></script>
+<script src="/webui/nav.js"></script>
+<script src="/webui/js/evolution.js"></script>
+<script>
+JeebsNav.init("evolution");
+requireAuth("admin").then(function(state) {
+  if (state && state.role === "admin") {
+    document.getElementById("admin-controls-card").style.display = "";
+  }
+});
+</script>
+</body>
 </html>

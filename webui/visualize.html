@@ -1,93 +1,51 @@
 <!doctype html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Jeebs Brain Visualization</title>
-        <script
-            type="text/javascript"
-            src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"
-        ></script>
-        <style>
-            body {
-                margin: 0;
-                padding: 0;
-                overflow: hidden;
-                font-family: sans-serif;
-            }
-            #mynetwork {
-                width: 100vw;
-                height: 100vh;
-                background: #f4f4f4;
-            }
-            #loading {
-                position: absolute;
-                top: 20px;
-                left: 20px;
-                background: white;
-                padding: 10px;
-                border-radius: 4px;
-                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-            }
-        </style>
-    </head>
-    <body>
-        <div id="loading">Loading Brain Graph...</div>
-        <div id="mynetwork"></div>
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Brain Visualization — JeebsAI</title>
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#07121a;color:#e8edf4;font-family:'Space Grotesk',sans-serif;overflow:hidden}
+#mynetwork{width:100vw;height:100vh}
+#loading{position:fixed;top:20px;left:20px;background:rgba(15,22,30,0.9);backdrop-filter:blur(12px);padding:14px 20px;border-radius:10px;border:1px solid rgba(83,216,251,0.2);color:#53d8fb;z-index:10;font-size:0.95em;display:flex;align-items:center;gap:10px}
+#loading .spinner{width:18px;height:18px;border:2px solid rgba(83,216,251,0.2);border-top-color:#53d8fb;border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.back-btn{position:fixed;top:20px;right:20px;background:rgba(15,22,30,0.9);backdrop-filter:blur(12px);color:#53d8fb;padding:10px 18px;text-decoration:none;border-radius:10px;font-weight:600;z-index:10;border:1px solid rgba(83,216,251,0.2);transition:all .2s}
+.back-btn:hover{background:rgba(83,216,251,0.1);border-color:#53d8fb}
+</style>
+</head>
+<body>
+<div id="loading"><div class="spinner"></div> Loading Brain Graph&hellip;</div>
+<a href="/webui/index.html" class="back-btn">&larr; Back</a>
+<div id="mynetwork"></div>
 
-        <script src="/webui/auth.js"></script>
-        <script type="text/javascript">
-            async function loadGraph() {
-                try {
-                    const res = await safeFetch("/api/brain/visualize");
-                    if (!res.ok) {
-                        const body = await res.text();
-                        throw new Error(
-                            `HTTP ${res.status}${body ? `: ${body}` : ""}`,
-                        );
-                    }
-                    const data = await res.json();
-
-                    const container = document.getElementById("mynetwork");
-                    const nodes = new vis.DataSet(
-                        Array.isArray(data.nodes) ? data.nodes : [],
-                    );
-                    const edges = new vis.DataSet(
-                        Array.isArray(data.edges) ? data.edges : [],
-                    );
-
-                    const graphData = { nodes: nodes, edges: edges };
-                    const options = {
-                        nodes: {
-                            shape: "dot",
-                            size: 16,
-                            font: { size: 14, color: "#333" },
-                            borderWidth: 2,
-                            color: { background: "#97C2FC", border: "#2B7CE9" },
-                        },
-                        edges: {
-                            width: 1,
-                            color: { color: "#ccc", highlight: "#848484" },
-                            smooth: { type: "continuous" },
-                        },
-                        physics: {
-                            stabilization: false,
-                            barnesHut: {
-                                gravitationalConstant: -8000,
-                                springConstant: 0.04,
-                                springLength: 95,
-                            },
-                        },
-                    };
-
-                    new vis.Network(container, graphData, options);
-                    document.getElementById("loading").style.display = "none";
-                } catch (e) {
-                    document.getElementById("loading").innerText =
-                        "Error loading graph: " + e;
-                }
-            }
-            loadGraph();
-        </script>
-    </body>
+<script src="/webui/auth.js"></script>
+<script>
+async function loadGraph(){
+  try{
+    var res=await safeFetch("/api/brain/visualize");
+    if(!res.ok){var body=await res.text();throw new Error("HTTP "+res.status+(body?": "+body:""));}
+    var data=await res.json();
+    var container=document.getElementById("mynetwork");
+    var nodes=new vis.DataSet(Array.isArray(data.nodes)?data.nodes:[]);
+    var edges=new vis.DataSet(Array.isArray(data.edges)?data.edges:[]);
+    var options={
+      nodes:{shape:"dot",size:16,font:{size:14,color:"#e8edf4"},borderWidth:2,color:{background:"#1a2a3a",border:"#53d8fb",highlight:{background:"#1f3548",border:"#53d8fb"}}},
+      edges:{width:1,color:{color:"#2b3a4a",highlight:"#53d8fb"},smooth:{type:"continuous"}},
+      physics:{stabilization:false,barnesHut:{gravitationalConstant:-8000,springConstant:0.04,springLength:95}},
+      interaction:{hover:true,tooltipDelay:200}
+    };
+    new vis.Network(container,{nodes:nodes,edges:edges},options);
+    document.getElementById("loading").style.display="none";
+  }catch(e){
+    var l=document.getElementById("loading");l.innerHTML="Error loading graph: "+e;l.style.color="#ff6b6b";
+  }
+}
+loadGraph();
+</script>
+</body>
 </html>

@@ -1,20 +1,67 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>Admin — Reasoning Traces</title>
-  <style>body{font-family:Arial,Helvetica,sans-serif;margin:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:8px}th{background:#f4f4f4}</style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Reasoning Traces — JeebsAI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/webui/style.css"/>
+<style>
+.trace-row{padding:14px;border-bottom:1px solid var(--border)}
+.trace-row:last-child{border-bottom:none}
+.trace-prompt{background:var(--bg-1);padding:8px 12px;border-radius:8px;margin:6px 0;font-family:var(--font-mono);font-size:0.85em;white-space:pre-wrap;max-height:120px;overflow:auto}
+.trace-response{background:var(--bg-0);padding:8px 12px;border-radius:8px;margin:6px 0;font-family:var(--font-mono);font-size:0.85em;white-space:pre-wrap;max-height:200px;overflow:auto;border:1px solid var(--border)}
+</style>
 </head>
 <body>
-  <h1>Reasoning Traces</h1>
-  <p class="small">Recent reasoning traces from chat responses (admin only).</p>
-  <div>
-    <button id="refresh">Refresh</button>
-    <button id="export">Export CSV</button>
+<nav id="topnav"></nav>
+<div class="shell" style="padding-top:60px">
+  <h1 style="margin-bottom:4px">Reasoning Traces</h1>
+  <p class="text-muted" style="margin-bottom:24px">Recent reasoning traces from chat responses (admin only).</p>
+
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary btn-sm" id="refresh">Refresh</button>
+      <button class="btn btn-ghost btn-sm" id="export">Export CSV</button>
+    </div>
   </div>
-  <div style="margin-top:12px">
-    <table id="traces-table"><thead><tr><th>ID</th><th>Timestamp</th><th>User</th><th>Prompt</th><th>Response</th></tr></thead><tbody></tbody></table>
+
+  <div class="card">
+    <div id="traces-list" class="scroll-box" style="max-height:70vh"><div class="text-muted" style="padding:20px;text-align:center">Loading&hellip;</div></div>
   </div>
-  <script src="/webui/js/admin_reasoning.js"></script>
+</div>
+
+<script src="/webui/auth.js"></script>
+<script src="/webui/nav.js"></script>
+<script>
+JeebsNav.init('admin');
+
+function escapeHtml(s){return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):"";}
+function csvSafe(s){if(s==null)return"";var str=String(s).replace(/"/g,'""');if(str.includes(",")||str.includes("\n"))return'"'+str+'"';return str;}
+
+async function fetchTraces(){
+  var res=await safeFetch("/api/admin/reasoning_traces",{credentials:"same-origin",headers:authHeaders()});
+  if(!res.ok){alert("Failed to load traces");return[];}
+  return res.json();
+}
+
+function render(traces){
+  var el=document.getElementById("traces-list");
+  if(!traces.length){el.innerHTML='<div class="empty-state"><div class="empty-state-icon">&#x1F9E0;</div><div>No reasoning traces yet</div></div>';return;}
+  el.innerHTML=traces.map(function(t){
+    return '<div class="trace-row"><div style="display:flex;justify-content:space-between;margin-bottom:6px"><span class="text-muted">#'+t.id+' &mdash; '+escapeHtml(t.timestamp)+'</span><span class="badge badge-accent">'+(t.username||"system")+'</span></div><div class="trace-prompt">'+escapeHtml(t.prompt)+'</div><div class="trace-response">'+escapeHtml(t.response)+'</div></div>';
+  }).join("");
+}
+
+document.getElementById("refresh").addEventListener("click",async function(){var t=await fetchTraces();render(t);});
+document.getElementById("export").addEventListener("click",async function(){
+  var t=await fetchTraces();var lines=["id,timestamp,username,prompt,response"];
+  for(var i=0;i<t.length;i++){var r=t[i];lines.push([r.id,csvSafe(r.timestamp),csvSafe(r.username||""),csvSafe(r.prompt),csvSafe(r.response)].join(","));}
+  var blob=new Blob([lines.join("\n")],{type:"text/csv"});var url=URL.createObjectURL(blob);var a=document.createElement("a");a.href=url;a.download="reasoning_traces.csv";document.body.appendChild(a);a.click();a.remove();
+});
+
+(async function(){var auth=await requireAuth("admin");if(!auth)return;startAuthGuard("admin");var t=await fetchTraces();render(t);})();
+</script>
 </body>
 </html>

@@ -4,12 +4,16 @@ After=network.target
 
 [Service]
 Type=simple
-# Edit WorkingDirectory to the full path where the repo is cloned on the VPS
-WorkingDirectory=/path/to/JeebsAI
-# Ensure this points to the built binary
-ExecStart=/usr/bin/env bash -lc 'PORT=8080 ./target/release/jeebs'
+# Full path where the repo is cloned on the VPS
+WorkingDirectory=/root/JeebsAI
+# Use absolute binary path and ensure the cargo bin dir is on PATH
+ExecStart=/usr/bin/env bash -lc 'export PATH=/root/.cargo/bin:$PATH; PORT=8080 /root/JeebsAI/target/release/jeebs'
 Restart=on-failure
+# Keep runtime logging and ensure PATH is preserved for systemd
 Environment=RUST_LOG=info
+Environment=PATH=/root/.cargo/bin:/usr/bin:/bin
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target

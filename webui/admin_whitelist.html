@@ -1,147 +1,72 @@
 <!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Jeebs — IP Whitelist</title>
-    <style>
-        :root{--bg:#0d1117;--card:#161b22;--text:#e6edf3;--muted:#8b949e;--accent:#7ee787;--border:#30363d;--danger:#f85149;--danger-bg:rgba(248,81,73,.12);--blue:#58a6ff}
-        *{box-sizing:border-box;margin:0}
-        body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);padding:24px;min-height:100vh}
-        h1{color:var(--blue);text-align:center;margin-bottom:6px;font-size:1.6rem}
-        .sub{text-align:center;color:var(--muted);margin-bottom:20px;font-size:.9rem}
-        .nav{text-align:center;margin-bottom:20px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
-        .nav a{color:var(--accent);text-decoration:none;font-size:.9rem}
-        .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;max-width:640px;margin:0 auto 20px}
-        .add-row{display:flex;gap:8px;margin-bottom:16px}
-        .add-row input{flex:1;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem}
-        .add-row input::placeholder{color:var(--muted)}
-        button{padding:10px 18px;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:.9rem;transition:opacity .15s}
-        button:hover{opacity:.85}
-        .btn-add{background:var(--blue);color:#fff}
-        .btn-remove{background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger);padding:6px 12px;font-size:.8rem}
-        .ip-list{list-style:none;padding:0}
-        .ip-list li{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);font-family:"JetBrains Mono",monospace;font-size:.9rem}
-        .ip-list li:last-child{border-bottom:none}
-        .empty{text-align:center;color:var(--muted);padding:30px;font-style:italic}
-        .status{text-align:center;padding:8px;border-radius:6px;margin-bottom:12px;font-size:.85rem;display:none}
-        .status.ok{display:block;background:rgba(88,166,255,.1);color:var(--blue)}
-        .status.err{display:block;background:var(--danger-bg);color:var(--danger)}
-        .count{color:var(--muted);font-size:.85rem;margin-bottom:12px}
-        .info-box{background:rgba(88,166,255,.08);border:1px solid rgba(88,166,255,.25);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:.85rem;color:var(--muted)}
-    </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>IP Whitelist — JeebsAI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/webui/style.css"/>
 </head>
 <body>
-    <h1>IP Whitelist</h1>
-    <p class="sub">Whitelisted IPs bypass rate limiting</p>
-    <div class="nav">
-        <a href="/webui/admin_dashboard.html">Dashboard</a>
-        <a href="/webui/admin_blacklist.html">Blacklist</a>
-        <a href="/webui/logs.html">Logs</a>
-        <a href="/webui/index.html">Home</a>
+<nav id="topnav"></nav>
+<div class="shell" style="max-width:640px;padding-top:60px">
+  <h1 style="margin-bottom:4px">IP Whitelist</h1>
+  <p class="text-muted" style="margin-bottom:24px">Whitelisted IPs bypass rate limiting</p>
+
+  <div class="card" style="background:rgba(83,216,251,0.06);border-color:rgba(83,216,251,0.2);margin-bottom:16px">
+    <p class="text-muted" style="margin:0;font-size:0.9em">Whitelisted IPs are exempt from the rate limiter. They can make unlimited API requests.</p>
+  </div>
+
+  <div class="card card-glow">
+    <div id="status" class="text-muted" style="margin-bottom:8px;display:none"></div>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <input id="ipInput" class="form-input" placeholder="Enter IP address (e.g. 10.0.0.1)" style="flex:1"/>
+      <button class="btn btn-primary" onclick="addIP()">Add to Whitelist</button>
     </div>
+    <div id="count" class="text-muted" style="margin-bottom:8px"></div>
+    <div id="ipList" class="data-list"><div class="text-muted" style="padding:20px;text-align:center">Loading&hellip;</div></div>
+  </div>
+</div>
 
-    <div class="card">
-        <div class="info-box">
-            Whitelisted IPs are exempt from the rate limiter. They can make unlimited API requests.
-        </div>
-        <div id="status" class="status"></div>
-        <div class="add-row">
-            <input id="ipInput" type="text" placeholder="Enter IP address (e.g. 10.0.0.1)" />
-            <button class="btn-add" onclick="addIP()">Add to Whitelist</button>
-        </div>
-        <div id="count" class="count"></div>
-        <ul id="ipList" class="ip-list">
-            <li class="empty">Loading…</li>
-        </ul>
-    </div>
+<script src="/webui/auth.js"></script>
+<script src="/webui/nav.js"></script>
+<script>
+JeebsNav.init('admin');
 
-    <script src="/webui/auth.js"></script>
-    <script>
-        const listEl = document.getElementById("ipList");
-        const countEl = document.getElementById("count");
-        const statusEl = document.getElementById("status");
-        const ipInput = document.getElementById("ipInput");
+function escapeHtml(s){var d=document.createElement("div");d.textContent=s;return d.innerHTML;}
+function showStatus(msg,ok){var el=document.getElementById("status");el.textContent=msg;el.style.display="block";el.style.color=ok?"var(--accent)":"var(--danger)";setTimeout(function(){el.style.display="none"},3000);}
 
-        function showStatus(msg, ok) {
-            statusEl.textContent = msg;
-            statusEl.className = "status " + (ok ? "ok" : "err");
-            setTimeout(function () { statusEl.className = "status"; }, 3000);
-        }
+async function loadList(){
+  try{
+    var res=await safeFetch("/api/admin/whitelist",{credentials:"same-origin",headers:authHeaders()});
+    if(!res.ok){document.getElementById("ipList").innerHTML='<div class="text-muted" style="padding:20px;text-align:center">Failed to load</div>';return;}
+    var ips=await res.json();
+    document.getElementById("count").textContent=ips.length+" whitelisted IP"+(ips.length!==1?"s":"");
+    if(ips.length===0){document.getElementById("ipList").innerHTML='<div class="empty-state"><div class="empty-state-icon">&#x1F513;</div><div>No whitelisted IPs</div></div>';return;}
+    document.getElementById("ipList").innerHTML=ips.map(function(ip){
+      return '<div class="data-list-item"><span style="font-family:var(--font-mono)">'+escapeHtml(ip)+'</span><button class="btn btn-danger btn-sm" onclick="removeIP(\''+escapeHtml(ip)+'\')">Remove</button></div>';
+    }).join("");
+  }catch(e){document.getElementById("ipList").innerHTML='<div class="text-muted" style="padding:20px;text-align:center">Connection error</div>';}
+}
 
-        async function loadList() {
-            try {
-                const res = await safeFetch("/api/admin/whitelist", {
-                    credentials: "same-origin",
-                    headers: authHeaders()
-                });
-                if (!res.ok) { listEl.innerHTML = '<li class="empty">Failed to load</li>'; return; }
-                const ips = await res.json();
-                countEl.textContent = ips.length + " whitelisted IP" + (ips.length !== 1 ? "s" : "");
-                if (ips.length === 0) {
-                    listEl.innerHTML = '<li class="empty">No whitelisted IPs</li>';
-                    return;
-                }
-                listEl.innerHTML = ips.map(function (ip) {
-                    return '<li><span>' + escapeHtml(ip) + '</span><button class="btn-remove" onclick="removeIP(\'' + escapeHtml(ip) + '\')">Remove</button></li>';
-                }).join("");
-            } catch (e) {
-                listEl.innerHTML = '<li class="empty">Connection error</li>';
-            }
-        }
+async function addIP(){
+  var ip=document.getElementById("ipInput").value.trim();if(!ip)return;
+  var res=await safeFetch("/api/admin/whitelist",{method:"POST",credentials:"same-origin",headers:authHeaders(true),body:JSON.stringify({ip:ip})});
+  if(!res.ok){showStatus("Failed to add IP",false);return;}
+  document.getElementById("ipInput").value="";showStatus("Whitelisted "+ip,true);loadList();
+}
 
-        async function addIP() {
-            var ip = ipInput.value.trim();
-            if (!ip) return;
-            try {
-                var res = await safeFetch("/api/admin/whitelist", {
-                    method: "POST",
-                    credentials: "same-origin",
-                    headers: authHeaders(true),
-                    body: JSON.stringify({ ip: ip })
-                });
-                if (!res.ok) { showStatus("Failed to add IP", false); return; }
-                ipInput.value = "";
-                showStatus("Whitelisted " + ip, true);
-                loadList();
-            } catch (e) {
-                showStatus("Connection error", false);
-            }
-        }
+async function removeIP(ip){
+  if(!confirm("Remove "+ip+" from whitelist?"))return;
+  var res=await safeFetch("/api/admin/whitelist",{method:"DELETE",credentials:"same-origin",headers:authHeaders(true),body:JSON.stringify({ip:ip})});
+  if(!res.ok){showStatus("Failed to remove IP",false);return;}
+  showStatus("Removed "+ip,true);loadList();
+}
 
-        async function removeIP(ip) {
-            if (!confirm("Remove " + ip + " from whitelist?")) return;
-            try {
-                var res = await safeFetch("/api/admin/whitelist", {
-                    method: "DELETE",
-                    credentials: "same-origin",
-                    headers: authHeaders(true),
-                    body: JSON.stringify({ ip: ip })
-                });
-                if (!res.ok) { showStatus("Failed to remove IP", false); return; }
-                showStatus("Removed " + ip, true);
-                loadList();
-            } catch (e) {
-                showStatus("Connection error", false);
-            }
-        }
+document.getElementById("ipInput").addEventListener("keydown",function(e){if(e.key==="Enter")addIP();});
 
-        function escapeHtml(s) {
-            var d = document.createElement("div");
-            d.textContent = s;
-            return d.innerHTML;
-        }
-
-        ipInput.addEventListener("keydown", function (e) {
-            if (e.key === "Enter") addIP();
-        });
-
-        (async function () {
-            var auth = await requireAuth("admin");
-            if (!auth) return;
-            startAuthGuard("admin");
-            loadList();
-        })();
-    </script>
+(async function(){var auth=await requireAuth("admin");if(!auth)return;startAuthGuard("admin");loadList();})();
+</script>
 </body>
 </html>

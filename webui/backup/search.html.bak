@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Jeebs Brain Search</title>
+        <style>
+            body {
+                font-family: sans-serif;
+                max-width: 800px;
+                margin: 2rem auto;
+                padding: 0 1rem;
+                background: #f4f4f4;
+            }
+            h1 {
+                color: #333;
+            }
+            .search-box {
+                margin-bottom: 2rem;
+                display: flex;
+                gap: 10px;
+            }
+            input {
+                flex-grow: 1;
+                padding: 10px;
+                font-size: 16px;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+            }
+            button {
+                padding: 10px 20px;
+                font-size: 16px;
+                background: #007bff;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+            button:hover {
+                background: #0056b3;
+            }
+            .result {
+                background: white;
+                padding: 1.5rem;
+                margin-bottom: 1rem;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            }
+            .result h3 {
+                margin-top: 0;
+                color: #2c3e50;
+            }
+            .meta {
+                color: #888;
+                font-size: 0.85em;
+                margin-top: 10px;
+                border-top: 1px solid #eee;
+                padding-top: 10px;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Search Jeebs Brain</h1>
+
+        <div class="search-box">
+            <input
+                type="text"
+                id="query"
+                placeholder="Enter search term..."
+                onkeydown="if (event.key === 'Enter') doSearch();"
+            />
+            <button onclick="doSearch()">Search</button>
+        </div>
+
+        <div id="results"></div>
+
+        <script src="/webui/auth.js"></script><script>
+            async function doSearch() {
+                const query = document.getElementById("query").value;
+                const container = document.getElementById("results");
+                container.innerHTML = "<p>Searching...</p>";
+
+                let data;
+                try {
+                    const res = await safeFetch("/api/brain/search", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ query }),
+                    });
+                    if (!res.ok) {
+                        const body = await res.text();
+                        throw new Error(
+                            `HTTP ${res.status}${body ? `: ${body}` : ""}`,
+                        );
+                    }
+                    data = await res.json();
+                } catch (err) {
+                    container.innerHTML = `<p>Error: ${err}</p>`;
+                    return;
+                }
+
+                container.innerHTML = "";
+                if (data.length === 0) {
+                    container.innerHTML = "<p>No results found.</p>";
+                    return;
+                }
+                data.forEach((node) => {
+                    const div = document.createElement("div");
+                    div.className = "result";
+                    div.innerHTML = `
+                    <h3>${node.label}</h3>
+                    <p>${node.summary}</p>
+                    <div class="meta">ID: ${node.id} | Sources: ${Array.isArray(node.sources) ? node.sources.length : 0}</div>
+                `;
+                    container.appendChild(div);
+                });
+            }
+        </script>
+    </body>
+</html>

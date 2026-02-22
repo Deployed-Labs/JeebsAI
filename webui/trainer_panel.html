@@ -1,444 +1,275 @@
 <!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Jeebs Trainer Panel</title>
-    <style>
-        :root {
-            --bg: #0f1117; --panel: #181c24; --panel-2: #1f2533;
-            --text: #f6f8fb; --muted: #9da7bd; --accent: #7fffd4;
-            --danger: #ff6b6b; --success: #8bc34a; --border: #2b3245;
-        }
-        * { box-sizing: border-box; }
-        body {
-            margin: 0;
-            background: radial-gradient(circle at 10% 20%, #1c2234, #0f1117 45%),
-                radial-gradient(circle at 80% 0%, #162036, #0f1117 40%), var(--bg);
-            color: var(--text);
-            font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-            min-height: 100vh; padding: 24px 16px 64px;
-        }
-        .shell { max-width: 900px; margin: 0 auto; }
-        header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
-        h1 { margin: 0; font-size: 24px; color: var(--accent); }
-        .nav-links { display: flex; gap: 10px; flex-wrap: wrap; }
-        .nav-link {
-            color: var(--text); text-decoration: none; padding: 8px 12px;
-            background: var(--panel-2); border: 1px solid var(--border);
-            border-radius: 8px; font-size: 14px; transition: all .15s ease;
-        }
-        .nav-link:hover { border-color: var(--accent); }
-        .card {
-            background: var(--panel); border: 1px solid var(--border);
-            border-radius: 12px; padding: 18px; margin-bottom: 16px;
-            box-shadow: 0 8px 24px rgba(0,0,0,.25);
-        }
-        .card h3 { margin: 0 0 12px; font-size: 16px; color: var(--text); }
-        .muted { color: var(--muted); font-size: 13px; }
-        .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-        .input {
-            background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
-            padding: 10px; border-radius: 8px; flex: 1; min-width: 200px;
-        }
-        .btn {
-            border: 1px solid var(--border); background: var(--panel-2); color: var(--text);
-            padding: 10px 14px; border-radius: 8px; font-weight: 600; cursor: pointer;
-            transition: all .15s ease;
-        }
-        .btn.accent { background: var(--accent); color: #0e1a1f; border-color: #9fffe3; }
-        .btn.danger { background: var(--danger); color: #1a0f0f; border-color: #f8a3a3; }
-        .btn.success { background: var(--success); color: #0f1a0f; border-color: #9ddf7f; }
-        .btn:hover { transform: translateY(-1px); }
-        .output {
-            background: var(--panel-2); border: 1px solid var(--border);
-            border-radius: 10px; padding: 12px; min-height: 120px; max-height: 320px;
-            overflow: auto; font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-            font-size: 13px; white-space: pre-wrap; line-height: 1.5;
-        }
-        #authStatus {
-            padding: 10px 14px; border-radius: 8px; margin-bottom: 16px;
-            font-size: 14px; font-weight: 600;
-            background: var(--panel-2); border: 1px solid var(--border);
-        }
-    </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Trainer Panel — JeebsAI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/webui/style.css"/>
 </head>
 <body>
-<div class="shell">
-    <header>
-        <div>
-            <h1>Trainer Panel</h1>
-            <div class="muted">Training controls for trainers and admins.</div>
-        </div>
-        <div class="nav-links">
-            <a class="nav-link" href="/webui/index.html">Home</a>
-            <a class="nav-link" href="/webui/admin_dashboard.html">Admin Dashboard</a>
-        </div>
-    </header>
+<nav id="topnav"></nav>
+<div class="shell" style="padding-top:60px">
+  <h1 style="margin-bottom:4px">Trainer Panel</h1>
+  <p class="text-muted" style="margin-bottom:24px">Training controls for trainers and admins.</p>
 
-    <div id="authStatus">Checking access...</div>
+  <div id="authStatus" class="card" style="padding:12px;margin-bottom:16px"><span class="text-muted">Checking access...</span></div>
 
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
     <div class="card">
-        <h3>Quick Training Commands</h3>
-        <div class="row" style="margin-bottom:12px">
-            <button class="btn" onclick="sendCmd('train help')">Train Help</button>
-            <button class="btn success" onclick="sendCmd('train on')">Train On</button>
-            <button class="btn danger" onclick="sendCmd('train off')">Train Off</button>
-        </div>
-        <div class="muted">These commands require trainer or root admin role.</div>
+      <h3>Quick Training Commands</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <button class="btn btn-ghost btn-sm" onclick="sendCmd('train help')">Train Help</button>
+        <button class="btn btn-success btn-sm" onclick="sendCmd('train on')">Train On</button>
+        <button class="btn btn-danger btn-sm" onclick="sendCmd('train off')">Train Off</button>
+      </div>
+      <div class="text-muted" style="font-size:0.85em">These commands require trainer or root admin role.</div>
     </div>
-
     <div class="card">
-        <h3>Focus Topic</h3>
-        <div class="row">
-            <input id="focusInput" class="input" type="text" placeholder="Enter a focus topic..." />
-            <button class="btn accent" onclick="sendFocus()">Set Focus</button>
-        </div>
+      <h3>Focus Topic</h3>
+      <div style="display:flex;gap:8px">
+        <input id="focusInput" class="form-input" placeholder="Enter a focus topic..." style="flex:1"/>
+        <button class="btn btn-accent btn-sm" onclick="sendFocus()">Set Focus</button>
+      </div>
     </div>
+  </div>
 
-    <div class="card">
-        <h3>Custom Command</h3>
-        <div class="row">
-            <input id="customInput" class="input" type="text" placeholder="Enter any command..." />
-            <button class="btn accent" onclick="sendCustom()">Send</button>
-        </div>
+  <div class="card">
+    <h3>Custom Command</h3>
+    <div style="display:flex;gap:8px">
+      <input id="customInput" class="form-input" placeholder="Enter any command..." style="flex:1"/>
+      <button class="btn btn-accent btn-sm" onclick="sendCustom()">Send</button>
     </div>
+  </div>
 
-    <div class="card">
-        <h3>Trainer Output</h3>
-        <div class="output" id="trainerOutput">No commands sent yet.</div>
-        <div class="row" style="margin-top:10px">
-            <button class="btn" onclick="showAuth()">Show Auth Status</button>
-            <button class="btn" onclick="pingNow()">Ping Session</button>
-            <button class="btn" onclick="clearOutput()">Clear</button>
-        </div>
+  <div class="card">
+    <h3>Trainer Output</h3>
+    <div class="log-box" id="trainerOutput" style="min-height:120px;max-height:320px">No commands sent yet.</div>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-sm" onclick="showAuth()">Auth Status</button>
+      <button class="btn btn-ghost btn-sm" onclick="pingNow()">Ping Session</button>
+      <button class="btn btn-ghost btn-sm" onclick="clearOutput()">Clear</button>
     </div>
+  </div>
 
-    <div class="card">
-        <h3>Live Learning</h3>
-        <div class="muted">Real-time view of learning sessions and statistics.</div>
-        <div style="display:flex; gap:12px; margin-top:12px; flex-wrap:wrap;">
-            <div style="flex:1; min-width:260px;">
-                <div class="muted">Active sessions</div>
-                <div id="learning-sessions" class="output">Loading sessions...</div>
-                <div id="learning-detail" class="output" style="margin-top:8px; display:none">Select a session to view details.</div>
-            </div>
-            <div style="flex:1; min-width:260px;">
-                <div class="muted">Statistics</div>
-                <div id="learning-stats" class="output">Loading stats...</div>
-            </div>
-        </div>
-        <div style="margin-top:12px">
-            <div class="muted">Summary</div>
-            <div id="learning-summary" class="output">Loading summary...</div>
-        </div>
-        <div style="margin-top:12px">
-            <div class="muted">Extended Research</div>
-            <div style="display:flex; gap:8px; align-items:center; margin-top:8px;">
-                <input id="extended-minutes" class="input" type="number" min="1" value="10" style="width:120px" />
-                <label style="display:flex; align-items:center; gap:6px; color:var(--muted)"><input id="extended-inference" type="checkbox" /> Enable inference</label>
-                <button class="btn accent" onclick="startExtendedRun()">Start Extended Run</button>
-            </div>
-            <div id="extended-status" class="muted" style="margin-top:8px">No extended run active.</div>
-        </div>
-        <div class="card" style="margin-top:12px">
-            <h3>Background Runs</h3>
-            <div class="muted">Active and recent extended learning runs.</div>
-            <div id="background-runs" class="output">Loading runs...</div>
-            <div id="run-detail" class="output" style="display:none; margin-top:8px"></div>
-        </div>
+  <div class="card">
+    <h3>Live Learning</h3>
+    <p class="text-muted" style="margin-bottom:12px">Real-time view of learning sessions and statistics.</p>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
+      <div>
+        <h4 class="text-muted" style="margin-bottom:6px">Active Sessions</h4>
+        <div id="learning-sessions" class="scroll-box" style="max-height:200px">Loading sessions...</div>
+        <div id="learning-detail" class="scroll-box" style="max-height:300px;margin-top:8px;display:none">Select a session.</div>
+      </div>
+      <div>
+        <h4 class="text-muted" style="margin-bottom:6px">Statistics</h4>
+        <div id="learning-stats" class="scroll-box" style="max-height:200px">Loading stats...</div>
+      </div>
     </div>
+    <div style="margin-top:12px">
+      <h4 class="text-muted" style="margin-bottom:6px">Summary</h4>
+      <div id="learning-summary" class="log-box" style="max-height:150px">Loading summary...</div>
+    </div>
+    <div style="margin-top:12px">
+      <h4 class="text-muted" style="margin-bottom:6px">Extended Research</h4>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px">
+        <input id="extended-minutes" class="form-input" type="number" min="1" value="10" style="width:100px"/>
+        <label class="text-muted" style="display:flex;align-items:center;gap:6px"><input id="extended-inference" type="checkbox"/> Enable inference</label>
+        <button class="btn btn-accent btn-sm" onclick="startExtendedRun()">Start Extended Run</button>
+      </div>
+      <div id="extended-status" class="text-muted" style="margin-top:8px">No extended run active.</div>
+    </div>
+  </div>
 
-    <div class="card">
-        <h3>Proposals</h3>
-        <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
-            <label style="margin:0">Filter:</label>
-            <select id="proposalFilter" onchange="renderProposals()">
-                <option value="all">All</option>
-                <option value="pending">Pending</option>
-                <option value="applied">Applied</option>
-                <option value="denied">Denied</option>
-            </select>
-            <button class="btn" onclick="loadProposals()">Refresh</button>
-        </div>
-        <div id="proposalsList" class="output">Loading proposals...</div>
+  <div class="card">
+    <h3>Background Runs</h3>
+    <p class="text-muted" style="margin-bottom:8px">Active and recent extended learning runs.</p>
+    <div id="background-runs" class="scroll-box" style="max-height:300px">Loading runs...</div>
+    <div id="run-detail" class="scroll-box" style="display:none;margin-top:8px;max-height:250px"></div>
+  </div>
+
+  <div class="card">
+    <h3>Proposals</h3>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+      <label class="text-muted">Filter:</label>
+      <select id="proposalFilter" class="form-input" onchange="renderProposals()" style="width:auto">
+        <option value="all">All</option>
+        <option value="pending">Pending</option>
+        <option value="applied">Applied</option>
+        <option value="denied">Denied</option>
+      </select>
+      <button class="btn btn-ghost btn-sm" onclick="loadProposals()">Refresh</button>
     </div>
+    <div id="proposalsList" class="scroll-box" style="max-height:400px">Loading proposals...</div>
+  </div>
 </div>
 
-    <script src="/webui/auth.js"></script>
+<script src="/webui/auth.js"></script>
+<script src="/webui/nav.js"></script>
 <script>
-(async () => {
-    var authStatusEl = document.getElementById("authStatus");
-    var outputEl = document.getElementById("trainerOutput");
-    var auth = await requireAuth("trainer");
-    if (!auth || !auth.loggedIn) {
-        authStatusEl.textContent = "Access denied - please sign in as a trainer or admin.";
-        return;
-    }
-    authStatusEl.textContent = "Trainer access granted for " + auth.username + ".";
-    // use defaults from auth.js (60s ping, longer guard) to reduce transient redirects
-    startSessionPing();
-    startAuthGuard("trainer");
+JeebsNav.init('trainer');
 
-    function stamp() { return new Date().toLocaleTimeString(); }
+function escapeHtml(s){if(!s)return"";return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");}
 
-    function log(msg, isErr) {
-        var line = "[" + stamp() + "] " + msg;
-        if (outputEl.textContent.trim() === "No commands sent yet.") {
-            outputEl.textContent = line;
-        } else {
-            outputEl.textContent += "\n" + line;
-        }
-        outputEl.scrollTop = outputEl.scrollHeight;
+(async function(){
+    var authStatusEl=document.getElementById("authStatus");
+    var outputEl=document.getElementById("trainerOutput");
+    var auth=await requireAuth("trainer");
+    if(!auth||!auth.loggedIn){authStatusEl.innerHTML='<span style="color:var(--danger)">Access denied &mdash; please sign in as a trainer or admin.</span>';return;}
+    authStatusEl.innerHTML='<span style="color:var(--accent)">Trainer access granted for <strong>'+escapeHtml(auth.username)+'</strong></span>';
+    startSessionPing();startAuthGuard("trainer");
+
+    function stamp(){return new Date().toLocaleTimeString();}
+    function log(msg){
+      var line="["+stamp()+"] "+msg;
+      if(outputEl.textContent.trim()==="No commands sent yet."){outputEl.textContent=line;}
+      else{outputEl.textContent+="\n"+line;}
+      outputEl.scrollTop=outputEl.scrollHeight;
     }
 
-    window.sendCmd = async function(cmd) {
-        log("Sending: " + cmd + "...");
-        try {
-            var res = await safeFetch("/api/chat", {
-                method: "POST", credentials: "same-origin",
-                headers: { "Content-Type": "application/json", ...authHeaders() },
-                body: JSON.stringify({ message: cmd }),
-            });
-            var data = await res.json();
-            if (!res.ok) { log("Error: " + (data.error || res.statusText), true); return; }
-            log(data.response || "No response received.");
-        } catch (e) { log("Request failed: " + e, true); }
+    window.sendCmd=async function(cmd){
+      log("Sending: "+cmd+"...");
+      try{
+        var res=await safeFetch("/api/chat",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json",...authHeaders()},body:JSON.stringify({message:cmd})});
+        var data=await res.json();
+        if(!res.ok){log("Error: "+(data.error||res.statusText));return;}
+        log(data.response||"No response received.");
+      }catch(e){log("Request failed: "+e);}
     };
 
-    window.sendFocus = function() {
-        var focus = document.getElementById("focusInput").value.trim();
-        if (!focus) { log("Enter a focus topic before sending.", true); return; }
-        sendCmd("train: " + focus);
+    window.sendFocus=function(){var f=document.getElementById("focusInput").value.trim();if(!f){log("Enter a focus topic.");return;}sendCmd("train: "+f);};
+    window.sendCustom=function(){var c=document.getElementById("customInput").value.trim();if(!c){log("Enter a command.");return;}sendCmd(c);};
+    window.clearOutput=function(){outputEl.textContent="No commands sent yet.";};
+
+    window.showAuth=async function(){
+      try{var res=await safeFetch("/api/auth/status",{credentials:"same-origin",headers:authHeaders()});var data=await res.json();
+      if(!res.ok){log("Auth error: "+(data.error||res.statusText));return;}
+      log("Auth: user="+(data.username||"?")+" admin="+data.is_admin+" trainer="+data.is_trainer);}
+      catch(e){log("Auth failed: "+e);}
     };
 
-    window.sendCustom = function() {
-        var cmd = document.getElementById("customInput").value.trim();
-        if (!cmd) { log("Enter a command before sending.", true); return; }
-        sendCmd(cmd);
+    window.pingNow=async function(){
+      try{var res=await safeFetch("/api/session/ping",{method:"POST",credentials:"same-origin",headers:authHeaders()});var data=await res.json();
+      if(!res.ok){log("Ping error: "+(data.error||res.statusText));return;}
+      log("Ping ok for "+(data.username||"?")+", last_seen="+(data.last_seen||"n/a"));}
+      catch(e){log("Ping failed: "+e);}
     };
 
-    window.clearOutput = function() { outputEl.textContent = "No commands sent yet."; };
-
-    window.showAuth = async function() {
-        try {
-            var res = await safeFetch("/api/auth/status", { credentials: "same-origin", headers: authHeaders() });
-            var data = await res.json();
-            if (!res.ok) { log("Auth status error: " + (data.error || res.statusText), true); return; }
-            log("Auth: user=" + (data.username||"?") + " admin=" + data.is_admin + " trainer=" + data.is_trainer);
-        } catch (e) { log("Auth status failed: " + e, true); }
-    };
-
-    window.pingNow = async function() {
-        try {
-            var res = await safeFetch("/api/session/ping", { method: "POST", credentials: "same-origin", headers: authHeaders() });
-            var data = await res.json();
-            if (!res.ok) { log("Ping error: " + (data.error || res.statusText), true); return; }
-            log("Ping ok for " + (data.username||"?") + ", last_seen=" + (data.last_seen||"n/a"));
-        } catch (e) { log("Ping failed: " + e, true); }
-    };
-
-    // Proposals: load and render evolution proposals in a compact, readable list
-    async function loadProposals() {
-        try {
-            const res = await safeFetch('/api/admin/evolution/updates', { credentials: 'same-origin', headers: authHeaders() });
-            if (!res.ok) {
-                document.getElementById('proposalsList').textContent = 'Failed to load proposals';
-                return;
-            }
-            const data = await res.json();
-            window._proposals = data.updates || [];
-            renderProposals();
-        } catch (e) {
-            document.getElementById('proposalsList').textContent = 'Error loading proposals: ' + e;
-        }
+    // Proposals
+    async function loadProposals(){
+      try{var res=await safeFetch("/api/admin/evolution/updates",{credentials:"same-origin",headers:authHeaders()});
+      if(!res.ok){document.getElementById("proposalsList").textContent="Failed to load proposals";return;}
+      var data=await res.json();window._proposals=data.updates||[];renderProposals();}
+      catch(e){document.getElementById("proposalsList").textContent="Error: "+e;}
     }
 
-    function renderProposals() {
-        const filter = document.getElementById('proposalFilter').value;
-        const listEl = document.getElementById('proposalsList');
-        const updates = (window._proposals || []).filter(u => filter === 'all' ? true : u.status === filter);
-        if (updates.length === 0) { listEl.textContent = 'No proposals found.'; return; }
-        listEl.innerHTML = updates.map(u => {
-            const title = (u.title || 'Untitled').replace(/</g,'&lt;');
-            const feeling = (u.feeling || '').toLowerCase();
-            const feelIcon = feeling === 'like' ? '👍' : feeling === 'dislike' ? '👎' : feeling === 'neutral' ? '😐' : '';
-            const desc = (u.description || '').replace(/</g,'&lt;');
-            const when = new Date(u.created_at).toLocaleString();
-            const status = (u.status || 'unknown');
-            return `<div style="padding:8px; border-bottom:1px solid rgba(255,255,255,0.03);"><div style="font-weight:700">${title} <span style="margin-left:6px; font-size:1.1em">${feelIcon}</span></div><div style="opacity:.8; font-size:0.9em;">${desc}</div><div style="margin-top:6px; font-size:0.85em; color:#9da7bd">${when} — <strong>${status}</strong></div></div>`;
-        }).join('');
-    }
-
-    // Load proposals after auth granted
+    window.renderProposals=function(){
+      var filter=document.getElementById("proposalFilter").value;
+      var el=document.getElementById("proposalsList");
+      var updates=(window._proposals||[]).filter(function(u){return filter==="all"||u.status===filter;});
+      if(!updates.length){el.innerHTML='<div class="empty-state"><div class="empty-state-icon">&#x1F4AD;</div><div>No proposals found.</div></div>';return;}
+      el.innerHTML=updates.map(function(u){
+        var title=(u.title||"Untitled").replace(/</g,"&lt;");
+        var feeling=(u.feeling||"").toLowerCase();
+        var icon=feeling==="like"?"\uD83D\uDC4D":feeling==="dislike"?"\uD83D\uDC4E":"";
+        return '<div class="data-list-item" style="flex-direction:column;align-items:flex-start;padding:10px 0"><div style="font-weight:700">'+title+' '+icon+'</div><div class="text-muted" style="font-size:0.9em">'+escapeHtml(u.description||"")+'</div><div class="text-muted" style="font-size:0.85em">'+new Date(u.created_at).toLocaleString()+" &mdash; <strong>"+(u.status||"unknown")+"</strong></div></div>";
+      }).join("");
+    };
+    window.loadProposals=loadProposals;
     loadProposals();
 
-    // Live learning: sessions, stats and summary
-    async function loadLearningSessions() {
-        try {
-            const res = await safeFetch('/api/learning/sessions', { credentials: 'same-origin', headers: authHeaders() });
-            const el = document.getElementById('learning-sessions');
-            if (!res.ok) { el.textContent = 'Failed to load learning sessions'; return; }
-            const payload = await res.json();
-            const sessions = payload.sessions || [];
-            if (sessions.length === 0) { el.textContent = 'No learning sessions.'; return; }
-            el.innerHTML = sessions.map(s => `
-                <div data-session-id="${escapeHtml(s.id||'') }" style="padding:8px; border-bottom:1px solid rgba(255,255,255,0.03); cursor:pointer" onclick="window.loadLearningDetails('${escapeHtml(s.id||'')}')">
-                    <div style="font-weight:700">${escapeHtml(s.topic)} <span style="font-size:0.85em; color:var(--muted);">(${escapeHtml(s.status)})</span></div>
-                    <div style="font-size:0.9em; color:var(--muted)">Depth: ${s.depth_level} • Facts: ${s.facts_learned} • Problems: ${s.problems_added}</div>
-                </div>
-            `).join('');
-        } catch (e) {
-            const el = document.getElementById('learning-sessions'); if (el) el.textContent = 'Error loading sessions: ' + e;
-        }
+    // Live learning
+    async function loadLearningSessions(){
+      try{var res=await safeFetch("/api/learning/sessions",{credentials:"same-origin",headers:authHeaders()});
+      var el=document.getElementById("learning-sessions");
+      if(!res.ok){el.textContent="Failed to load sessions";return;}
+      var payload=await res.json();var sessions=payload.sessions||[];
+      if(!sessions.length){el.textContent="No learning sessions.";return;}
+      el.innerHTML=sessions.map(function(s){
+        return '<div class="data-list-item" style="cursor:pointer" data-session-id="'+escapeHtml(s.id||"")+'" onclick="window.loadLearningDetails(\''+escapeHtml(s.id||"")+'\')">'+'<div><strong>'+escapeHtml(s.topic)+'</strong> <span class="text-muted">('+escapeHtml(s.status)+')</span><br/><span class="text-muted" style="font-size:0.85em">Depth: '+s.depth_level+' &bull; Facts: '+s.facts_learned+' &bull; Problems: '+s.problems_added+'</span></div></div>';
+      }).join("");}catch(e){var el=document.getElementById("learning-sessions");if(el)el.textContent="Error: "+e;}
     }
 
-    async function loadLearningStats() {
-        try {
-            const res = await safeFetch('/api/learning/statistics', { credentials: 'same-origin', headers: authHeaders() });
-            const el = document.getElementById('learning-stats');
-            if (!res.ok) { el.textContent = 'Failed to load stats'; return; }
-            const payload = await res.json();
-            const stats = payload.statistics || {};
-            el.innerHTML = Object.keys(stats).map(k => `<div><strong>${escapeHtml(k)}:</strong> ${escapeHtml(String(stats[k]))}</div>`).join('');
-        } catch (e) {
-            const el = document.getElementById('learning-stats'); if (el) el.textContent = 'Error loading stats: ' + e;
-        }
+    async function loadLearningStats(){
+      try{var res=await safeFetch("/api/learning/statistics",{credentials:"same-origin",headers:authHeaders()});
+      var el=document.getElementById("learning-stats");
+      if(!res.ok){el.textContent="Failed to load stats";return;}
+      var payload=await res.json();var stats=payload.statistics||{};
+      el.innerHTML=Object.keys(stats).map(function(k){return '<div class="data-list-item"><span>'+escapeHtml(k)+'</span><span>'+escapeHtml(String(stats[k]))+'</span></div>';}).join("");}
+      catch(e){var el=document.getElementById("learning-stats");if(el)el.textContent="Error: "+e;}
     }
 
-    async function loadLearningSummary() {
-        try {
-            const res = await safeFetch('/api/learning/summary', { credentials: 'same-origin', headers: authHeaders() });
-            const el = document.getElementById('learning-summary');
-            if (!res.ok) { el.textContent = 'Failed to load summary'; return; }
-            const payload = await res.json();
-            el.textContent = payload.summary || '(no summary)';
-        } catch (e) {
-            const el = document.getElementById('learning-summary'); if (el) el.textContent = 'Error loading summary: ' + e;
-        }
+    async function loadLearningSummary(){
+      try{var res=await safeFetch("/api/learning/summary",{credentials:"same-origin",headers:authHeaders()});
+      var el=document.getElementById("learning-summary");
+      if(!res.ok){el.textContent="Failed to load summary";return;}
+      var payload=await res.json();el.textContent=payload.summary||"(no summary)";}
+      catch(e){var el=document.getElementById("learning-summary");if(el)el.textContent="Error: "+e;}
     }
 
-    // bootload live learning and refresh periodically
-    await loadLearningSessions();
-    await loadLearningStats();
-    await loadLearningSummary();
-    setInterval(loadLearningSessions, 8000);
-    setInterval(loadLearningStats, 15000);
-    setInterval(loadLearningSummary, 30000);
+    await loadLearningSessions();await loadLearningStats();await loadLearningSummary();
+    setInterval(loadLearningSessions,8000);setInterval(loadLearningStats,15000);setInterval(loadLearningSummary,30000);
 
-    // Load session details for a given session id
-    window.loadLearningDetails = async function(sessionId) {
-        const detailEl = document.getElementById('learning-detail');
-        if (!sessionId) { if (detailEl) { detailEl.style.display='none'; } return; }
-        detailEl.style.display = 'block';
-        detailEl.textContent = 'Loading session...';
-        try {
-            const res = await safeFetch('/api/learning/session/' + encodeURIComponent(sessionId), { credentials: 'same-origin', headers: authHeaders() });
-            if (!res.ok) { detailEl.textContent = 'Failed to load session details'; return; }
-            const payload = await res.json();
-            const s = payload.session;
-            const facts = (s.learned_facts || []).map(f => `<div style="margin-bottom:8px;"><strong>${escapeHtml(f.fact)}</strong> <div style="color:var(--muted); font-size:0.85em">Source: ${escapeHtml(f.source)} • Importance: ${f.importance}</div></div>`).join('');
-            const problems = (s.practice_problems || []).map(p => `<div style="margin-bottom:8px;"><strong>${escapeHtml(p.problem)}</strong> — ${escapeHtml(p.difficulty)}<div style="color:var(--muted); font-size:0.85em">Solved: ${p.solved} • Attempts: ${p.attempts}</div></div>`).join('');
-            const connections = (s.connections_made || []).map(c => `<div style="margin-bottom:6px;"><strong>${escapeHtml(c.topic)}</strong>: ${escapeHtml(c.how_connected)}</div>`).join('');
-            detailEl.innerHTML = `<div style="font-weight:700">${escapeHtml(s.topic)} — ${escapeHtml(s.status)} (depth ${s.depth_level})</div><div style="color:var(--muted); font-size:0.9em; margin-bottom:8px">Last studied: ${escapeHtml(s.last_studied)} • Hours: ${s.study_hours} • Confidence: ${(s.confidence||0).toFixed(2)}</div><div><h4>Facts</h4>${facts || '<div class="muted">No facts yet.</div>'}</div><div><h4>Practice Problems</h4>${problems || '<div class="muted">No problems yet.</div>'}</div><div><h4>Connections</h4>${connections || '<div class="muted">No connections discovered yet.</div>'}</div>`;
-        } catch (e) {
-            detailEl.textContent = 'Error loading details: ' + e;
-        }
+    window.loadLearningDetails=async function(sessionId){
+      var detailEl=document.getElementById("learning-detail");
+      if(!sessionId){if(detailEl)detailEl.style.display="none";return;}
+      detailEl.style.display="block";detailEl.textContent="Loading session...";
+      try{var res=await safeFetch("/api/learning/session/"+encodeURIComponent(sessionId),{credentials:"same-origin",headers:authHeaders()});
+      if(!res.ok){detailEl.textContent="Failed.";return;}
+      var payload=await res.json();var s=payload.session;
+      var facts=(s.learned_facts||[]).map(function(f){return '<div style="margin-bottom:8px"><strong>'+escapeHtml(f.fact)+'</strong><div class="text-muted" style="font-size:0.85em">Source: '+escapeHtml(f.source)+' &bull; Importance: '+f.importance+'</div></div>';}).join("");
+      var problems=(s.practice_problems||[]).map(function(p){return '<div style="margin-bottom:8px"><strong>'+escapeHtml(p.problem)+'</strong> &mdash; '+escapeHtml(p.difficulty)+'<div class="text-muted" style="font-size:0.85em">Solved: '+p.solved+' &bull; Attempts: '+p.attempts+'</div></div>';}).join("");
+      var connections=(s.connections_made||[]).map(function(c){return '<div style="margin-bottom:6px"><strong>'+escapeHtml(c.topic)+':</strong> '+escapeHtml(c.how_connected)+'</div>';}).join("");
+      detailEl.innerHTML='<div style="font-weight:700;margin-bottom:8px">'+escapeHtml(s.topic)+' &mdash; '+escapeHtml(s.status)+' (depth '+s.depth_level+')</div><div class="text-muted" style="margin-bottom:12px">Last: '+escapeHtml(s.last_studied)+' &bull; Hours: '+s.study_hours+' &bull; Confidence: '+(s.confidence||0).toFixed(2)+'</div><h4>Facts</h4>'+(facts||'<div class="text-muted">No facts yet.</div>')+'<h4 style="margin-top:12px">Practice Problems</h4>'+(problems||'<div class="text-muted">No problems yet.</div>')+'<h4 style="margin-top:12px">Connections</h4>'+(connections||'<div class="text-muted">No connections yet.</div>');}
+      catch(e){detailEl.textContent="Error: "+e;}
     };
 
-    // background runs UI
-    async function loadBackgroundRuns() {
-        try {
-            const res = await safeFetch('/api/learning/extended-runs', { credentials: 'same-origin', headers: authHeaders() });
-            const el = document.getElementById('background-runs');
-            if (!res.ok) { el.textContent = 'Failed to load runs'; return; }
-            const payload = await res.json();
-            const runs = payload.runs || [];
-            if (runs.length === 0) { el.textContent = 'No runs found.'; return; }
-            el.innerHTML = runs.map(r => {
-                const id = r.run_id || r.runId || '';
-                const sess = r.session_id || '';
-                const pct = Number(r.progress_percent || 0).toFixed(0);
-                const status = r.status || '';
-                const started = r.started_at || r.startedAt || '';
-                return `<div style="padding:8px; border-bottom:1px solid rgba(255,255,255,0.03); display:flex; justify-content:space-between; align-items:center"><div style="flex:1; min-width:0"><div style="font-weight:700">Run ${escapeHtml(id)} <span style="font-size:0.85em; color:var(--muted)">${escapeHtml(status)}</span></div><div style="color:var(--muted); font-size:0.9em">Session: ${escapeHtml(sess)} • ${escapeHtml(started)} • Progress: ${pct}%</div><div style="height:8px; background:linear-gradient(90deg,#233,#2b6); width:100%; margin-top:6px; border-radius:6px; overflow:hidden"><div style="width:${pct}%; height:8px; background:linear-gradient(90deg,#7fffd4,#2bff80)"></div></div></div><div style="flex-shrink:0; margin-left:12px"><button class="btn" onclick="showRun('${escapeHtml(id)}')">View</button><button class="btn danger" onclick="cancelRun('${escapeHtml(id)}')">Cancel</button></div></div>`;
-            }).join('');
-        } catch (e) {
-            const el = document.getElementById('background-runs'); if (el) el.textContent = 'Error loading runs: ' + e;
-        }
+    // Background runs
+    async function loadBackgroundRuns(){
+      try{var res=await safeFetch("/api/learning/extended-runs",{credentials:"same-origin",headers:authHeaders()});
+      var el=document.getElementById("background-runs");
+      if(!res.ok){el.textContent="Failed to load runs";return;}
+      var payload=await res.json();var runs=payload.runs||[];
+      if(!runs.length){el.textContent="No runs found.";return;}
+      el.innerHTML=runs.map(function(r){
+        var id=r.run_id||r.runId||"";var sess=r.session_id||"";var pct=Number(r.progress_percent||0).toFixed(0);var status=r.status||"";var started=r.started_at||r.startedAt||"";
+        return '<div class="data-list-item"><div style="flex:1;min-width:0"><div style="font-weight:700">Run '+escapeHtml(id)+' <span class="text-muted">'+escapeHtml(status)+'</span></div><div class="text-muted" style="font-size:0.85em">Session: '+escapeHtml(sess)+' &bull; '+escapeHtml(started)+' &bull; '+pct+'%</div><div class="progress" style="margin-top:6px"><div class="progress-fill" style="width:'+pct+'%"></div></div></div><div style="display:flex;gap:4px;flex-shrink:0;margin-left:8px"><button class="btn btn-ghost btn-sm" onclick="showRun(\''+escapeHtml(id)+'\')">View</button><button class="btn btn-danger btn-sm" onclick="cancelRun(\''+escapeHtml(id)+'\')">Cancel</button></div></div>';
+      }).join("");}catch(e){var el=document.getElementById("background-runs");if(el)el.textContent="Error: "+e;}
     }
 
-    window.showRun = async function(id) {
-        try {
-            const res = await safeFetch('/api/learning/extended-run/' + encodeURIComponent(id), { credentials: 'same-origin', headers: authHeaders() });
-            if (!res.ok) { alert('Failed to load run'); return; }
-            const data = await res.json();
-            const run = data.run;
-            const el = document.getElementById('run-detail');
-            if (!el) return;
-            el.style.display = 'block';
-            const hist = run.history || [];
-            const histHtml = hist.map(h => `<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="font-weight:700">${escapeHtml(h.ts||h["ts"]||'')}</div><div style="color:var(--muted)">Progress: ${Math.round(h.progress_percent||h["progress_percent"]||0)}% • Facts total: ${h.facts_added_total||h["facts_added_total"]||0}</div></div>`).join('');
-            const sessLink = run.session_id ? `<button class="btn" onclick="(function(){ loadLearningDetails('${escapeHtml(run.session_id)}'); document.querySelector('[data-session-id="'+run.session_id+'"]')?.scrollIntoView({behavior:'smooth',block:'center'}); })()">Open Session</button>` : '';
-            el.innerHTML = `<div style="font-weight:700">Run ${escapeHtml(run.run_id||run.runId||'')}</div><div style="color:var(--muted)">Status: ${escapeHtml(run.status||'')} • Progress: ${Math.round(run.progress_percent||0)}% • Started: ${escapeHtml(run.started_at||'')}</div><div style="margin-top:8px">${sessLink} <button class="btn danger" onclick="cancelRun('${escapeHtml(run.run_id||run.runId||'')}')">Cancel</button></div><div style="margin-top:12px"><h4>History</h4>${histHtml || '<div class="muted">No history yet.</div>'}</div>`;
+    window.showRun=async function(id){
+      try{var res=await safeFetch("/api/learning/extended-run/"+encodeURIComponent(id),{credentials:"same-origin",headers:authHeaders()});
+      if(!res.ok){alert("Failed to load run");return;}
+      var data=await res.json();var run=data.run;
+      var el=document.getElementById("run-detail");if(!el)return;el.style.display="block";
+      var hist=(run.history||[]).map(function(h){return '<div class="data-list-item"><span class="text-muted">'+escapeHtml(h.ts||"")+'</span><span>Progress: '+Math.round(h.progress_percent||0)+'% &bull; Facts: '+(h.facts_added_total||0)+'</span></div>';}).join("");
+      el.innerHTML='<div style="font-weight:700;margin-bottom:8px">Run '+escapeHtml(run.run_id||run.runId||"")+'</div><div class="text-muted" style="margin-bottom:8px">Status: '+escapeHtml(run.status||"")+' &bull; Progress: '+Math.round(run.progress_percent||0)+'% &bull; Started: '+escapeHtml(run.started_at||"")+'</div><div style="display:flex;gap:6px;margin-bottom:12px"><button class="btn btn-danger btn-sm" onclick="cancelRun(\''+escapeHtml(run.run_id||run.runId||"")+'\')">Cancel</button></div><h4>History</h4>'+(hist||'<div class="text-muted">No history yet.</div>');}
+      catch(e){alert("Error: "+e);}
+    };
 
-            // highlight session if present
-            if (run.session_id) {
-                document.querySelectorAll('#learning-sessions [data-session-id]').forEach(n => n.style.border='none');
-                const node = document.querySelector(`#learning-sessions [data-session-id='${run.session_id}']`);
-                if (node) {
-                    node.style.border = '2px solid #7fffd4';
-                }
-            }
-        } catch (e) { alert('Error: ' + e); }
-    }
+    window.cancelRun=async function(id){
+      if(!confirm("Cancel run "+id+"?"))return;
+      var res=await safeFetch("/api/learning/extended-run/"+encodeURIComponent(id)+"/cancel",{method:"POST",credentials:"same-origin",headers:authHeaders()});
+      if(!res.ok){alert("Failed to cancel");return;}
+      await loadBackgroundRuns();
+    };
 
-    window.cancelRun = async function(id) {
-        if (!confirm('Cancel run ' + id + '?')) return;
-        try {
-            const res = await safeFetch('/api/learning/extended-run/' + encodeURIComponent(id) + '/cancel', { method: 'POST', credentials: 'same-origin', headers: authHeaders() });
-            if (!res.ok) { alert('Failed to cancel run'); return; }
-            await loadBackgroundRuns();
-        } catch (e) { alert('Error: ' + e); }
-    }
+    await loadBackgroundRuns();setInterval(loadBackgroundRuns,8000);
 
-    await loadBackgroundRuns();
-    setInterval(loadBackgroundRuns, 8000);
-
-    window.startExtendedRun = async function() {
-        const minutes = Number(document.getElementById('extended-minutes').value) || 10;
-        const inference = !!document.getElementById('extended-inference').checked;
-        const status = document.getElementById('extended-status');
-        status.textContent = 'Starting extended run...';
-        try {
-            // For now, require selecting a session in detail view
-            const detailEl = document.getElementById('learning-detail');
-            const sessionDiv = document.querySelector('#learning-sessions [data-session-id]');
-            // prefer currently selected id if present
-            let sessionId = null;
-            if (detailEl && detailEl.style.display !== 'none') {
-                // try to read from last loaded session via data attribute
-                const node = document.querySelector('#learning-sessions [style*="cursor:pointer"][onclick]');
-            }
-            const selected = document.querySelector('#learning-sessions [data-session-id]');
-            if (selected) sessionId = selected.getAttribute('data-session-id');
-            if (!sessionId) {
-                alert('Select a learning session first by clicking it.');
-                status.textContent = 'No session selected.';
-                return;
-            }
-
-            const res = await safeFetch('/api/learning/run-extended', {
-                method: 'POST', credentials: 'same-origin',
-                headers: authHeaders(true),
-                body: JSON.stringify({ session_id: sessionId, minutes, inference })
-            });
-            if (!res.ok) { status.textContent = 'Failed to start extended run.'; return; }
-            const data = await res.json();
-            status.textContent = data.message || 'Extended run started.';
-        } catch (e) {
-            status.textContent = 'Error: ' + e;
-        }
+    window.startExtendedRun=async function(){
+      var minutes=Number(document.getElementById("extended-minutes").value)||10;
+      var inference=!!document.getElementById("extended-inference").checked;
+      var status=document.getElementById("extended-status");
+      status.textContent="Starting extended run...";
+      try{
+        var selected=document.querySelector("#learning-sessions [data-session-id]");
+        var sessionId=selected?selected.getAttribute("data-session-id"):null;
+        if(!sessionId){alert("Select a learning session first.");status.textContent="No session selected.";return;}
+        var res=await safeFetch("/api/learning/run-extended",{method:"POST",credentials:"same-origin",headers:authHeaders(true),body:JSON.stringify({session_id:sessionId,minutes:minutes,inference:inference})});
+        if(!res.ok){status.textContent="Failed to start.";return;}
+        var data=await res.json();status.textContent=data.message||"Extended run started.";}
+      catch(e){status.textContent="Error: "+e;}
     };
 })();
 </script>
