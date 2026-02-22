@@ -27,23 +27,23 @@
 <body>
 <nav id="topnav"></nav>
 <div class="shell" style="padding-top:60px;max-width:1200px">
-  <h1 style="margin-bottom:16px">System Logs</h1>
+  <h1 style="margin-bottom:24px">System Logs</h1>
 
-  <div class="card" style="padding:12px;margin-bottom:8px">
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <select id="categoryFilter" class="form-input" onchange="currentPage=1;fetchLogs()" style="width:auto">
+  <div class="card card-glow" style="margin-bottom:16px">
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+      <select id="categoryFilter" class="form-input" onchange="currentPage=1;fetchLogs()">
         <option value="All">All Categories</option>
       </select>
-      <select id="levelFilter" class="form-input" onchange="currentPage=1;fetchLogs()" style="width:auto">
+      <select id="levelFilter" class="form-input" onchange="currentPage=1;fetchLogs()">
         <option value="All">All Levels</option>
         <option value="INFO">INFO</option>
         <option value="WARN">WARN</option>
         <option value="ERROR">ERROR</option>
       </select>
-      <input type="text" id="searchInput" class="form-input" placeholder="Search logs..." style="width:160px" onkeydown="if(event.key==='Enter'){currentPage=1;fetchLogs();}"/>
-      <input type="text" id="highlightInput" class="form-input" placeholder="Highlight..." style="width:120px" oninput="renderCurrentLogs()"/>
-      <input type="datetime-local" id="startDate" class="form-input" style="width:auto"/>
-      <input type="datetime-local" id="endDate" class="form-input" style="width:auto"/>
+      <input type="text" id="searchInput" class="form-input" placeholder="Search logs..." onkeydown="if(event.key==='Enter'){currentPage=1;fetchLogs();}"/>
+      <input type="text" id="highlightInput" class="form-input" placeholder="Highlight..." oninput="renderCurrentLogs()"/>
+      <input type="datetime-local" id="startDate" class="form-input"/>
+      <input type="datetime-local" id="endDate" class="form-input"/>
       <button class="btn btn-primary btn-sm" onclick="fetchLogs()">Refresh</button>
       <button class="btn btn-danger btn-sm" onclick="clearLogs()">Clear All</button>
       <button class="btn btn-ghost btn-sm" onclick="exportLogs()">Export CSV</button>
@@ -52,7 +52,7 @@
     </div>
   </div>
 
-  <div style="display:flex;justify-content:flex-end;gap:8px;align-items:center;margin-bottom:8px">
+  <div class="card" style="margin-bottom:16px;display:flex;justify-content:flex-end;gap:8px;align-items:center;">
     <button class="btn btn-ghost btn-sm" onclick="changePage(-1)">&laquo; Prev</button>
     <span id="pageIndicator" class="text-muted">Page 1</span>
     <button class="btn btn-ghost btn-sm" onclick="changePage(1)">Next &raquo;</button>

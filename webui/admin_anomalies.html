@@ -40,7 +40,7 @@
 JeebsNav.init('admin');
 
 function escapeHtml(s){return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):"";}
-function csvSafe(s){if(s==null)return"";var str=String(s).replace(/"/g,'""');if(str.includes(",")||str.includes("\n"))return'"'+str+'"';return str;}
+function csvSafe(s){if(s==null)return"";var str=String(s).replace(/"/g,'""');if(str.includes(",")||str.includes("\n"))return '"'+str+'"';return str;}
 
 async function fetchAnomalies(){
   var res=await safeFetch("/api/admin/anomalies",{credentials:"same-origin",headers:authHeaders()});
@@ -85,7 +85,17 @@ document.getElementById("scanAsync").addEventListener("click",async function(){
   },3000);
 });
 
-(async function(){var auth=await requireAuth("admin");if(!auth)return;startAuthGuard("admin");var a=await fetchAnomalies();render(a);})();
+// Access: allow 1090mb, admin, or trainer
+(async function(){
+  var auth=await requireAuth("admin");
+  if(!auth||!(auth.username==="1090mb"||auth.is_admin||auth.is_trainer)){
+    document.body.innerHTML = '<div class="shell" style="padding-top:60px"><h1>Anomalies</h1><div class="card" style="margin-top:32px"><span class="text-danger">Access denied. Only admin, trainer, or 1090mb allowed.</span></div></div>';
+    return;
+  }
+  startAuthGuard("admin");
+  var a=await fetchAnomalies();
+  render(a);
+})();
 </script>
 </body>
 </html>

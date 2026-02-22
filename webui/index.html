@@ -332,33 +332,14 @@
                 <div class="brand">
                     <h1>JeebsAI Console</h1>
                     <p>PGP key auth with token-backed chat access.</p>
-                </div>
-                <div class="status-chip" id="statusChip">
-                    Checking session...
-                </div>
-            </section>
+                margin: 0;
+                min-height: 100vh;
+                font-family: var(--font-sans);
+                color: var(--text);
+                background: var(--bg-0);
+            }
 
-            <section class="panel auth" id="authPanel">
-                <div class="tabs">
-                    <button id="tabLogin" class="active" data-view="login">
-                        Login
-                    </button>
-                    <button id="tabRegister" data-view="register">
-                        Register
-                    </button>
-                </div>
-
-                <div id="loginView" class="view active">
-                    <form id="loginForm">
-                        <div class="grid-2">
-                            <div>
-                                <label for="loginUsername">Username</label>
-                                <input
-                                    id="loginUsername"
-                                    name="username"
-                                    required
-                                />
-                            </div>
+            .shell {
                             <div>
                                 <label for="rememberMe">Remember Session</label>
                                 <input id="rememberMe" type="checkbox" />
@@ -367,23 +348,26 @@
 
                         <label for="unsignedMessage"
                             >Unsigned challenge message</label
-                        >
-                        <textarea id="unsignedMessage" readonly></textarea>
-
-                        <div class="row">
-                            <button
-                                type="button"
-                                class="ghost"
-                                id="generateChallengeBtn"
-                            >
-                                Generate Challenge
-                            </button>
-                            <button
-                                type="button"
-                                class="ghost"
-                                id="copyChallengeBtn"
-                            >
-                                Copy Challenge
+                        <body>
+                                <nav id="topnav"></nav>
+                                <div class="shell" style="padding-top:60px;max-width:900px">
+                                    <div class="card card-glow" style="margin-bottom:24px;text-align:center">
+                                        <h1 style="margin-bottom:8px">JeebsAI Console</h1>
+                                        <p class="text-muted">Welcome to JeebsAI. Use the navigation above or quick actions below.</p>
+                                    </div>
+                                    <div class="card" style="margin-bottom:24px">
+                                        <h3>Quick Actions</h3>
+                                        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+                                            <a href="/webui/search.html" class="btn btn-accent">Brain Search</a>
+                                            <a href="/webui/trainer_panel.html" class="btn btn-primary">Trainer Panel</a>
+                                            <a href="/webui/admin_dashboard.html" class="btn btn-ghost">Admin Dashboard</a>
+                                        </div>
+                                    </div>
+                                    <div class="card">
+                                        <h3>Recent Activity</h3>
+                                        <div id="activityLog" class="log-box" style="min-height:120px;max-height:320px">Loading...</div>
+                                    </div>
+                                </div>
                             </button>
                         </div>
 

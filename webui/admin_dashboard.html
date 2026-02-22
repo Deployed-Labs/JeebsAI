@@ -27,12 +27,21 @@
     <div class="card">
       <h3>Feature Toggles</h3>
       <div class="data-list">
-        <div class="data-list-item"><span>Internet Access</span><span id="toggleInternet" class="badge">—</span></div>
-        <div class="data-list-item"><span>Training Mode</span><span id="toggleTraining" class="badge">—</span></div>
+        <div class="data-list-item">
+          <span>Internet Access <span id="dotInternet" style="display:inline-block;width:10px;height:10px;border-radius:50%;margin-left:6px;background:#aaa;vertical-align:middle;"></span></span>
+          <span id="toggleInternet" class="badge">—</span>
+          <label class="switch" style="margin-left:16px;vertical-align:middle">
+            <input type="checkbox" id="internetSwitch" onchange="onInternetSwitch()">
+            <span class="slider round"></span>
+          </label>
+        </div>
+        <div class="data-list-item">
+          <span>Training Mode <span id="dotTraining" style="display:inline-block;width:10px;height:10px;border-radius:50%;margin-left:6px;background:#aaa;vertical-align:middle;"></span></span>
+          <span id="toggleTraining" class="badge">—</span>
+        </div>
       </div>
       <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
-        <button class="btn btn-primary btn-sm" onclick="toggleFeature('internet',true)">Internet On</button>
-        <button class="btn btn-ghost btn-sm" onclick="toggleFeature('internet',false)">Internet Off</button>
+        <!-- Internet toggle replaced by switch above -->
         <button class="btn btn-accent btn-sm" onclick="toggleFeature('training',true)">Training On</button>
         <button class="btn btn-ghost btn-sm" onclick="toggleFeature('training',false)">Training Off</button>
       </div>
@@ -104,6 +113,20 @@
 <script src="/webui/auth.js"></script>
 <script src="/webui/nav.js"></script>
 <script>
+// Toggle switch style
+const style = document.createElement('style');
+style.innerHTML = `
+.switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
+.slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+input:checked + .slider { background-color: #2ecc40; }
+input:checked + .slider:before { transform: translateX(20px); }
+.slider.round { border-radius: 24px; }
+.slider.round:before { border-radius: 50%; }
+`;
+document.head.appendChild(style);
+
 JeebsNav.init('admin');
 
 function escapeHtml(s){if(!s)return"";return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
@@ -120,24 +143,90 @@ async function loadStatus(){
 }
 
 async function loadToggles(){
+  // Load and display the current state of Internet and Training toggles
   try{
-    const res=await safeFetch("/api/admin/internet",{credentials:"same-origin",headers:authHeaders()});
-    if(res.ok){const d=await res.json();const el=document.getElementById("toggleInternet");el.textContent=d.enabled?"ON":"OFF";el.className="badge "+(d.enabled?"badge-success":"badge-danger");}
+    const res=await safeFetch("/api/admin/internet/status",{credentials:"same-origin",headers:authHeaders()});
+    if(res.ok){
+      const d=await res.json();
+      const el=document.getElementById("toggleInternet");
+      el.textContent=d.enabled?"ON":"OFF";
+      el.className="badge "+(d.enabled?"badge-success":"badge-danger");
+      el.dataset.enabled = d.enabled ? "1" : "0";
+      // Indicator dot
+      const dot=document.getElementById("dotInternet");
+      dot.style.background=d.enabled?"#2ecc40":"#e74c3c";
+      dot.title=d.enabled?"Internet enabled":"Internet disabled";
+      // Set switch state
+      const sw=document.getElementById("internetSwitch");
+      if(sw) sw.checked = !!d.enabled;
+    }
   }catch(e){}
+  function onInternetSwitch() {
+    const sw = document.getElementById("internetSwitch");
+    if (!sw) return;
+    toggleFeature('internet', sw.checked);
+  }
   try{
     const res=await safeFetch("/api/admin/training/status",{credentials:"same-origin",headers:authHeaders()});
-    if(res.ok){const d=await res.json();const t=d.training||{};const el=document.getElementById("toggleTraining");el.textContent=t.enabled?"ON":"OFF";el.className="badge "+(t.enabled?"badge-success":"badge-danger");}
+    if(res.ok){
+      const d=await res.json();
+      const t=d.training||{};
+      const el=document.getElementById("toggleTraining");
+      el.textContent=t.enabled?"ON":"OFF";
+      el.className="badge "+(t.enabled?"badge-success":"badge-danger");
+      el.dataset.enabled = t.enabled ? "1" : "0";
+      // Indicator dot
+      const dot=document.getElementById("dotTraining");
+      dot.style.background=t.enabled?"#2ecc40":"#e74c3c";
+      dot.title=t.enabled?"Training enabled":"Training disabled";
+    }
   }catch(e){}
 }
 
 async function toggleFeature(feat,on){
+  // Toggle logic for Internet and Training
   if(feat==='internet'){
-    await safeFetch("/api/admin/internet",{method:"POST",credentials:"same-origin",headers:authHeaders(true),body:JSON.stringify({enabled:on})});
-  }else{
-    await safeFetch("/api/admin/training/mode",{method:"POST",credentials:"same-origin",headers:authHeaders(true),body:JSON.stringify({enabled:on})});
+    // Optimistically update UI immediately
+    const el=document.getElementById("toggleInternet");
+    const dot=document.getElementById("dotInternet");
+    el.textContent=on?"ON":"OFF";
+    el.className="badge "+(on?"badge-success":"badge-danger");
+    el.dataset.enabled = on ? "1" : "0";
+    dot.style.background=on?"#2ecc40":"#e74c3c";
+    dot.title=on?"Internet enabled":"Internet disabled";
+    // Send request
+    await safeFetch("/api/admin/internet/set",{
+      method:"POST",
+      credentials:"same-origin",
+      headers:authHeaders(true),
+      body:JSON.stringify({enabled:on})
+    });
+  } else if(feat==='training') {
+    // Optimistically update UI immediately
+    const el=document.getElementById("toggleTraining");
+    const dot=document.getElementById("dotTraining");
+    el.textContent=on?"ON":"OFF";
+    el.className="badge "+(on?"badge-success":"badge-danger");
+    el.dataset.enabled = on ? "1" : "0";
+    dot.style.background=on?"#2ecc40":"#e74c3c";
+    dot.title=on?"Training enabled":"Training disabled";
+    // Send request
+    await safeFetch("/api/admin/training/mode",{
+      method:"POST",
+      credentials:"same-origin",
+      headers:authHeaders(true),
+      body:JSON.stringify({enabled:on})
+    });
   }
+  // After toggling, reload toggle states and indicators (in case backend state differs)
   loadToggles();
 }
+
+// ENFORCEMENT LOGIC (for backend, but documented here for clarity):
+// - If Training is OFF: No training can occur anywhere (trainers, background, or JeebsAI itself)
+// - If Internet is OFF: JeebsAI cannot access the internet for any reason
+// - If Internet is ON and Training is OFF: JeebsAI can autonomously browse/gather info for its brain, but no explicit training by trainers
+// - If Training is ON: Trainers can train JeebsAI, and JeebsAI can also learn autonomously if internet is ON
 
 async function loadSessions(){
   try{

@@ -27,9 +27,9 @@
 </head>
 <body>
 <nav id="topnav"></nav>
-<div class="shell" style="padding-top:60px">
-  <div style="margin-bottom:24px;animation:slide-up .4s ease">
-    <h1 style="margin-bottom:4px">Evolution Dashboard</h1>
+<div class="shell" style="padding-top:60px;max-width:1000px">
+  <div class="card card-glow" style="margin-bottom:24px;text-align:center">
+    <h1 style="margin-bottom:8px">Evolution Dashboard</h1>
     <p class="text-muted">Brain metrics, self-evolution proposals, and autonomous thinking.</p>
     <div id="auth-debug-banner" style="margin-top:8px"></div>
   </div>
@@ -66,19 +66,6 @@
     </div>
   </div>
 
-  <!-- Admin Controls -->
-  <div class="card" id="admin-controls-card" style="display:none;margin-bottom:24px">
-    <h3>Admin Controls</h3>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-      <button class="btn btn-primary" onclick="brainstormUpdate()">Think Now</button>
-      <button class="btn btn-accent" onclick="setTrainingMode(true)">Train On</button>
-      <button class="btn btn-danger" onclick="setTrainingMode(false)">Train Off</button>
-      <button class="btn btn-ghost" onclick="runTrainingNow()">Run Training</button>
-      <button class="btn btn-ghost" onclick="fullRefresh()">Full Refresh</button>
-    </div>
-    <div id="training-status" class="text-muted">Loading training status...</div>
-    <div id="status-message" class="text-muted" style="margin-top:6px"></div>
-  </div>
 
   <!-- Proposals -->
   <div style="margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">

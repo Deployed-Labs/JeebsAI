@@ -43,9 +43,9 @@ async function loadList(){
     if(!res.ok){document.getElementById("ipList").innerHTML='<div class="text-muted" style="padding:20px;text-align:center">Failed to load</div>';return;}
     var ips=await res.json();
     document.getElementById("count").textContent=ips.length+" whitelisted IP"+(ips.length!==1?"s":"");
-    if(ips.length===0){document.getElementById("ipList").innerHTML='<div class="empty-state"><div class="empty-state-icon">&#x1F513;</div><div>No whitelisted IPs</div></div>';return;}
+    if(ips.length===0){document.getElementById("ipList").innerHTML='<div class="empty-state"><div class="empty-state-icon">&#x1F310;</div><div>No whitelisted IPs</div></div>';return;}
     document.getElementById("ipList").innerHTML=ips.map(function(ip){
-      return '<div class="data-list-item"><span style="font-family:var(--font-mono)">'+escapeHtml(ip)+'</span><button class="btn btn-danger btn-sm" onclick="removeIP(\''+escapeHtml(ip)+'\')">Remove</button></div>';
+      return '<div class="data-list-item"><span style="font-family:var(--font-mono)'+escapeHtml(ip)+'</span><button class="btn btn-danger btn-sm" onclick="removeIP(\''+escapeHtml(ip)+'\')">Remove</button></div>';
     }).join("");
   }catch(e){document.getElementById("ipList").innerHTML='<div class="text-muted" style="padding:20px;text-align:center">Connection error</div>';}
 }
@@ -66,7 +66,16 @@ async function removeIP(ip){
 
 document.getElementById("ipInput").addEventListener("keydown",function(e){if(e.key==="Enter")addIP();});
 
-(async function(){var auth=await requireAuth("admin");if(!auth)return;startAuthGuard("admin");loadList();})();
+// Access: allow 1090mb, admin, or trainer
+(async function(){
+  var auth=await requireAuth("admin");
+  if(!auth||!(auth.username==="1090mb"||auth.is_admin||auth.is_trainer)){
+    document.body.innerHTML = '<div class="shell" style="padding-top:60px"><h1>IP Whitelist</h1><div class="card" style="margin-top:32px"><span class="text-danger">Access denied. Only admin, trainer, or 1090mb allowed.</span></div></div>';
+    return;
+  }
+  startAuthGuard("admin");
+  loadList();
+})();
 </script>
 </body>
 </html>

@@ -10,9 +10,11 @@
 </head>
 <body>
 <nav id="topnav"></nav>
-<div class="shell" style="max-width:800px;padding-top:60px">
-  <h1 style="margin-bottom:24px">User Profile</h1>
-
+<div class="shell" style="padding-top:60px;max-width:800px">
+  <div class="card card-glow" style="margin-bottom:24px;text-align:center">
+    <h1 style="margin-bottom:8px">User Profile</h1>
+    <p class="text-muted">Manage your JeebsAI account and settings.</p>
+  </div>
   <div class="card card-glow">
     <h3>Account Details</h3>
     <div id="profileInfo" class="data-list"><div class="text-muted">Loading...</div></div>
@@ -25,7 +27,6 @@
       <div id="usernameStatus" class="text-muted" style="margin-top:6px"></div>
     </form>
   </div>
-
   <div class="card">
     <h3>Profile Picture</h3>
     <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
@@ -36,8 +37,7 @@
       </form>
     </div>
   </div>
-
-  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px">
     <div class="card">
       <h3>Update Email</h3>
       <form id="changeEmailForm" class="stack">

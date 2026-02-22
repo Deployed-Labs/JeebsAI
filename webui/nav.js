@@ -8,18 +8,26 @@
 const JeebsNav = (function () {
     const LOGO_SVG = `<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="16" r="6" fill="currentColor" opacity=".6"/><path d="M16 2v8M16 22v8M2 16h8M22 16h8" stroke="currentColor" stroke-width="1.5" opacity=".4"/></svg>`;
 
+    // General navigation
     const PAGES = [
         { id: 'home', label: 'Console', href: '/webui/index.html' },
-        { id: 'evolution', label: 'Evolution', href: '/webui/evolution.html' },
+        { id: 'profile', label: 'Profile', href: '/webui/profile.html' },
         { id: 'search', label: 'Brain Search', href: '/webui/search.html' },
         { id: 'status', label: 'Status', href: '/webui/status.html' },
-        { id: 'profile', label: 'Profile', href: '/webui/profile.html' },
     ];
 
+    // Admin/Trainer/Advanced navigation
     const ADMIN_PAGES = [
         { id: 'admin', label: 'Admin', href: '/webui/admin_dashboard.html' },
         { id: 'trainer', label: 'Trainer', href: '/webui/trainer_panel.html' },
         { id: 'logs', label: 'Logs', href: '/webui/logs.html' },
+        { id: 'evolution', label: 'Evolution', href: '/webui/evolution.html' },
+        { id: 'brain', label: 'Brain Graph', href: '/webui/visualize.html' },
+        { id: 'logic', label: 'Logic Graph', href: '/webui/logic_visualize.html' },
+        { id: 'blacklist', label: 'Blacklist', href: '/webui/admin_blacklist.html' },
+        { id: 'whitelist', label: 'Whitelist', href: '/webui/admin_whitelist.html' },
+        { id: 'anomalies', label: 'Anomalies', href: '/webui/admin_anomalies.html' },
+        { id: 'reasoning', label: 'Reasoning', href: '/webui/admin_reasoning.html' },
     ];
 
     function render(activeId) {

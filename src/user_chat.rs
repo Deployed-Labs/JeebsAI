@@ -192,9 +192,16 @@ pub async fn user_chat(
             }));
         }
 
+        // ENFORCE: If internet is OFF, no access
         if !*data.internet_enabled.read().unwrap() {
             return HttpResponse::Forbidden().json(json!({
                 "error": "Internet is disabled. Enable it in admin settings first."
+            }));
+        }
+        // ENFORCE: If training is OFF, no autonomous learning allowed
+        if !*data.training_enabled.read().unwrap() {
+            return HttpResponse::Forbidden().json(json!({
+                "error": "Training is disabled. Enable it in admin settings first."
             }));
         }
 
@@ -302,6 +309,12 @@ pub async fn user_chat(
         }
 
         if message.eq_ignore_ascii_case("train stop") || message.eq_ignore_ascii_case("train off") {
+            // ENFORCE: Only allow if training is currently enabled
+            if !*data.training_enabled.read().unwrap() {
+                return HttpResponse::Forbidden().json(json!({
+                    "error": "Training is already disabled."
+                }));
+            }
             if let Err(err) =
                 crate::cortex::set_training_enabled_for_trainer(&data.db, false, &username).await
             {
@@ -338,6 +351,12 @@ pub async fn user_chat(
         }
 
         if message.eq_ignore_ascii_case("train on") || message.eq_ignore_ascii_case("train start") {
+            // ENFORCE: Only allow if training is currently disabled
+            if *data.training_enabled.read().unwrap() {
+                return HttpResponse::Forbidden().json(json!({
+                    "error": "Training is already enabled."
+                }));
+            }
             if let Err(err) =
                 crate::cortex::set_training_enabled_for_trainer(&data.db, true, &username).await
             {
@@ -366,7 +385,7 @@ pub async fn user_chat(
             .await;
 
             return HttpResponse::Ok().json(UserChatResponse {
-                response: "▶️ Training enabled by trainer command.".to_string(),
+                response: "✅ Training enabled by trainer command.".to_string(),
                 username,
                 is_admin,
                 is_trainer,

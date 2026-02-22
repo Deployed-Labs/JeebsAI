@@ -21,19 +21,21 @@
     </style>
 </head>
 <body>
-    <nav id="topnav"></nav>
-    <main class="shell shell--narrow">
-        <div class="search-hero">
-            <h1>Brain Search</h1>
-            <p class="text-muted">Search the JeebsAI knowledge graph for facts, concepts, and learned information.</p>
+        <nav id="topnav"></nav>
+        <div class="shell" style="padding-top:60px;max-width:800px">
+            <div class="card card-glow" style="margin-bottom:24px;text-align:center">
+                <h1 style="margin-bottom:8px">Brain Search</h1>
+                <p class="text-muted">Search the JeebsAI knowledge graph for facts, concepts, and learned information.</p>
+            </div>
+            <div class="card" style="margin-bottom:16px">
+                <div class="grid" style="grid-template-columns:1fr auto;gap:10px">
+                    <input type="text" id="query" class="form-input" placeholder="Enter search term..." autofocus />
+                    <button class="btn btn-primary" onclick="doSearch()">Search</button>
+                </div>
+            </div>
+            <div id="resultCount" class="text-muted" style="margin-bottom:12px"></div>
+            <div id="results"></div>
         </div>
-        <div class="search-box">
-            <input type="text" id="query" placeholder="Enter search term..." autofocus />
-            <button class="btn btn-primary" onclick="doSearch()">Search</button>
-        </div>
-        <div id="resultCount"></div>
-        <div id="results"></div>
-    </main>
     <script src="/webui/auth.js"></script>
     <script src="/webui/nav.js"></script>
     <script>JeebsNav.init('search');</script>
