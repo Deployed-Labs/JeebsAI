@@ -1,14 +1,8 @@
-echo "[update_master] Pulling latest from GitHub..."
-git pull origin main
-echo "[update_master] Restarting JeebsAI service..."
-systemctl restart jeebs || echo "[update_master] Warning: Could not restart jeebs service. Please check manually."
-echo "[update_master] Done!"
 #!/usr/bin/env bash
 # update_master.sh - Pull latest from GitHub and deploy JeebsAI from /root/JeebsAI
 
 set -e
 cd /root/JeebsAI
-
 
 # Stash any local changes to avoid pull conflicts
 if ! git diff-index --quiet HEAD -- || ! git diff --quiet; then
@@ -37,6 +31,9 @@ sudo ./scripts/deploy.sh --path /root/JeebsAI --port 8080 --service jeebs
 # PORT=8080 ./target/release/jeebs &> /root/JeebsAI/jeebs.log &
 
 # check logs and endpoints
+# tail -n 200 /root/JeebsAI/jeebs.log
+# curl -s http://localhost:8080/api/evolution/stats | jq .
+# curl -s http://localhost:8080/webui/evolution.html | head -n 40
 # tail -n 200 /root/JeebsAI/jeebs.log
 # curl -s http://localhost:8080/api/evolution/stats | jq .
 # curl -s http://localhost:8080/webui/evolution.html | head -n 40
