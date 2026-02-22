@@ -199,10 +199,12 @@ pub async fn user_chat(
             }));
         }
         // ENFORCE: If training is OFF, no autonomous learning allowed
-        if !*data.training_enabled.read().unwrap() {
-            return HttpResponse::Forbidden().json(json!({
-                "error": "Training is disabled. Enable it in admin settings first."
-            }));
+        if let Ok(enabled) = crate::toggle_manager::load_training_enabled_state(&data.db).await {
+            if !enabled {
+                return HttpResponse::Forbidden().json(json!({
+                    "error": "Training is disabled. Enable it in admin settings first."
+                }));
+            }
         }
 
         let client = reqwest::Client::builder()
@@ -310,10 +312,12 @@ pub async fn user_chat(
 
         if message.eq_ignore_ascii_case("train stop") || message.eq_ignore_ascii_case("train off") {
             // ENFORCE: Only allow if training is currently enabled
-            if !*data.training_enabled.read().unwrap() {
-                return HttpResponse::Forbidden().json(json!({
-                    "error": "Training is already disabled."
-                }));
+            if let Ok(enabled) = crate::toggle_manager::load_training_enabled_state(&data.db).await {
+                if !enabled {
+                    return HttpResponse::Forbidden().json(json!({
+                        "error": "Training is already disabled."
+                    }));
+                }
             }
             if let Err(err) =
                 crate::cortex::set_training_enabled_for_trainer(&data.db, false, &username).await
@@ -352,10 +356,12 @@ pub async fn user_chat(
 
         if message.eq_ignore_ascii_case("train on") || message.eq_ignore_ascii_case("train start") {
             // ENFORCE: Only allow if training is currently disabled
-            if *data.training_enabled.read().unwrap() {
-                return HttpResponse::Forbidden().json(json!({
-                    "error": "Training is already enabled."
-                }));
+            if let Ok(enabled) = crate::toggle_manager::load_training_enabled_state(&data.db).await {
+                if enabled {
+                    return HttpResponse::Forbidden().json(json!({
+                        "error": "Training is already enabled."
+                    }));
+                }
             }
             if let Err(err) =
                 crate::cortex::set_training_enabled_for_trainer(&data.db, true, &username).await
