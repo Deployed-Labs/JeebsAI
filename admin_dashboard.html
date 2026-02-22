@@ -138,13 +138,60 @@
                     const container = document.getElementById('sessionsContent');
                     container.innerHTML = sessions.length ? sessions.map(s => `
                         <div style="padding: 8px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;">
-                            <span><b>${s.username}</b> (${s.ip})</span>
+                            <span>
+                                <b style="cursor:pointer;color:#7fffd4" onclick="showUserProfile('${s.username}')">${s.username}</b> (${s.ip})
+                            </span>
                             <div style="display:flex; gap:10px; align-items:center;">
                                 <span>${new Date(s.last_seen).toLocaleTimeString()}</span>
                                 <button onclick="terminateSession('${s.username}')" style="padding:4px 8px; background:#d9534f; border:none; border-radius:4px; color:white; cursor:pointer;">Terminate</button>
                             </div>
                         </div>
                     `).join('') : 'No active sessions.';
+
+        }
+        // Add user profile modal
+        if (!document.getElementById('userProfileModal')) {
+            const modal = document.createElement('div');
+            modal.id = 'userProfileModal';
+            modal.style = 'display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.7);z-index:9999;justify-content:center;align-items:center;';
+            modal.innerHTML = `<div style="background:#23283a;padding:32px;border-radius:12px;min-width:320px;max-width:90vw;color:#fff;box-shadow:0 0 24px #000;position:relative;">
+                <button onclick="closeUserProfile()" style="position:absolute;top:8px;right:8px;background:#d9534f;border:none;border-radius:4px;color:white;padding:4px 8px;cursor:pointer;">Close</button>
+                <div id="userProfileContent">Loading...</div>
+            </div>`;
+            document.body.appendChild(modal);
+        }
+    }
+
+    window.showUserProfile = async function(username) {
+        const modal = document.getElementById('userProfileModal');
+        modal.style.display = 'flex';
+        const content = document.getElementById('userProfileContent');
+        content.innerHTML = 'Loading...';
+        try {
+            const res = await fetch('/api/admin/users');
+            if (res.ok) {
+                const users = await res.json();
+                const user = users.find(u => u.username === username);
+                if (user) {
+                    content.innerHTML = `
+                        <h2 style="color:#7fffd4">${user.username}</h2>
+                        <div><b>Email:</b> ${user.email || '(none)'}</div>
+                        <div><b>Role:</b> ${user.role}</div>
+                        <div><b>Admin:</b> ${user.is_admin ? 'Yes' : 'No'}</div>
+                    `;
+                } else {
+                    content.innerHTML = 'User not found.';
+                }
+            } else {
+                content.innerHTML = 'Failed to load user info.';
+            }
+        } catch {
+            content.innerHTML = 'Error loading user info.';
+        }
+    }
+    window.closeUserProfile = function() {
+        document.getElementById('userProfileModal').style.display = 'none';
+    }
                 }
             } catch {}
         }

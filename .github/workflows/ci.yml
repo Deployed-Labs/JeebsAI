@@ -14,8 +14,10 @@ permissions:
 
 jobs:
   build:
-    name: Build and Test
-    runs-on: ubuntu-latest
+      name: Build and Test
+      runs-on: ubuntu-latest
+      env:
+        PKG_CONFIG_PATH: "/usr/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig"
     
     steps:
     - name: Checkout code
