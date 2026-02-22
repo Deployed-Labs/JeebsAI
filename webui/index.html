@@ -9,67 +9,7 @@
     <link rel="stylesheet" href="/webui/style.css"/>
 </head>
 <body>
-<nav id="topnav"></nav>
-<div class="shell" style="padding-top:60px">
-    <h1 style="margin-bottom:24px">JeebsAI Console</h1>
-    <div class="card card-glow" style="margin-bottom:24px;text-align:center">
-        <h2 style="margin-bottom:8px">Welcome to JeebsAI</h2>
-        <p class="text-muted">Use the navigation above or quick actions below.</p>
-    </div>
-    <div class="card" style="margin-bottom:24px">
-        <h3>Quick Actions</h3>
-        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
-            <a href="/webui/search.html" class="btn btn-accent">Brain Search</a>
-            <a href="/webui/trainer_panel.html" class="btn btn-primary" id="trainerQuick" style="display:none">Trainer Panel</a>
-            <a href="/webui/admin_dashboard.html" class="btn btn-ghost" id="adminQuick" style="display:none">Admin Dashboard</a>
-        </div>
-    </div>
-    <div class="card">
-        <h3>Recent Activity</h3>
-        <div id="activityLog" class="log-box" style="min-height:120px;max-height:320px">Loading...</div>
-    </div>
-</div>
-<script src="/webui/auth.js"></script>
-<script src="/webui/nav.js"></script>
-<script>
-// Show/hide quick actions based on role
-async function updateQuickActions() {
-    const auth = await getAuthState();
-    document.getElementById('adminQuick').style.display = (auth.isAdmin && auth.username === JEEBS_ROOT_ADMIN) ? '' : 'none';
-    document.getElementById('trainerQuick').style.display = (auth.isTrainer || (auth.isAdmin && auth.username === JEEBS_ROOT_ADMIN)) ? '' : 'none';
-}
-updateQuickActions();
-JeebsNav.init('home');
-</script>
-</body>
     
-</html>
-                justify-content: space-between;
-                align-items: center;
-                padding: 18px 20px;
-                gap: 12px;
-            }
-
-            .brand h1 {
-                margin: 0;
-                font-size: clamp(1.3rem, 1.8vw, 1.7rem);
-                letter-spacing: 0.02em;
-            }
-
-            .brand p {
-                margin: 4px 0 0;
-                color: var(--muted);
-                font-size: 0.92rem;
-            }
-
-            .status-chip {
-                border: 1px solid var(--line);
-                border-radius: 999px;
-                padding: 8px 12px;
-                font-size: 0.84rem;
-                color: var(--muted);
-                white-space: nowrap;
-            }
 
             .auth {
                 padding: 18px 20px 20px;
