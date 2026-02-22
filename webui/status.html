@@ -147,7 +147,7 @@ async function checkHealth(){
   const dbEl=document.getElementById('health-db');
   const timeEl=document.getElementById('health-time');
   try{
-    const res=await safeFetch('/health');
+    const res=await safeFetch('/api/health');
     const d=await res.json();
     const ok=d.status==='ok';
     badge.textContent=ok?'Online':'Degraded';
