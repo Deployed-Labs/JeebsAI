@@ -14,6 +14,8 @@ use jeebs::plugins::{
 use jeebs::{
     admin, auth, brain_parsing_api, chat, cortex, evolution, logging, user_chat, AppState,
 };
+use crate::brain::coded_holographic_data_storage_container::{CodedHolographicDataStorageContainer, create_holo_node};
+};
 use sqlx::{Row, SqlitePool};
 use std::collections::HashSet;
 use std::env;
@@ -26,6 +28,21 @@ use sysinfo::System;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    // Initialize JeebsAI's new brain
+    let mut chdsc = CodedHolographicDataStorageContainer::new();
+    // Migrate old brain data if available
+    let old_nodes = crate::brain::mod::search_knowledge(&pool, "").await;
+    chdsc.migrate_from_brain_nodes(old_nodes);
+    println!("JeebsAI emergent mood: {}", chdsc.emergent_summary());
+        // Add endpoint to visualize JeebsAI's mood
+        use actix_web::{HttpResponse, Responder};
+        async fn jeebs_mood() -> impl Responder {
+            let mut chdsc = CodedHolographicDataStorageContainer::new();
+            let pool = sqlx::SqlitePool::connect(&std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:./jeebs.db".to_string())).await.unwrap();
+            let old_nodes = crate::brain::mod::search_knowledge(&pool, "").await;
+            chdsc.migrate_from_brain_nodes(old_nodes);
+            HttpResponse::Ok().body(chdsc.emergent_summary())
+        }
     let database_url = env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:./jeebs.db".to_string());
 
     // Ensure the SQLite directory exists if using a file path
@@ -177,6 +194,7 @@ async fn main() -> std::io::Result<()> {
                 CookieSessionStore::default(),
                 secret_key.clone(),
             ))
+            .route("/api/jeebs_mood", web::get().to(jeebs_mood))
             // Rate limiter removed to prevent 429 "Too Many Requests"
             .app_data(state.clone())
             .service(auth::register)

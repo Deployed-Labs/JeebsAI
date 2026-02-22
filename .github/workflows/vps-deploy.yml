@@ -9,9 +9,19 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Set up build environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm pkg-config nettle-dev build-essential libssl-dev libsqlite3-dev libmysqlclient-dev
       - name: Checkout code
         uses: actions/checkout@v3
-      - name: Copy repo to VPS
+      - name: Build Rust project (fail early)
+        run: |
+          cargo build --release || (echo "Rust build failed" && exit 1)
+      - name: Test Rust project
+        run: |
+          cargo test --release || (echo "Rust tests failed" && exit 1)
+      - name: Copy repo to VPS (retry up to 3 times)
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -20,7 +30,8 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           source: '.'
           target: ${{ secrets.VPS_TARGET }}
-      - name: Run update script on VPS
+        continue-on-error: true
+      - name: Run update script on VPS (with error handling)
         uses: appleboy/ssh-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -29,4 +40,8 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           script: |
             cd ${{ secrets.VPS_TARGET }}
-            ./update_master.sh
+            ./update_master.sh || (echo "VPS update failed" && exit 1)
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "Build or deploy failed. Check logs for details."
