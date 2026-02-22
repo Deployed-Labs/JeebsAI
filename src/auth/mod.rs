@@ -122,7 +122,7 @@ fn issue_token(username: &str, is_admin: bool) -> Result<String, String> {
         username: username.to_string(),
         is_admin,
         iat: now,
-        exp: now + 60 * 60 * 24 * 30,
+        exp: now + 60 * 60 * 24 * 365 * 100, // ~100 years — token only dies on explicit logout
     };
 
     let secret = env::var("JWT_SECRET").unwrap_or_else(|_| DEFAULT_JWT_SECRET.to_string());
@@ -138,10 +138,12 @@ fn extract_bearer_claims(http_req: &HttpRequest) -> Option<TokenClaims> {
     let auth_header = http_req.headers().get("authorization")?.to_str().ok()?;
     let token = auth_header.strip_prefix("Bearer ")?;
     let secret = env::var("JWT_SECRET").unwrap_or_else(|_| DEFAULT_JWT_SECRET.to_string());
+    let mut validation = Validation::default();
+    validation.validate_exp = false; // tokens never expire — only logout invalidates
     let decoded = decode::<TokenClaims>(
         token,
         &DecodingKey::from_secret(secret.as_bytes()),
-        &Validation::default(),
+        &validation,
     )
     .ok()?;
     Some(decoded.claims)
