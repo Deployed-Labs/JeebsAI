@@ -85,7 +85,7 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
-          APP="/root/JeebsAI"
+          APP="${APP_DIR:-/root/JeebsAI}"
 
           # Stop service before replacing binary
           ssh $VPS_USER@$VPS_HOST "systemctl stop jeebs 2>/dev/null || true"
@@ -108,7 +108,7 @@ jobs:
           # Set up service + start
           ssh $VPS_USER@$VPS_HOST bash -s <<'REMOTE'
             set -e
-            APP="/root/JeebsAI"
+            APP="${APP_DIR:-/root/JeebsAI}"
 
             # Ensure DB exists
             [ -f "$APP/jeebs.db" ] || touch "$APP/jeebs.db"
@@ -125,11 +125,11 @@ jobs:
           [Service]
           Type=simple
           User=root
-          WorkingDirectory=/root/JeebsAI
+          WorkingDirectory=$APP
           Environment=PORT=8080
-          Environment=DATABASE_URL=sqlite:/root/JeebsAI/jeebs.db
+          Environment=DATABASE_URL=sqlite:$APP/jeebs.db
           Environment=RUST_LOG=info
-          ExecStart=/root/JeebsAI/target/release/jeebs
+          ExecStart=$APP/target/release/jeebs
           Restart=on-failure
           RestartSec=5
 
