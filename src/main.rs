@@ -3,6 +3,7 @@ use actix_files::Files;
 use actix_governor::{Governor, GovernorConfigBuilder, KeyExtractor, SimpleKeyExtractionError};
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
 use actix_web::cookie::Key;
+use base64;
 use actix_web::dev::ServiceRequest;
 use actix_web::{web, App, HttpServer};
 use jeebs::{
@@ -161,8 +162,28 @@ async fn main() -> std::io::Result<()> {
 
     println!("Jeebs is awake on port {}", port);
 
-    // Session cookie secret
-    let secret_key = Key::generate();
+    // Session cookie secret: prefer SESSION_KEY_B64 env var (base64-encoded).
+    // If not set or invalid, fall back to a generated ephemeral key.
+    let secret_key = match std::env::var("SESSION_KEY_B64") {
+        Ok(s) => match base64::decode(&s) {
+            Ok(bytes) => {
+                if bytes.is_empty() {
+                    eprintln!("SESSION_KEY_B64 is empty; generating ephemeral key");
+                    Key::generate()
+                } else {
+                    Key::from(&bytes)
+                }
+            }
+            Err(e) => {
+                eprintln!("Failed to decode SESSION_KEY_B64: {}. Generating ephemeral key", e);
+                Key::generate()
+            }
+        },
+        Err(_) => {
+            eprintln!("SESSION_KEY_B64 not set; generating ephemeral session key (sessions won't persist across restarts). Set SESSION_KEY_B64 env to persist.");
+            Key::generate()
+        }
+    };
 
     // Governor configuration — throttles requests per client IP.
     // Defaults kept low because the VPS is modest; adjust via environment
