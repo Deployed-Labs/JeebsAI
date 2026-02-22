@@ -253,8 +253,8 @@ function escapeHtml(s){if(!s)return"";return String(s).replace(/&/g,"&amp;").rep
       var data=await res.json();var run=data.run;
       var el=document.getElementById("run-detail");if(!el)return;el.style.display="block";
       var hist=(run.history||[]).map(function(h){return '<div class="data-list-item"><span class="text-muted">'+escapeHtml(h.ts||"")+'</span><span>Progress: '+Math.round(h.progress_percent||0)+'% &bull; Facts: '+(h.facts_added_total||0)+'</span></div>';}).join("");
-      el.innerHTML='<div style="font-weight:700;margin-bottom:8px">Run '+escapeHtml(run.run_id||run.runId||"")+'</div><div class="text-muted" style="margin-bottom:8px">Status: '+escapeHtml(run.status||"")+' &bull; Progress: '+Math.round(run.progress_percent||0)+'% &bull; Started: '+escapeHtml(run.started_at||"")+'</div><div style="display:flex;gap:6px;margin-bottom:12px"><button class="btn btn-danger btn-sm" onclick="cancelRun(\''+escapeHtml(run.run_id||run.runId||"")+'\')">Cancel</button></div><h4>History</h4>'+(hist||'<div class="text-muted">No history yet.</div>');}
-      catch(e){alert("Error: "+e);}
+      el.innerHTML='<div style="font-weight:700;margin-bottom:8px">Run '+escapeHtml(run.run_id||run.runId||"")+'</div><div class="text-muted" style="margin-bottom:8px">Status: '+escapeHtml(run.status||"")+' &bull; Progress: '+Math.round(run.progress_percent||0)+'% &bull; Started: '+escapeHtml(run.started_at||"")+'</div><div style="display:flex;gap:6px;margin-bottom:12px"><button class="btn btn-danger btn-sm" onclick="cancelRun(\''+escapeHtml(run.run_id||run.runId||"")+'\')">Cancel</button></div><h4>History</h4>'+(hist||'<div class="text-muted">No history yet.</div>');
+      window._runDetails={run:run};
     };
 
     window.cancelRun=async function(id){

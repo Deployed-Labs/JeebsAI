@@ -249,6 +249,9 @@ async function runTrainingNow(){
     if(!res.ok){logTraining('Training failed to start');return;}
     const d=await res.json();
     logTraining('Training started: '+(d.status||'in progress'));
+    if(d.topic||d.subject||d.learning){
+      logTraining('JeebsAI is now studying: '+(d.topic||d.subject||d.learning));
+    }
     pollTrainingLog();
   }catch(e){logTraining('Training error');}
 }
@@ -266,12 +269,17 @@ async function pollTrainingLog(){
       const res=await safeFetch('/api/admin/training/status');
       if(!res.ok)continue;
       const d=await res.json();
-      if(d.training&&d.training.log){
-        logTraining(d.training.log);
-      }
-      if(d.training&&d.training.status==='done'){
-        logTraining('Training complete.');
-        break;
+      if(d.training){
+        if(d.training.learning||d.training.topic||d.training.subject){
+          logTraining('JeebsAI is studying: '+(d.training.learning||d.training.topic||d.training.subject));
+        }
+        if(d.training.log){
+          logTraining(d.training.log);
+        }
+        if(d.training.status==='done'){
+          logTraining('Training complete.');
+          break;
+        }
       }
     }catch(e){logTraining('Training log error');}
   }
