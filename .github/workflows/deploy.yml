@@ -1,9 +1,8 @@
-name: Build & Deploy JeebsAI
+name: Build & Deploy JeebsAI (SSH Key - disabled)
 
+# Disabled: use vps-deploy.yml instead (password-based auth)
 on:
-  push:
-    branches: [main]
-  workflow_dispatch:  # Manual trigger in GitHub UI
+  workflow_dispatch:  # Manual trigger only — not auto on push
 
 permissions:
   contents: read

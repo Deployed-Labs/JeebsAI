@@ -2,27 +2,44 @@ name: Deploy to VPS
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  PKG_CONFIG_PATH: "/usr/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig"
 
 jobs:
   deploy:
+    name: Build & Deploy to VPS
     runs-on: ubuntu-latest
     steps:
-      - name: Set up build environment
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang llvm pkg-config nettle-dev build-essential libssl-dev libsqlite3-dev libmysqlclient-dev
-      - name: Checkout code
-        uses: actions/checkout@v3
-      - name: Build Rust project (fail early)
-        run: |
-          cargo build --release || (echo "Rust build failed" && exit 1)
-      - name: Test Rust project
-        run: |
-          cargo test --release || (echo "Rust tests failed" && exit 1)
-      - name: Deploy to VPS via SSH
+          sudo apt-get install -y build-essential pkg-config libssl-dev libsqlite3-dev \
+            clang llvm nettle-dev libnettle-dev libhogweed-dev
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-deploy-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-deploy-
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -31,41 +48,85 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           command_timeout: 30m
           script: |
+            set -e
             echo "🚀 Starting deployment on VPS..."
-            
-            # 1. Navigate to target directory
+
             TARGET="${{ secrets.VPS_TARGET }}"
             if [ -z "$TARGET" ]; then TARGET="/root/JeebsAI"; fi
-            
             mkdir -p "$TARGET"
             cd "$TARGET"
-            
-            # 2. Update Code (Git Pull)
-            # If not a git repo, clone it. Otherwise fetch and reset.
+
+            # Ensure cargo/rust are available
+            export PATH="$HOME/.cargo/bin:/usr/local/bin:$PATH"
+
+            # Install build deps on VPS if missing
+            if ! pkg-config --exists nettle 2>/dev/null; then
+              echo "Installing build dependencies on VPS..."
+              apt-get update -qq
+              apt-get install -y -qq build-essential pkg-config libssl-dev libsqlite3-dev \
+                clang llvm nettle-dev libnettle-dev libhogweed-dev curl git
+            fi
+
+            # Install Rust if missing
+            if ! command -v cargo &>/dev/null; then
+              echo "Installing Rust on VPS..."
+              curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+              export PATH="$HOME/.cargo/bin:$PATH"
+            fi
+
+            # Clone or update repo
             if [ ! -d ".git" ]; then
-                echo "Cloning repository..."
-                git clone https://github.com/${{ github.repository }} .
+              echo "Cloning repository..."
+              git clone https://github.com/${{ github.repository }} .
             else
-                echo "Updating repository..."
-                git fetch origin
-                git reset --hard origin/main
+              echo "Updating repository..."
+              git fetch origin
+              git reset --hard origin/main
             fi
-            
-            # 3. Build Release
-            echo "Building release binary..."
-            # Ensure cargo is in PATH
-            export PATH="$HOME/.cargo/bin:$PATH"
+
+            # Build release
+            echo "Building release binary on VPS..."
+            export PKG_CONFIG_PATH="/usr/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig"
             cargo build --release
-            
-            # 4. Restart Service
-            echo "Restarting JeebsAI service..."
-            if sudo systemctl restart jeebs; then
-                echo "✅ Service restart command sent."
+
+            # Ensure DB exists
+            [ -f "$TARGET/jeebs.db" ] || touch "$TARGET/jeebs.db"
+
+            # Create/update systemd service
+            cat > /etc/systemd/system/jeebs.service <<UNIT
+          [Unit]
+          Description=JeebsAI Server
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=root
+          WorkingDirectory=$TARGET
+          Environment=PORT=8080
+          Environment=DATABASE_URL=sqlite:$TARGET/jeebs.db
+          Environment=RUST_LOG=info
+          ExecStart=$TARGET/target/release/jeebs
+          Restart=on-failure
+          RestartSec=5
+
+          [Install]
+          WantedBy=multi-user.target
+          UNIT
+
+            systemctl daemon-reload
+            systemctl enable jeebs
+            systemctl restart jeebs
+            sleep 3
+
+            if systemctl is-active --quiet jeebs; then
+              echo "✅ JeebsAI is running!"
+              curl -sf -o /dev/null -w "   Health: HTTP %{http_code}\n" http://127.0.0.1:8080/api/health || true
             else
-                echo "❌ Failed to restart service. Check permissions."
-                exit 1
+              echo "❌ Service failed to start"
+              journalctl -u jeebs --no-pager -n 20
+              exit 1
             fi
-      - name: Notify on failure
+
+      - name: Report status
         if: failure()
-        run: |
-          echo "Build or deploy failed. Check logs for details."
+        run: echo "❌ Build or deploy failed. Check logs above."
