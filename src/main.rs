@@ -187,6 +187,7 @@ async fn main() -> std::io::Result<()> {
             .service(auth::session_ping)
             .service(chat::jeebs_api)
             .service(user_chat::user_chat)
+            .service(user_chat::chat_preflight)
             .service(user_chat::chat_status)
             .service(cortex::admin_crawl)
             .service(cortex::search_brain)

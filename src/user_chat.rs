@@ -1,5 +1,5 @@
 use actix_session::Session;
-use actix_web::{get, post, web, HttpRequest, HttpResponse, Responder};
+use actix_web::{get, options, post, web, HttpRequest, HttpResponse, Responder};
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -394,6 +394,11 @@ pub async fn user_chat(
         is_admin,
         is_trainer,
     })
+}
+
+#[options("/api/chat")]
+pub async fn chat_preflight() -> impl Responder {
+    HttpResponse::Ok().finish()
 }
 
 /// Get chat status (check if user is authenticated)
