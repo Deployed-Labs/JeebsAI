@@ -420,6 +420,85 @@ code, pre {
     color: var(--accent);
 }
 
+/* ── Auth Views in Chatbox ───────────────────────────────── */
+#authViews {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    max-width: 400px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+#authViews .view {
+    display: none;
+}
+
+#authViews .view.active {
+    display: block;
+}
+
+#authViews h2 {
+    text-align: center;
+    margin-bottom: 20px;
+    color: var(--text);
+}
+
+#authViews form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+#authViews label {
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+#authViews input,
+#authViews textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    border-radius: var(--radius-md);
+    font: inherit;
+}
+
+#authViews textarea {
+    resize: vertical;
+    min-height: 120px;
+}
+
+#authViews .row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+#authViews .muted {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 16px;
+}
+
+#authViews .ghost {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font: inherit;
+    transition: all var(--transition-fast);
+}
+
+#authViews .ghost:hover {
+    background: var(--panel-hover);
+}
+
 /* ── Cards & Panels ──────────────────────────────────────── */
 .card {
     background: var(--panel);

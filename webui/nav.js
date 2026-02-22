@@ -62,6 +62,7 @@ const JeebsNav = (function () {
                     <span class="dot" id="navDot"></span>
                     <span id="navStatusText">Checking...</span>
                 </div>
+                <button class="theme-btn" id="themeBtn">Theme: Dark</button>
             </div>
         `;
 
@@ -105,6 +106,29 @@ const JeebsNav = (function () {
             text.textContent = 'Offline';
         }
     }
+
+    // Theme switching
+    const themes = ['dark', 'light', 'neon'];
+    let currentTheme = localStorage.getItem('jeebs-theme') || 'dark';
+    document.body.setAttribute('data-theme', currentTheme);
+
+    function updateThemeButton() {
+        const btn = document.getElementById('themeBtn');
+        if (btn) {
+            btn.textContent = `Theme: ${currentTheme.charAt(0).toUpperCase() + currentTheme.slice(1)}`;
+        }
+    }
+    updateThemeButton();
+
+    document.addEventListener('click', function(e) {
+        if (e.target.id === 'themeBtn') {
+            const nextIndex = (themes.indexOf(currentTheme) + 1) % themes.length;
+            currentTheme = themes[nextIndex];
+            document.body.setAttribute('data-theme', currentTheme);
+            localStorage.setItem('jeebs-theme', currentTheme);
+            updateThemeButton();
+        }
+    });
 
     return {
         init: function (activeId) {

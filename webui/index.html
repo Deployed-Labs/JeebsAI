@@ -9,31 +9,16 @@
     <link rel="stylesheet" href="/webui/style.css"/>
 </head>
 <body>
-    <header class="header">
-        <div class="dropdown">
-            <button class="dropbtn">Menu ▼</button>
-            <div class="dropdown-content">
-                <a href="/webui/index.html">Home</a>
-                <a href="/webui/search.html">Brain Search</a>
-                <a href="/webui/trainer_panel.html" id="menuTrainer">Trainer Panel</a>
-                <a href="/webui/admin_dashboard.html" id="menuAdmin">Admin Dashboard</a>
-                <a href="/webui/logs.html">Logs</a>
-                <a href="/webui/status.html">Status</a>
-            </div>
-        </div>
-        <h1>JeebsAI</h1>
-        <div class="theme-switcher">
-            <button class="theme-btn" id="themeBtn">Theme: Dark</button>
-        </div>
-    </header>
-    <div class="shell" style="padding-top:80px;max-width:900px">
+    <nav id="topnav"></nav>
+    <div class="container">
+        <aside class="sidebar">
             <div class="card card-glow" style="margin-bottom:24px;text-align:center">
-                <h1 style="margin-bottom:8px">JeebsAI Console</h1>
+                <h2 style="margin-bottom:8px">JeebsAI Console</h2>
                 <p class="text-muted">Welcome to JeebsAI. Use the navigation above or quick actions below.</p>
             </div>
             <div class="card" style="margin-bottom:24px">
                 <h3>Quick Actions</h3>
-                <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+                <div class="grid" style="grid-template-columns:1fr;gap:12px">
                     <a href="/webui/search.html" class="btn btn-accent">Brain Search</a>
                     <a href="/webui/trainer_panel.html" class="btn btn-primary" id="trainerQuick" style="display:none">Trainer Panel</a>
                     <a href="/webui/admin_dashboard.html" class="btn btn-ghost" id="adminQuick" style="display:none">Admin Dashboard</a>
@@ -43,112 +28,149 @@
                 <h3>Recent Activity</h3>
                 <div id="activityLog" class="log-box" style="min-height:120px;max-height:320px">Loading...</div>
             </div>
-        </div>
-
-                <div id="registerView" class="view">
-                    <form id="registerForm">
-                        <div class="grid-2">
+        </aside>
+        <main class="main">
+            <div class="chatbox">
+                <div id="authViews">
+                    <div id="loginView" class="view active">
+                        <form id="loginForm">
+                            <h2>Login to JeebsAI</h2>
                             <div>
-                                <label for="regUsername">Username</label>
+                                <label for="loginUsername">Username</label>
                                 <input
-                                    id="regUsername"
+                                    id="loginUsername"
                                     name="username"
                                     required
                                 />
                             </div>
                             <div>
-                                <label for="regEmail">Email (optional)</label>
-                                <input
-                                    id="regEmail"
-                                    name="email"
-                                    type="email"
-                                />
+                                <label for="signedMessage">Signed Message</label>
+                                <textarea
+                                    id="signedMessage"
+                                    name="signed_message"
+                                    required
+                                ></textarea>
                             </div>
+                            <div class="row">
+                                <button type="button" id="generateChallengeBtn" class="secondary">
+                                    Generate Challenge
+                                </button>
+                                <button type="button" id="copyChallengeBtn" class="secondary">
+                                    Copy Challenge
+                                </button>
+                                <button type="submit" class="primary">
+                                    Login
+                                </button>
+                            </div>
+                            <div>
+                                <input type="checkbox" id="rememberMe" />
+                                <label for="rememberMe">Remember me</label>
+                            </div>
+                        </form>
+                        <div class="muted">
+                            <p id="unsignedMessage"></p>
                         </div>
-
-                        <label for="publicKey"
-                            >PGP public key (ASCII armored)</label
-                        >
-                        <textarea
-                            id="publicKey"
-                            name="pgp_public_key"
-                            required
-                        ></textarea>
-
                         <div class="row">
-                            <button type="submit" class="secondary">
-                                Create PGP Account
+                            <button id="switchToRegister" class="ghost">
+                                Need an account? Register
                             </button>
                         </div>
-                    </form>
-                    <p class="muted">
-                        Registration stores your public key. Login verifies your
-                        signature against this key.
-                    </p>
-                </div>
-            </section>
-
-            <section class="panel chat" id="chatPanel">
-                <div class="chat-header">
-                    <div class="chat-meta" id="chatMeta"></div>
-                    <div class="row">
-                        <a
-                            id="adminControlsLink"
-                            class="ghost-link"
-                            href="/webui/admin_dashboard.html"
-                            style="display: none"
-                        >
-                            Admin Controls
-                        </a>
-                        <a
-                            id="trainerPanelLink"
-                            class="ghost-link"
-                            href="/webui/trainer_panel.html"
-                            style="display: none"
-                        >
-                            Trainer Panel
-                        </a>
-                        <button id="copyTokenBtn" class="ghost" type="button">
-                            Copy Token
-                        </button>
-                        <button id="logoutBtn" class="ghost" type="button">
-                            Logout
-                        </button>
+                    </div>
+                    <div id="registerView" class="view">
+                        <form id="registerForm">
+                            <h2>Register for JeebsAI</h2>
+                            <div class="grid-2">
+                                <div>
+                                    <label for="regUsername">Username</label>
+                                    <input
+                                        id="regUsername"
+                                        name="username"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label for="regEmail">Email (optional)</label>
+                                    <input
+                                        id="regEmail"
+                                        name="email"
+                                        type="email"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label for="publicKey">PGP public key (ASCII armored)</label>
+                                <textarea
+                                    id="publicKey"
+                                    name="pgp_public_key"
+                                    required
+                                ></textarea>
+                            </div>
+                            <div class="row">
+                                <button type="submit" class="secondary">
+                                    Create PGP Account
+                                </button>
+                            </div>
+                        </form>
+                        <p class="muted">
+                            Registration stores your public key. Login verifies your signature against this key.
+                        </p>
+                        <div class="row">
+                            <button id="switchToLogin" class="ghost">
+                                Already have an account? Login
+                            </button>
+                        </div>
                     </div>
                 </div>
-                <div class="token-box" id="tokenBox"></div>
-
-                <div class="feed" id="chatFeed"></div>
-
-                <form id="chatForm" class="prompt-form">
-                    <input
-                        id="promptInput"
-                        autocomplete="off"
-                        placeholder="Talk to JeebsAI..."
-                        required
-                    />
-                    <button class="primary" type="submit">Send</button>
-                </form>
-            </section>
+                <section class="chat" id="chatPanel">
+                    <div class="chat-header">
+                        <div class="chat-meta" id="chatMeta"></div>
+                        <div class="row">
+                            <a
+                                id="adminControlsLink"
+                                class="ghost-link"
+                                href="/webui/admin_dashboard.html"
+                                style="display: none"
+                            >
+                                Admin Controls
+                            </a>
+                            <a
+                                id="trainerPanelLink"
+                                class="ghost-link"
+                                href="/webui/trainer_panel.html"
+                                style="display: none"
+                            >
+                                Trainer Panel
+                            </a>
+                            <button id="copyTokenBtn" class="ghost" type="button">
+                                Copy Token
+                            </button>
+                            <button id="logoutBtn" class="ghost" type="button">
+                                Logout
+                            </button>
+                        </div>
+                    </div>
+                    <div class="token-box" id="tokenBox"></div>
+                    <div class="chat-feed" id="chatFeed"></div>
+                    <form id="chatForm" class="prompt-form">
+                        <input
+                            id="promptInput"
+                            autocomplete="off"
+                            placeholder="Talk to JeebsAI..."
+                            required
+                        />
+                        <button class="primary" type="submit">Send</button>
+                    </form>
+                </section>
+            </div>
+        </main>
+    </div>
 
             <div id="statusBar" class="status-bar"></div>
         </main>
 
         <script src="/webui/auth.js"></script>
+        <script src="/webui/nav.js"></script>
         <script>
-            // Theme switching
-            const themes = ['dark', 'light', 'neon'];
-            let currentTheme = localStorage.getItem('jeebs-theme') || 'dark';
-            document.body.setAttribute('data-theme', currentTheme);
-            document.getElementById('themeBtn').textContent = `Theme: ${currentTheme.charAt(0).toUpperCase() + currentTheme.slice(1)}`;
-            document.getElementById('themeBtn').addEventListener('click', () => {
-                const nextIndex = (themes.indexOf(currentTheme) + 1) % themes.length;
-                currentTheme = themes[nextIndex];
-                document.body.setAttribute('data-theme', currentTheme);
-                localStorage.setItem('jeebs-theme', currentTheme);
-                document.getElementById('themeBtn').textContent = `Theme: ${currentTheme.charAt(0).toUpperCase() + currentTheme.slice(1)}`;
-            });
-
             // Show/hide quick actions based on role
             async function updateQuickActions() {
                 const auth = await getAuthState();
@@ -156,12 +178,44 @@
                 document.getElementById('trainerQuick').style.display = (auth.isTrainer || (auth.isAdmin && auth.username === JEEBS_ROOT_ADMIN)) ? '' : 'none';
             }
             updateQuickActions();
+            JeebsNav.init('home');
 
-            function setStatus(message, level = "info") {
-                statusBar.textContent = message || "";
-                statusBar.className = "status-bar";
-                if (level === "good") statusBar.classList.add("good");
-                if (level === "bad") statusBar.classList.add("bad");
+            function setView(view) {
+                document.querySelectorAll("#authViews .view").forEach((node) => {
+                    node.classList.toggle("active", node.id === `${view}View`);
+                });
+            }
+
+            function renderAuthState() {
+                if (!state.loggedIn) {
+                    document.getElementById('authViews').style.display = "flex";
+                    document.getElementById('chatPanel').style.display = "none";
+                    statusChip.textContent = "Not logged in";
+                    adminControlsLink.style.display = "none";
+                    trainerPanelLink.style.display = "none";
+                    document.getElementById('menuAdmin').style.display = 'none';
+                    document.getElementById('menuTrainer').style.display = 'none';
+                    stopSessionPing();
+                    return;
+                }
+
+                document.getElementById('authViews').style.display = "none";
+                document.getElementById('chatPanel').style.display = "flex";
+                statusChip.textContent = `Logged in as ${state.username}`;
+                chatMeta.textContent = `${state.username}${state.isAdmin ? " (admin)" : ""}`;
+                tokenBox.textContent = state.token
+                    ? `Token: ${state.token}`
+                    : "Token missing from session response.";
+                adminControlsLink.style.display = isRootAdminSession()
+                    ? "inline-flex"
+                    : "none";
+                trainerPanelLink.style.display = canAccessTrainerPanel()
+                    ? "inline-flex"
+                    : "none";
+                document.getElementById('menuAdmin').style.display = (state.isAdmin && state.username === JEEBS_ROOT_ADMIN) ? 'block' : 'none';
+                document.getElementById('menuTrainer').style.display = (state.isTrainer || (state.isAdmin && state.username === JEEBS_ROOT_ADMIN)) ? 'block' : 'none';
+                promptInput.focus();
+                startSessionPing();
             }
 
             function setView(view) {
@@ -306,6 +360,9 @@
                     setView(button.dataset.view),
                 );
             });
+
+            document.getElementById("switchToRegister").addEventListener("click", () => setView("register"));
+            document.getElementById("switchToLogin").addEventListener("click", () => setView("login"));
 
             document
                 .getElementById("loginUsername")
