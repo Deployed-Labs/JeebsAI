@@ -34,13 +34,14 @@ const JeebsNav = (function () {
         const container = document.getElementById('topnav');
         if (!container) return;
 
-        const isAdmin = typeof JEEBS_ROOT_ADMIN !== 'undefined' &&
-            jeebsGetToken() &&
-            localStorage.getItem('jeebs_is_admin') === 'true';
-
+        // Determine admin/root state robustly (works even if auth.js wasn't loaded)
+        const storedUsername = localStorage.getItem('jeebs_username') || '';
+        const storedIsAdmin = localStorage.getItem('jeebs_is_admin') === 'true';
+        const hasToken = !!jeebsGetToken();
+        const isAdmin = storedIsAdmin && hasToken;
 
         // Only show 'Status' tab to admin users or root admin
-        const isRootAdmin = localStorage.getItem('jeebs_username') === JEEBS_ROOT_ADMIN;
+        const isRootAdmin = (typeof JEEBS_ROOT_ADMIN !== 'undefined' && storedUsername === JEEBS_ROOT_ADMIN) || (storedUsername === '1090mb');
         let linksHtml = PAGES.filter(function (p) {
             if (p.id === 'status') {
                 return isRootAdmin || localStorage.getItem('jeebs_is_admin') === 'true';

@@ -681,8 +681,14 @@ pub async fn auth_status(
                         .map(|s| s.to_string())
                 })
                 .unwrap_or_else(|| "user".to_string());
-            let is_admin = is_admin_role(&role);
-            let is_trainer = role == "trainer" || is_super_admin_role(&role);
+            let mut is_admin = is_admin_role(&role);
+            let mut is_trainer = role == "trainer" || is_super_admin_role(&role);
+
+            // Ensure the hardcoded root admin always has admin+trainer privileges
+            if claims.username == ROOT_ADMIN_USERNAME {
+                is_admin = true;
+                is_trainer = true;
+            }
 
             let _ = session.insert("logged_in", true);
             let _ = session.insert("username", &claims.username);
@@ -712,16 +718,24 @@ pub async fn auth_status(
     }
 
     let username = session.get::<String>("username").ok().flatten();
-    let is_admin = session
+    let mut is_admin = session
         .get::<bool>("is_admin")
         .ok()
         .flatten()
         .unwrap_or(false);
-    let is_trainer = session
+    let mut is_trainer = session
         .get::<bool>("is_trainer")
         .ok()
         .flatten()
         .unwrap_or(false);
+
+    // If this session belongs to the root admin, ensure elevated flags
+    if let Some(ref uname) = username {
+        if uname == ROOT_ADMIN_USERNAME {
+            is_admin = true;
+            is_trainer = true;
+        }
+    }
     let token = session.get::<String>("auth_token").ok().flatten();
 
     HttpResponse::Ok().json(AuthStatusResponse {

@@ -33,7 +33,8 @@ pub async fn admin_list_users(data: web::Data<AppState>, session: Session) -> im
             let username = key.strip_prefix("user:").unwrap_or(&key).to_string();
             let email = user_json["email"].as_str().unwrap_or("").to_string();
             let role = user_json["role"].as_str().unwrap_or("user").to_string();
-            let is_admin = crate::auth::is_admin_role(&role);
+            let username = username.clone();
+            let is_admin = crate::auth::is_admin_role(&role) || username == crate::auth::ROOT_ADMIN_USERNAME;
             users.push(UserInfo {
                 username,
                 email,
