@@ -19,6 +19,7 @@ const JeebsNav = (function () {
     // Admin/Trainer/Advanced navigation
     const ADMIN_PAGES = [
         { id: 'admin', label: 'Admin', href: '/webui/admin_dashboard.html', roles: ['Admin'] },
+        { id: 'users', label: 'Users', href: '/webui/admin_users.html', roles: ['Admin'] },
         { id: 'trainer', label: 'Trainer', href: '/webui/trainer_panel.html', roles: ['Admin', 'Mod', 'Trainer'] },
         { id: 'resources', label: 'Resources', href: '/webui/trainer_resources.html', roles: ['Admin', 'Mod', 'Trainer'] },
         { id: 'logs', label: 'Logs', href: '/webui/logs.html', roles: ['Admin'] },

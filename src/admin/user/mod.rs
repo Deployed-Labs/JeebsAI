@@ -15,7 +15,7 @@ pub struct UserInfo {
 
 #[get("/api/admin/users")]
 pub async fn admin_list_users(data: web::Data<AppState>, session: Session) -> impl Responder {
-    let is_admin = session.get::<bool>("is_admin").unwrap_or(Ok(false)).unwrap_or(false);
+    let is_admin = session.get::<bool>("is_admin").unwrap_or(None).unwrap_or(false);
     if !is_admin {
         return HttpResponse::Forbidden()
             .json(json!({"error": "Admin privileges required"}));
