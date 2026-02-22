@@ -9,6 +9,13 @@ echo "[update_master] Done!"
 set -e
 cd /root/JeebsAI
 
+
+# Stash any local changes to avoid pull conflicts
+if ! git diff-index --quiet HEAD -- || ! git diff --quiet; then
+	echo "[update_master] Local changes detected. Stashing before pull..."
+	git stash save "Auto-stash before update_master.sh $(date +%Y%m%d_%H%M%S)"
+fi
+
 # ensure repo is up-to-date
 git fetch origin
 git checkout main
