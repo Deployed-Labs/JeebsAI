@@ -5,7 +5,7 @@
  * Provides:
  *  - Token persistence (localStorage)
  *  - authHeaders()        — returns headers with Bearer token
- *  - safeFetch(url, opts) — fetch with 429 back-off retry
+ *  - safeFetch(url, opts) — fetch wrapper (no rate-limit retry)
  *  - requireAuth(role)    — guard: redirects to /webui/index.html if not authorised
  *  - getAuthState()       — returns { loggedIn, username, isAdmin, isTrainer }
  *  - logout()             — clears token and redirects
@@ -37,18 +37,10 @@ function authHeaders(json = false) {
     return h;
 }
 
-/* ── safeFetch with 429 back-off ─────────────────────── */
+/* ── safeFetch — simple fetch wrapper (no rate-limit logic) ── */
 
-async function safeFetch(url, options, retries) {
-    // allow more retries and progressively longer delay
-    if (retries === undefined) retries = 4;
-    const res = await fetch(url, options);
-    if (res.status === 429 && retries > 0) {
-        const delay = 1000 + (5 - retries) * 500; // 1s,1.5s,2s,...
-        await new Promise(function (r) { setTimeout(r, delay); });
-        return safeFetch(url, options, retries - 1);
-    }
-    return res;
+async function safeFetch(url, options) {
+    return fetch(url, options);
 }
 
 /* ── auth state ──────────────────────────────────────── */
