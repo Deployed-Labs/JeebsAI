@@ -312,6 +312,7 @@ async fn handle_pgp_login(
     // Track user session in database
     let _ = update_user_session(&data.db, username, http_req).await;
 
+    let ip = peer_addr(http_req);
     crate::logging::log(
         &data.db,
         "INFO",

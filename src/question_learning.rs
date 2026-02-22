@@ -2,7 +2,6 @@ use chrono::Local;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{Row, SqlitePool};
-use std::collections::HashSet;
 
 use crate::content_extractor;
 

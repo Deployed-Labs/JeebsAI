@@ -1,6 +1,5 @@
 use chrono::Local;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use sqlx::{Row, SqlitePool};
 use std::collections::{HashMap, HashSet};
 
@@ -239,7 +238,7 @@ async fn search_contexts(
         .map_err(|e| e.to_string())?;
 
     for row in rows {
-        let key: String = row.get(0);
+        let _key: String = row.get(0);
         let value: Vec<u8> = row.get(1);
 
         if let Ok(context) = serde_json::from_slice::<crate::language_learning::ContextualKnowledge>(&value) {

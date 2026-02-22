@@ -7,7 +7,7 @@ pub fn strip_html_extract_text(html_content: &str) -> String {
     let document = Html::parse_document(html_content);
 
     // Remove script and style tags
-    let script_selector = Selector::parse("script, style, noscript").unwrap();
+    let _script_selector = Selector::parse("script, style, noscript").unwrap();
     let mut text_content = String::new();
 
     // Extract text from body or entire document
@@ -65,7 +65,7 @@ fn extract_plain_text_fallback(html: &str) -> String {
 fn remove_tag_content(html: &str, tag: &str) -> String {
     let open = format!("<{}>", tag);
     let close = format!("</{}>", tag);
-    let open_attr = format!("<{}\\s", tag);
+    let _open_attr = format!("<{}\\s", tag);
 
     let mut result = html.to_string();
 

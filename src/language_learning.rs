@@ -1,6 +1,5 @@
 use chrono::Local;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use sqlx::{Row, SqlitePool};
 use std::collections::HashMap;
 
@@ -263,7 +262,7 @@ fn is_common_word(word: &str) -> bool {
             | "have" | "has" | "had" | "do" | "does" | "did" | "will" | "would" | "could" | "should"
             | "may" | "might" | "must" | "can" | "this" | "that" | "these" | "those" | "i" | "you"
             | "he" | "she" | "it" | "we" | "they" | "me" | "him" | "her" | "us" | "them" | "my"
-            | "your" | "his" | "her" | "its" | "our" | "their"
+            | "your" | "his" | "its" | "our" | "their"
     )
 }
 

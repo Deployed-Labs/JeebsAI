@@ -352,6 +352,7 @@ pub async fn get_topic_expertise(db: &SqlitePool, topic: &str) -> Option<TopicEx
     let row = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
         .bind(&key)
         .fetch_optional(db)
+        .await
         .ok()??;
 
     let value: Vec<u8> = row.get(0);
@@ -382,7 +383,7 @@ pub async fn get_learning_stats(db: &SqlitePool) -> Result<serde_json::Value, St
     let sessions = get_all_learning_sessions(db).await?;
 
     let total_hours: f32 = sessions.iter().map(|s| s.study_hours).sum();
-    let total_facts: usize = sessions.iter().map(|s| s.learned_facts.len()).collect();
+    let total_facts: usize = sessions.iter().map(|s| s.learned_facts.len()).sum();
     let avg_confidence: f32 = if !sessions.is_empty() {
         sessions.iter().map(|s| s.confidence).sum::<f32>() / sessions.len() as f32
     } else {

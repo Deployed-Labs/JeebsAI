@@ -371,13 +371,8 @@ pub async fn user_chat(
     }
 
     // Get response from Jeebs
-    let response = crate::cortex::custom_ai_logic_with_context(
-        message,
-        &data.db,
-        &[],
-        Some(&username),
-        Some(&username),
-    )
+    let response = crate::cortex::Cortex::think(message, &data)
+        .await;
     .await;
 
     logging::log(

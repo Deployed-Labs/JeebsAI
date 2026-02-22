@@ -223,7 +223,7 @@ impl BrainParser {
 
         let entities = self.extract_entities(&text);
         let relationships = self.extract_relationships(&text, &entities);
-        let topics = self.extract_topics(&text, &entities);
+        let topics = self.extract_topics(&text);
         let categories = self.infer_categories(&text, &topics);
         let metadata = self.create_metadata(&text);
 
@@ -268,7 +268,7 @@ impl BrainParser {
     }
 
     /// Extract relationships between entities
-    fn extract_relationships(&self, text: &str, entities: &[Entity]) -> Vec<Relationship> {
+    fn extract_relationships(&self, text: &str, _entities: &[Entity]) -> Vec<Relationship> {
         let mut relationships = Vec::new();
 
         // Simple relationship extraction using predicate patterns
@@ -339,7 +339,7 @@ impl BrainParser {
 
                 let subcategories = topics
                     .iter()
-                    .filter(|topic| !categories.iter().any(|c| c.name == *topic))
+                    .filter(|topic: &&String| !categories.iter().any(|c| &c.name == *topic))
                     .take(3)
                     .cloned()
                     .collect();

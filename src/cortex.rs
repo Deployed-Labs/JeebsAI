@@ -1,15 +1,10 @@
-use actix_session::Session;
 use actix_web::{get, post, web, HttpResponse, Responder};
 use chrono::Local;
-use rand::seq::SliceRandom;
-use rand::Rng;
-use reqwest::header::CONTENT_TYPE;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{Row, SqlitePool};
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 use std::env;
-use std::time::{Duration, Instant};
 
 use crate::state::AppState;
 use crate::utils::decode_all;
@@ -119,7 +114,7 @@ fn default_active_phase() -> String {
 }
 
 fn normalize_training_topic_input(input: &str) -> Option<String> {
-    let compact = normalize_whitespace(input);
+    let compact = crate::evolution::normalize_whitespace(input);
     if compact.is_empty() {
         return None;
     }
@@ -2174,8 +2169,8 @@ impl Cortex {
     pub async fn think_for_user(
         prompt: &str,
         state: &web::Data<AppState>,
-        user_id: &str,
-        username: Option<&str>,
+        _user_id: &str,
+        _username: Option<&str>,
     ) -> String {
         Self::think(prompt, state).await
     }

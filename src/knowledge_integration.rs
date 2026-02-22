@@ -1,6 +1,5 @@
 // Knowledge Integration Module - Uses learned information in chat responses
 
-use serde_json::json;
 use sqlx::SqlitePool;
 use crate::deep_learning;
 

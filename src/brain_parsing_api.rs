@@ -1,8 +1,7 @@
 use actix_web::{get, post, web, HttpResponse, Responder};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use sqlx::SqlitePool;
-use crate::brain_parser::{BrainParser, build_knowledge_graph, ParsedBrainContent, KnowledgeGraph};
+use crate::brain_parser::{BrainParser, build_knowledge_graph, ParsedBrainContent};
 use crate::state::AppState;
 
 #[derive(Debug, Deserialize)]

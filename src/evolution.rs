@@ -267,7 +267,7 @@ fn encode_json<T: Serialize>(value: &T) -> Option<Vec<u8>> {
     encode_all(&bytes, 1).ok()
 }
 
-fn normalize_whitespace(input: &str) -> String {
+pub fn normalize_whitespace(input: &str) -> String {
     input
         .split_whitespace()
         .collect::<Vec<_>>()
