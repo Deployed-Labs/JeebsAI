@@ -327,67 +327,25 @@
         </style>
     </head>
     <body>
-        <main class="shell">
-            <section class="panel topbar">
-                <div class="brand">
-                    <h1>JeebsAI Console</h1>
-                    <p>PGP key auth with token-backed chat access.</p>
-                margin: 0;
-                min-height: 100vh;
-                font-family: var(--font-sans);
-                color: var(--text);
-                background: var(--bg-0);
-            }
-
-            .shell {
-                            <div>
-                                <label for="rememberMe">Remember Session</label>
-                                <input id="rememberMe" type="checkbox" />
-                            </div>
-                        </div>
-
-                        <label for="unsignedMessage"
-                            >Unsigned challenge message</label
-                        <body>
-                                <nav id="topnav"></nav>
-                                <div class="shell" style="padding-top:60px;max-width:900px">
-                                    <div class="card card-glow" style="margin-bottom:24px;text-align:center">
-                                        <h1 style="margin-bottom:8px">JeebsAI Console</h1>
-                                        <p class="text-muted">Welcome to JeebsAI. Use the navigation above or quick actions below.</p>
-                                    </div>
-                                    <div class="card" style="margin-bottom:24px">
-                                        <h3>Quick Actions</h3>
-                                        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
-                                            <a href="/webui/search.html" class="btn btn-accent">Brain Search</a>
-                                            <a href="/webui/trainer_panel.html" class="btn btn-primary">Trainer Panel</a>
-                                            <a href="/webui/admin_dashboard.html" class="btn btn-ghost">Admin Dashboard</a>
-                                        </div>
-                                    </div>
-                                    <div class="card">
-                                        <h3>Recent Activity</h3>
-                                        <div id="activityLog" class="log-box" style="min-height:120px;max-height:320px">Loading...</div>
-                                    </div>
-                                </div>
-                            </button>
-                        </div>
-
-                        <label for="signedMessage"
-                            >Signed message (armored clear-sign output)</label
-                        >
-                        <textarea id="signedMessage" required></textarea>
-
-                        <div class="row">
-                            <button type="submit" class="primary">
-                                Login with PGP Signature
-                            </button>
-                        </div>
-                    </form>
-                    <p class="muted">
-                        Sign exactly
-                        <code>LOGIN:&lt;username&gt;:&lt;unix_ts&gt;</code> and
-                        paste the full armored signed output.
-                    </p>
+        <nav id="topnav"></nav>
+        <div class="shell" style="padding-top:60px;max-width:900px">
+            <div class="card card-glow" style="margin-bottom:24px;text-align:center">
+                <h1 style="margin-bottom:8px">JeebsAI Console</h1>
+                <p class="text-muted">Welcome to JeebsAI. Use the navigation above or quick actions below.</p>
+            </div>
+            <div class="card" style="margin-bottom:24px">
+                <h3>Quick Actions</h3>
+                <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+                    <a href="/webui/search.html" class="btn btn-accent">Brain Search</a>
+                    <a href="/webui/trainer_panel.html" class="btn btn-primary" id="trainerQuick" style="display:none">Trainer Panel</a>
+                    <a href="/webui/admin_dashboard.html" class="btn btn-ghost" id="adminQuick" style="display:none">Admin Dashboard</a>
                 </div>
+            </div>
+            <div class="card">
+                <h3>Recent Activity</h3>
+                <div id="activityLog" class="log-box" style="min-height:120px;max-height:320px">Loading...</div>
+            </div>
+        </div>
 
                 <div id="registerView" class="view">
                     <form id="registerForm">
@@ -479,36 +437,16 @@
         </main>
 
         <script src="/webui/auth.js"></script>
+        <script src="/webui/nav.js"></script>
         <script>
-            const state = {
-                loggedIn: false,
-                username: "",
-                isAdmin: false,
-                isTrainer: false,
-                token: jeebsGetToken(),
-            };
-
-            const authPanel = document.getElementById("authPanel");
-            const chatPanel = document.getElementById("chatPanel");
-            const statusBar = document.getElementById("statusBar");
-            const statusChip = document.getElementById("statusChip");
-            const chatFeed = document.getElementById("chatFeed");
-            const chatMeta = document.getElementById("chatMeta");
-            const tokenBox = document.getElementById("tokenBox");
-            const promptInput = document.getElementById("promptInput");
-            const adminControlsLink = document.getElementById("adminControlsLink");
-            const trainerPanelLink = document.getElementById("trainerPanelLink");
-
-            function isRootAdminSession() {
-                return (
-                    Boolean(state.isAdmin) &&
-                    String(state.username) === JEEBS_ROOT_ADMIN
-                );
+            // Show/hide quick actions based on role
+            async function updateQuickActions() {
+                const auth = await getAuthState();
+                document.getElementById('adminQuick').style.display = (auth.isAdmin && auth.username === JEEBS_ROOT_ADMIN) ? '' : 'none';
+                document.getElementById('trainerQuick').style.display = (auth.isTrainer || (auth.isAdmin && auth.username === JEEBS_ROOT_ADMIN)) ? '' : 'none';
             }
-
-            function canAccessTrainerPanel() {
-                return state.isTrainer || isRootAdminSession();
-            }
+            updateQuickActions();
+            JeebsNav.init('home');
 
             function setStatus(message, level = "info") {
                 statusBar.textContent = message || "";
