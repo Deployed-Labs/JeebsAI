@@ -461,6 +461,121 @@ pub async fn login(
     handle_pgp_login(&data, &pgp_req, &http_req, &session).await
 }
 
+#[derive(Deserialize)]
+pub struct ChangeUsernameRequest {
+    pub new_username: String,
+}
+
+#[post("/api/profile/username")]
+pub async fn change_username(
+    data: web::Data<AppState>,
+    req: web::Json<ChangeUsernameRequest>,
+    session: Session,
+    http_req: HttpRequest,
+) -> impl Responder {
+    let logged_in = session
+        .get::<bool>("logged_in")
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+    if !logged_in {
+        return HttpResponse::Unauthorized().json(serde_json::json!({"error": "Not logged in"}));
+    }
+
+    let current = match session.get::<String>("username") {
+        Ok(Some(u)) => u,
+        _ =>
+            return HttpResponse::Unauthorized().json(serde_json::json!({"error": "Not logged in"})),
+    };
+
+    let new_un = req.new_username.trim();
+    if new_un == current {
+        return HttpResponse::BadRequest().json(serde_json::json!({"error": "Username unchanged"}));
+    }
+
+    if !valid_username(new_un) {
+        return HttpResponse::BadRequest()
+            .json(serde_json::json!({"error": "Username must be 3-32 chars and use only letters, numbers, '-' or '_'"}));
+    }
+
+    if new_un == "admin" || new_un == ROOT_ADMIN_USERNAME {
+        return HttpResponse::BadRequest()
+            .json(serde_json::json!({"error": "Cannot use reserved username"}));
+    }
+
+    let new_key = format!("user:{}", new_un);
+    // Check uniqueness
+    if let Ok(Some(_)) = sqlx::query("SELECT 1 FROM jeebs_store WHERE key = ?")
+        .bind(&new_key)
+        .fetch_optional(&data.db)
+        .await
+    {
+        return HttpResponse::Conflict().json(serde_json::json!({"error": "Username already exists"}));
+    }
+
+    let old_key = format!("user:{}", current);
+
+    // Read the existing user record from the DB
+    let row = match sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
+        .bind(&old_key)
+        .fetch_optional(&data.db)
+        .await
+    {
+        Ok(r) => r,
+        Err(_) => return HttpResponse::InternalServerError().json(serde_json::json!({"error": "Database error"})),
+    };
+
+    let Some(row) = row else {
+        return HttpResponse::NotFound().json(serde_json::json!({"error": "User not found"}));
+    };
+
+    let val: Vec<u8> = row.get(0);
+    let mut user_json = match serde_json::from_slice::<serde_json::Value>(&val) {
+        Ok(v) => v,
+        Err(_) => return HttpResponse::InternalServerError().json(serde_json::json!({"error": "Corrupted user record"})),
+    };
+
+    user_json["username"] = serde_json::Value::String(new_un.to_string());
+
+    if let Err(_) = sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)")
+        .bind(&new_key)
+        .bind(serde_json::to_vec(&user_json).unwrap())
+        .execute(&data.db)
+        .await
+    {
+        return HttpResponse::InternalServerError().json(serde_json::json!({"error": "Failed to save new user record"}));
+    }
+
+    if let Err(_) = sqlx::query("DELETE FROM jeebs_store WHERE key = ?")
+        .bind(&old_key)
+        .execute(&data.db)
+        .await
+    {
+        return HttpResponse::InternalServerError().json(serde_json::json!({"error": "Failed to remove old user record"}));
+    }
+
+    // Update any active session records to reflect new username
+    let _ = sqlx::query("UPDATE user_sessions SET username = ? WHERE username = ?")
+        .bind(new_un)
+        .bind(&current)
+        .execute(&data.db)
+        .await;
+
+    // Update session
+    let _ = session.insert("username", new_un.to_string());
+
+    // Log the username change
+    crate::logging::log(
+        &data.db,
+        "INFO",
+        "USER",
+        &format!("Username changed: {} -> {} by ip={}", current, new_un, peer_addr(&http_req)),
+    )
+    .await;
+
+    HttpResponse::Ok().json(serde_json::json!({"ok": true, "username": new_un}))
+}
+
 #[get("/api/auth/status")]
 pub async fn auth_status(
     data: web::Data<AppState>,

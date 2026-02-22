@@ -112,6 +112,13 @@
             <div class="card">
                 <h2>Account Details</h2>
                 <div id="profileInfo">Loading...</div>
+
+                <form id="changeUsernameForm" style="margin-top:12px">
+                    <label>Change Username</label>
+                    <input type="text" id="newUsername" placeholder="New username" required />
+                    <button type="submit">Change Username</button>
+                    <div id="usernameStatus" class="status"></div>
+                </form>
             </div>
 
             <div class="card">
@@ -270,6 +277,35 @@
                     : "Error: " + (data.error || "Unknown");
                 status.style.color = res.ok ? "var(--accent)" : "#ff6b6b";
                 if (res.ok) document.getElementById("changePassForm").reset();
+            };
+
+            document.getElementById("changeUsernameForm").onsubmit = async (e) => {
+                e.preventDefault();
+                const newUsername = document.getElementById("newUsername").value.trim();
+                const status = document.getElementById("usernameStatus");
+                if (!newUsername) return;
+
+                status.textContent = "Updating...";
+                status.style.color = "var(--text-main)";
+
+                const res = await safeFetch("/api/profile/username", {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: authHeaders(true),
+                    body: JSON.stringify({ new_username: newUsername }),
+                });
+
+                const data = await res.json().catch(() => ({}));
+                if (res.ok) {
+                    status.textContent = "Username updated.";
+                    status.style.color = "var(--accent)";
+                    document.getElementById("changeUsernameForm").reset();
+                    loadProfile();
+                    loadActivity();
+                } else {
+                    status.textContent = "Error: " + (data.error || "Unknown");
+                    status.style.color = "#ff6b6b";
+                }
             };
 
             document.getElementById("changeEmailForm").onsubmit = async (e) => {
