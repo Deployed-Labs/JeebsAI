@@ -2,6 +2,7 @@ use chrono::Local;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{Row, SqlitePool};
+use std::collections::HashSet;
 
 const PROPOSAL_KEY: &str = "jeebs:next_proposal";
 const PROPOSAL_INTERVAL_SECS: i64 = 1800; // 30 minutes
@@ -13,6 +14,93 @@ pub struct ProactiveProposal {
     pub description: String,
     pub reason: String,
     pub created_at: String,
+}
+
+#[derive(Deserialize)]
+struct FileChangeLite {
+    path: String,
+    new_content: String,
+}
+
+#[derive(Deserialize)]
+struct EvolutionUpdateLite {
+    #[serde(default)]
+    changes: Vec<FileChangeLite>,
+    #[serde(default)]
+    status: String,
+    #[serde(default)]
+    created_at: String,
+    #[serde(default)]
+    title: String,
+}
+
+struct ReflectionCandidates {
+    actions: Vec<String>,
+    learning_topics: Vec<String>,
+    scope_topics: Vec<String>,
+}
+
+fn parse_markdown_section(content: &str, header: &str) -> Vec<String> {
+    let mut in_section = false;
+    let mut out = Vec::new();
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("## ") {
+            in_section = trimmed == header;
+            continue;
+        }
+        if !in_section {
+            continue;
+        }
+        if let Some(item) = trimmed.strip_prefix("- ") {
+            if !item.is_empty() {
+                out.push(item.to_string());
+            }
+        }
+    }
+    out
+}
+
+async fn load_reflection_candidates(db: &SqlitePool) -> ReflectionCandidates {
+    let rows = sqlx::query("SELECT value FROM jeebs_store WHERE key LIKE 'evolution:update:%' ORDER BY key DESC LIMIT 50")
+        .fetch_all(db)
+        .await
+        .unwrap_or_default();
+
+    let mut actions = Vec::new();
+    let mut learning_topics = Vec::new();
+    let mut scope_topics = Vec::new();
+
+    for row in rows {
+        let raw: Vec<u8> = row.get(0);
+        let Ok(update) = serde_json::from_slice::<EvolutionUpdateLite>(&raw) else {
+            continue;
+        };
+        if update.status != "pending" && update.status != "applied" {
+            continue;
+        }
+
+        for change in update.changes {
+            if !change.path.starts_with("evolution/reflections/") {
+                continue;
+            }
+
+            actions.extend(parse_markdown_section(&change.new_content, "## Suggested Actions"));
+            learning_topics.extend(parse_markdown_section(&change.new_content, "## Conversation Gaps To Learn"));
+            learning_topics.extend(parse_markdown_section(&change.new_content, "## Search Queries For Knowledge Expansion"));
+            scope_topics.extend(parse_markdown_section(&change.new_content, "## Priority Topics"));
+        }
+    }
+
+    actions.truncate(5);
+    learning_topics.truncate(5);
+    scope_topics.truncate(5);
+
+    ReflectionCandidates {
+        actions,
+        learning_topics,
+        scope_topics,
+    }
 }
 
 fn base_action_type(action_type: &str) -> &str {
@@ -147,9 +235,53 @@ pub async fn generate_proactive_proposal(db: &SqlitePool) -> Option<ProactivePro
         return None;
     }
 
-    let mut existing_types = std::collections::HashSet::new();
+    let mut existing_types = HashSet::new();
     for proposal in &proposals {
         existing_types.insert(base_action_type(&proposal.action_type).to_string());
+    }
+
+    let reflection = load_reflection_candidates(db).await;
+
+    if !existing_types.contains("reflection") {
+        if let Some(action) = reflection.actions.first() {
+            let proposal = ProactiveProposal {
+                action_type: "reflection".to_string(),
+                description: format!("Act on reflection: {action}"),
+                reason: "Derived from evolution reflection suggested actions.".to_string(),
+                created_at: Local::now().to_rfc3339(),
+            };
+            proposals.push(proposal.clone());
+            save_proposals(db, &proposals).await;
+            return Some(proposal);
+        }
+    }
+
+    if !existing_types.contains("learning") {
+        if let Some(topic) = reflection.learning_topics.first() {
+            let proposal = ProactiveProposal {
+                action_type: "learning".to_string(),
+                description: format!("Research learning gap: {topic}"),
+                reason: "Pulled from evolution learning plan gaps and search queries.".to_string(),
+                created_at: Local::now().to_rfc3339(),
+            };
+            proposals.push(proposal.clone());
+            save_proposals(db, &proposals).await;
+            return Some(proposal);
+        }
+    }
+
+    if !existing_types.contains("scope") {
+        if let Some(topic) = reflection.scope_topics.first() {
+            let proposal = ProactiveProposal {
+                action_type: "scope".to_string(),
+                description: format!("Expand scope into: {topic}"),
+                reason: "Derived from evolution scope roadmap priorities.".to_string(),
+                created_at: Local::now().to_rfc3339(),
+            };
+            proposals.push(proposal.clone());
+            save_proposals(db, &proposals).await;
+            return Some(proposal);
+        }
     }
 
     // Check if there are pending evolution updates
@@ -267,6 +399,27 @@ pub async fn generate_proactive_proposal(db: &SqlitePool) -> Option<ProactivePro
 
 pub fn format_proposal(proposal: &ProactiveProposal) -> String {
     match proposal.action_type.as_str() {
+        "reflection" => {
+            format!(
+                "🧭 **Reflection Action**: {}\n\n**Why**: {}\n\nShould I proceed with this reflection-driven action?",
+                proposal.description,
+                proposal.reason
+            )
+        }
+        "learning" => {
+            format!(
+                "📚 **Learning Plan Item**: {}\n\n**Why**: {}\n\nShould I research and add this knowledge?",
+                proposal.description,
+                proposal.reason
+            )
+        }
+        "scope" => {
+            format!(
+                "🧩 **Scope Expansion**: {}\n\n**Why**: {}\n\nShould I expand into this area?",
+                proposal.description,
+                proposal.reason
+            )
+        }
         "learn" => {
             format!(
                 "💡 **Proactive Suggestion**: {}\n\n**Why**: {}\n\nWould you like me to research this topic and add it to my knowledge base?",
