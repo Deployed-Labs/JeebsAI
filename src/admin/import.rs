@@ -1,4 +1,4 @@
-use crate::cortex::BrainNode;
+use crate::brain::BrainNode;
 // use crate::cortex::BrainNode;
 use crate::state::AppState;
 use crate::utils::encode_all;

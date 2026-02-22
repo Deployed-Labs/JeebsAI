@@ -14,8 +14,7 @@ use jeebs::plugins::{
 use jeebs::{
     admin, auth, brain_parsing_api, chat, cortex, evolution, logging, user_chat, AppState,
 };
-use crate::brain::coded_holographic_data_storage_container::{CodedHolographicDataStorageContainer, create_holo_node};
-};
+use jeebs::brain::coded_holographic_data_storage_container::{CodedHolographicDataStorageContainer, create_holo_node};
 use sqlx::{Row, SqlitePool};
 use std::collections::HashSet;
 use std::env;
@@ -31,7 +30,7 @@ async fn main() -> std::io::Result<()> {
     // Initialize JeebsAI's new brain
     let mut chdsc = CodedHolographicDataStorageContainer::new();
     // Migrate old brain data if available
-    let old_nodes = crate::brain::mod::search_knowledge(&pool, "").await;
+    let old_nodes = jeebs::brain::search_knowledge(&pool, "").await;
     chdsc.migrate_from_brain_nodes(old_nodes);
     println!("JeebsAI emergent mood: {}", chdsc.emergent_summary());
         // Add endpoint to visualize JeebsAI's mood
@@ -39,7 +38,7 @@ async fn main() -> std::io::Result<()> {
         async fn jeebs_mood() -> impl Responder {
             let mut chdsc = CodedHolographicDataStorageContainer::new();
             let pool = sqlx::SqlitePool::connect(&std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:./jeebs.db".to_string())).await.unwrap();
-            let old_nodes = crate::brain::mod::search_knowledge(&pool, "").await;
+            let old_nodes = jeebs::brain::search_knowledge(&pool, "").await;
             chdsc.migrate_from_brain_nodes(old_nodes);
             HttpResponse::Ok().body(chdsc.emergent_summary())
         }
@@ -264,6 +263,7 @@ async fn main() -> std::io::Result<()> {
             .service(brain_parsing_api::get_graph_statistics)
             .service(brain_parsing_api::analyze_relationships)
             .service(brain_parsing_api::get_entities_report)
+            .service(cortex::logic_graph_endpoint)
             .service(cortex::generate_template_proposals_endpoint)
             .service(cortex::get_template_proposals_endpoint)
             .service(cortex::update_proposal_status_endpoint)

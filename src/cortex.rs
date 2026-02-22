@@ -1,4 +1,39 @@
 use actix_web::{get, post, web, HttpResponse, Responder};
+// use crate::state::AppState;
+use crate::brain::{BrainNode, KnowledgeTriple};
+#[get("/api/brain/logic_graph")]
+pub async fn logic_graph_endpoint(state: web::Data<AppState>) -> impl Responder {
+    let db = &state.db;
+    // Fetch all nodes
+    let nodes = crate::brain::search_knowledge(db, "").await;
+    // Build GraphNode list
+    let graph_nodes: Vec<GraphNode> = nodes.iter().map(|n| {
+        GraphNode {
+            id: n.key.clone(),
+            label: n.label.clone(),
+            title: n.summary.clone(),
+            group: n.label.clone(),
+        }
+    }).collect();
+    // Build GraphEdge list from triples
+    let mut graph_edges: Vec<GraphEdge> = Vec::new();
+    for node in &nodes {
+        let triples = crate::brain::get_triples_for_subject(db, &node.key).await;
+        for triple in triples {
+            graph_edges.push(GraphEdge {
+                from: triple.subject.clone(),
+                to: triple.object.clone(),
+                label: triple.predicate.clone(),
+            });
+        }
+    }
+    let response = GraphResponse {
+        nodes: graph_nodes,
+        edges: graph_edges,
+    };
+    HttpResponse::Ok().json(response)
+}
+// use actix_web::{get, post, web, HttpResponse, Responder};
 use chrono::Local;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -10,28 +45,6 @@ use std::time::Instant;
 use crate::state::AppState;
 use crate::utils::decode_all;
 
-#[derive(Debug, Serialize, Deserialize, Clone, sqlx::FromRow)]
-pub struct BrainNode {
-    pub id: Option<i64>,
-    pub key: String,
-    pub value: String,
-    pub label: String,
-    pub summary: String,
-    pub created_at: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct KnowledgeTriple {
-    pub subject: String,
-    pub predicate: String,
-    pub object: String,
-    pub confidence: f64,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct SearchRequest {
-    pub query: String,
-}
 
 #[derive(Debug, Deserialize)]
 pub struct AdvancedSearchRequest {
@@ -1473,7 +1486,7 @@ fn extract_question_topic(question: &str) -> String {
     tokens.into_iter().take(5).collect::<Vec<_>>().join(" ")
 }
 
-async fn collect_training_topics(db: &SqlitePool, limit: usize) -> Vec<String> {
+pub async fn collect_training_topics(db: &SqlitePool, limit: usize) -> Vec<String> {
     let rows = sqlx::query("SELECT value FROM jeebs_store WHERE key LIKE 'chat:history:%'")
         .fetch_all(db)
         .await
@@ -1535,14 +1548,14 @@ struct WikiSummaryResponse {
 }
 
 #[derive(Debug, Clone)]
-struct ExternalLearningDoc {
-    title: String,
-    url: String,
-    summary: String,
-    topic: String,
+pub struct ExternalLearningDoc {
+    pub title: String,
+    pub url: String,
+    pub summary: String,
+    pub topic: String,
 }
 
-async fn query_wikipedia_docs(
+pub async fn query_wikipedia_docs(
     client: &reqwest::Client,
     topic: &str,
     max_docs: usize,
@@ -1656,7 +1669,7 @@ async fn query_wikipedia_docs(
     Ok(docs)
 }
 
-async fn store_external_learning_doc(
+pub async fn store_external_learning_doc(
     db: &SqlitePool,
     doc: &ExternalLearningDoc,
 ) -> Result<String, sqlx::Error> {
