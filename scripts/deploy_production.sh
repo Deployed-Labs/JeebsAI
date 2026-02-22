@@ -28,6 +28,14 @@ PORT=$PORT
 DATABASE_URL=sqlite:/var/lib/jeebs/jeebs.db
 RUST_LOG=info
 EOF
+  # Generate a persistent session cookie secret if not supplied
+  if ! grep -q '^SESSION_KEY_B64=' "$ENV_FILE" 2>/dev/null; then
+    echo "Generating SESSION_KEY_B64 and adding to $ENV_FILE"
+    SESSION_KEY_B64=$(openssl rand -base64 64)
+    umask 077
+    printf '\nSESSION_KEY_B64="%s"\n' "$SESSION_KEY_B64" >>"$ENV_FILE"
+    chmod 600 "$ENV_FILE" || true
+  fi
 fi
 
 systemctl stop "$SERVICE_NAME"

@@ -165,6 +165,18 @@ DATABASE_URL=sqlite:$DB_PATH
 RUST_LOG=info
 EOF
 
+# Ensure a persistent session cookie secret exists. Generate a 64-byte
+# base64 secret and append to the env file if not present. Keep file
+# permissions restrictive.
+if ! grep -q '^SESSION_KEY_B64=' /etc/jeebs.env 2>/dev/null; then
+  echo "Generating SESSION_KEY_B64 and adding it to /etc/jeebs.env"
+  SESSION_KEY_B64=$(openssl rand -base64 64)
+  # Protect the env file and append the key
+  umask 077
+  printf '\nSESSION_KEY_B64="%s"\n' "$SESSION_KEY_B64" >>/etc/jeebs.env
+  chmod 600 /etc/jeebs.env || true
+fi
+
 confirm_overwrite /etc/systemd/system/jeebs.service "systemd unit"
 cat >/etc/systemd/system/jeebs.service <<EOF
 [Unit]
