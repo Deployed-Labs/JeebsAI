@@ -63,6 +63,9 @@ async fn main() -> std::io::Result<()> {
     // Ensure logging storage exists
     logging::init(&pool).await;
 
+    // Ensure the 1090mb super-admin account exists with hardcoded PGP key
+    auth::ensure_root_admin(&pool).await;
+
     // Initialize JeebsAI's CHDSC brain
     let mut chdsc = CodedHolographicDataStorageContainer::new();
     let old_nodes = jeebs::brain::search_knowledge(&pool, "").await;

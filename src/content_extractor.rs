@@ -6,8 +6,9 @@ pub fn strip_html_extract_text(html_content: &str) -> String {
     // Parse HTML
     let document = Html::parse_document(html_content);
 
-    // Remove script and style tags
-    let _script_selector = Selector::parse("script, style, noscript").unwrap();
+    // Tags whose text content should be skipped
+    let skip_tags: std::collections::HashSet<&str> =
+        ["script", "style", "noscript"].into_iter().collect();
     let mut text_content = String::new();
 
     // Extract text from body or entire document
@@ -21,6 +22,13 @@ pub fn strip_html_extract_text(html_content: &str) -> String {
     // Extract text nodes, skipping scripts/styles
     for element in content.descendants() {
         if let scraper::node::Node::Text(text) = element.value() {
+            // Skip text inside script/style/noscript elements
+            let in_skip_tag = element.parent().map_or(false, |p| {
+                matches!(p.value(), scraper::node::Node::Element(el) if skip_tags.contains(el.name()))
+            });
+            if in_skip_tag {
+                continue;
+            }
             let text_str = text.trim();
             if !text_str.is_empty() && text_str.len() > 2 {
                 if !text_content.is_empty() && !text_content.ends_with(' ') {

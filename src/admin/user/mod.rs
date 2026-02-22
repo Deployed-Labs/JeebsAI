@@ -33,7 +33,7 @@ pub async fn admin_list_users(data: web::Data<AppState>, session: Session) -> im
             let username = key.strip_prefix("user:").unwrap_or(&key).to_string();
             let email = user_json["email"].as_str().unwrap_or("").to_string();
             let role = user_json["role"].as_str().unwrap_or("user").to_string();
-            let is_admin = role == "admin";
+            let is_admin = crate::auth::is_admin_role(&role);
             users.push(UserInfo {
                 username,
                 email,
@@ -56,7 +56,7 @@ pub async fn admin_delete_user(
             .json(json!({"error": "Restricted to 1090mb admin account"}));
     }
     let username = path.into_inner();
-    if username == "admin" {
+    if username == "admin" || username == crate::auth::ROOT_ADMIN_USERNAME {
         return HttpResponse::BadRequest().json(json!({"error": "Cannot delete root admin"}));
     }
 
@@ -128,12 +128,12 @@ pub async fn admin_update_user_role(
             .json(json!({"error": "Restricted to 1090mb admin account"}));
     }
 
-    if req.username == "admin" {
+    if req.username == "admin" || req.username == crate::auth::ROOT_ADMIN_USERNAME {
         return HttpResponse::BadRequest().json(json!({"error": "Cannot change root admin role"}));
     }
 
-    if req.role == "admin" {
-        return HttpResponse::BadRequest().json(json!({"error": "Only root admin can be admin"}));
+    if req.role == "admin" || req.role == "super_admin" {
+        return HttpResponse::BadRequest().json(json!({"error": "Only root admin can hold admin role"}));
     }
 
     if req.role != "user" && req.role != "trainer" {

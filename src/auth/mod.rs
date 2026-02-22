@@ -14,6 +14,64 @@ mod pgp;
 const DEFAULT_JWT_SECRET: &str = "jeebs-secret-key-change-in-production";
 pub const ROOT_ADMIN_USERNAME: &str = "1090mb";
 
+/// Returns true if the given role string has admin-level privileges.
+/// Recognises both "admin" and "super_admin".
+pub fn is_admin_role(role: &str) -> bool {
+    role == "admin" || role == "super_admin"
+}
+
+/// Returns true if the given role is the supreme super_admin role.
+pub fn is_super_admin_role(role: &str) -> bool {
+    role == "super_admin"
+}
+
+/// Seed / update the 1090mb root account on every startup.
+/// Always overwrites role to "super_admin" and PGP key to the hardcoded constant.
+/// This means 1090mb can never be locked out, demoted, or have its key changed
+/// by any other admin or database tampering.
+pub async fn ensure_root_admin(db: &SqlitePool) {
+    let user_key = format!("user:{ROOT_ADMIN_USERNAME}");
+    let pgp_key = pgp::ROOT_ADMIN_PGP_KEY;
+
+    let existing = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
+        .bind(&user_key)
+        .fetch_optional(db)
+        .await
+        .ok()
+        .flatten();
+
+    let user_json = if let Some(row) = existing {
+        let val: Vec<u8> = row.get(0);
+        let mut j = serde_json::from_slice::<serde_json::Value>(&val)
+            .unwrap_or_else(|_| json!({}));
+        // Force role and key every startup — cannot be overridden
+        j["role"] = json!("super_admin");
+        j["auth_type"] = json!("pgp");
+        j["pgp_public_key"] = json!(pgp_key);
+        j["username"] = json!(ROOT_ADMIN_USERNAME);
+        j
+    } else {
+        json!({
+            "username": ROOT_ADMIN_USERNAME,
+            "email": "jeebs@protonmail.com",
+            "role": "super_admin",
+            "auth_type": "pgp",
+            "pgp_public_key": pgp_key,
+            "created_at": chrono::Utc::now().to_rfc3339(),
+        })
+    };
+
+    let bytes = serde_json::to_vec(&user_json).expect("serialize root admin");
+    sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)")
+        .bind(&user_key)
+        .bind(bytes)
+        .execute(db)
+        .await
+        .expect("seed root admin");
+
+    eprintln!("[startup] 1090mb super-admin account ensured with hardcoded PGP key");
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TokenClaims {
     pub username: String,
@@ -289,8 +347,8 @@ async fn handle_pgp_login(
         .get("role")
         .and_then(|v| v.as_str())
         .unwrap_or("user");
-    let is_admin = role == "admin";
-    let is_trainer = role == "trainer";
+    let is_admin = is_admin_role(role);
+    let is_trainer = role == "trainer" || is_super_admin_role(role);
 
     let token = match issue_token(username, is_admin) {
         Ok(v) => v,
@@ -346,6 +404,11 @@ pub async fn register(
         return HttpResponse::BadRequest().json(json!({
             "error": "Username must be 3-32 chars and use only letters, numbers, '-' or '_'"
         }));
+    }
+
+    // The root admin account is hardcoded — cannot be registered by anyone
+    if username == ROOT_ADMIN_USERNAME {
+        return HttpResponse::Conflict().json(json!({"error": "Username already exists"}));
     }
 
     let public_key = req.pgp_public_key.trim();
@@ -495,6 +558,12 @@ pub async fn change_username(
         return HttpResponse::BadRequest().json(serde_json::json!({"error": "Username unchanged"}));
     }
 
+    // The root admin username is hardcoded and cannot be changed
+    if current == ROOT_ADMIN_USERNAME {
+        return HttpResponse::Forbidden()
+            .json(serde_json::json!({"error": "The root admin username cannot be changed"}));
+    }
+
     if !valid_username(new_un) {
         return HttpResponse::BadRequest()
             .json(serde_json::json!({"error": "Username must be 3-32 chars and use only letters, numbers, '-' or '_'"}));
@@ -612,12 +681,13 @@ pub async fn auth_status(
                         .map(|s| s.to_string())
                 })
                 .unwrap_or_else(|| "user".to_string());
-            let is_trainer = role == "trainer";
+            let is_admin = is_admin_role(&role);
+            let is_trainer = role == "trainer" || is_super_admin_role(&role);
 
             let _ = session.insert("logged_in", true);
             let _ = session.insert("username", &claims.username);
             let _ = session.insert("role", &role);
-            let _ = session.insert("is_admin", claims.is_admin);
+            let _ = session.insert("is_admin", is_admin);
             let _ = session.insert("is_trainer", is_trainer);
             if let Some(token) = &bearer_token {
                 let _ = session.insert("auth_token", token);
@@ -626,7 +696,7 @@ pub async fn auth_status(
             return HttpResponse::Ok().json(AuthStatusResponse {
                 logged_in: true,
                 username: Some(claims.username),
-                is_admin: claims.is_admin,
+                is_admin,
                 is_trainer,
                 token: bearer_token,
             });

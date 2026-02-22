@@ -39,10 +39,11 @@ const JeebsNav = (function () {
             localStorage.getItem('jeebs_is_admin') === 'true';
 
 
-        // Only show 'Status' tab to admin users
+        // Only show 'Status' tab to admin users or root admin
+        const isRootAdmin = localStorage.getItem('jeebs_username') === JEEBS_ROOT_ADMIN;
         let linksHtml = PAGES.filter(function (p) {
             if (p.id === 'status') {
-                return localStorage.getItem('jeebs_is_admin') === 'true';
+                return isRootAdmin || localStorage.getItem('jeebs_is_admin') === 'true';
             }
             return true;
         }).map(function (p) {
@@ -103,10 +104,12 @@ const JeebsNav = (function () {
                 dot.className = 'dot online';
                 text.textContent = auth.username;
                 localStorage.setItem('jeebs_is_admin', auth.isAdmin ? 'true' : 'false');
+                localStorage.setItem('jeebs_username', auth.username || '');
             } else {
                 dot.className = 'dot offline';
                 text.textContent = 'Not signed in';
                 localStorage.removeItem('jeebs_is_admin');
+                localStorage.removeItem('jeebs_username');
             }
         } catch (e) {
             dot.className = 'dot offline';

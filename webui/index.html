@@ -230,7 +230,7 @@
 
                 authViews.style.display = "none";
                 chatPanel.style.display = "flex";
-                chatMeta.textContent = `${state.username}${state.isAdmin ? " (admin)" : ""}`;
+                chatMeta.textContent = `${state.username}${isRootAdminSession() ? " (super-admin)" : state.isAdmin ? " (admin)" : ""}`;
                 tokenBox.textContent = state.token
                     ? `Token: ${state.token}`
                     : "Token missing from session response.";
@@ -315,8 +315,9 @@
                         state.token = data.token;
                         jeebsSetToken(state.token);
                     }
-                    // Store admin flag for nav.js
+                    // Store admin flag and username for nav.js
                     localStorage.setItem("jeebs_is_admin", state.isAdmin ? "true" : "false");
+                    localStorage.setItem("jeebs_username", state.username || "");
                     renderAuthState();
                     if (state.loggedIn) {
                         appendMessage("jeebs", "You are authenticated. Ask me anything.");

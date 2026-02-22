@@ -76,6 +76,8 @@ async function getAuthState() {
  *  role = "trainer" → must be trainer or root admin
  *  role = "user"    → must be logged in
  *  Returns auth state if authorised; redirects otherwise.
+ *
+ *  The 1090mb root admin is NEVER restricted from any view.
  */
 async function requireAuth(role) {
     let auth = await getAuthState();
@@ -98,6 +100,16 @@ async function requireAuth(role) {
             }
         } catch (e) {}
     }
+
+    // Root admin (1090mb) is never restricted from any page or menu
+    if (auth.loggedIn && auth.username === JEEBS_ROOT_ADMIN) {
+        // Force admin + trainer flags for the root admin regardless of backend response
+        auth.isAdmin = true;
+        auth.isTrainer = true;
+        localStorage.setItem('jeebs_is_admin', 'true');
+        localStorage.setItem('jeebs_username', auth.username);
+    }
+
     return auth;
 }
 
