@@ -1,5 +1,6 @@
 #!/bin/bash
-cd /root/JeebsAI
+APP_DIR=${APP_DIR:-"/root/JeebsAI"}
+cd "$APP_DIR"
 # Inject correct library services into main.rs
 sed -i 's|.service(auth::login)|.service(jeebs::auth::login)|g' src/main.rs
 sed -i 's|.service(auth::login_pgp)|.service(jeebs::auth::login_pgp)|g' src/main.rs

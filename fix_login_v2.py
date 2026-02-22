@@ -1,4 +1,6 @@
-path = "/root/JeebsAI/home.html"
+import os
+APP_DIR = os.environ.get("APP_DIR", "/root/JeebsAI")
+path = os.path.join(APP_DIR, "home.html")
 with open(path, "r") as f:
     content = f.read()
 

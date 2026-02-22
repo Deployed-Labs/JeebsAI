@@ -1,4 +1,6 @@
-path = "/root/JeebsAI/src/auth/mod.rs"
+import os
+APP_DIR = os.environ.get("APP_DIR", "/root/JeebsAI")
+path = os.path.join(APP_DIR, "src/auth/mod.rs")
 with open(path, "r") as f:
     lines = f.readlines()
 

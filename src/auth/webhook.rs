@@ -88,7 +88,7 @@ fn constant_time_compare(a: &str, b: &str) -> bool {
 }
 
 fn pull_and_restart() -> Result<String, String> {
-    let repo_dir = "/root/JeebsAI";
+    let repo_dir = std::env::var("REPO_DIR").unwrap_or_else(|_| "/root/JeebsAI".to_string());
 
     // Pull latest
     let pull_output = Command::new("git")

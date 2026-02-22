@@ -5,14 +5,15 @@ paths_to_check = ["src/admin/mod.rs", "src/db/mod.rs", "src/schema.rs", "src/adm
 found_path = "crate::User" # Default fallback
 
 for p in paths_to_check:
-    if os.path.exists(f"/root/JeebsAI/{p}"):
-        with open(f"/root/JeebsAI/{p}", "r") as f:
+    APP_DIR = os.environ.get("APP_DIR", "/root/JeebsAI")
+    if os.path.exists(os.path.join(APP_DIR, p)):
+        with open(os.path.join(APP_DIR, p), "r") as f:
             if "pub struct User" in f.read():
                 # Convert file path to Rust module path
                 found_path = "crate::" + p.replace("src/", "").replace(".rs", "").replace("/mod", "").replace("/", "::") + "::User"
                 break
 
-auth_path = "/root/JeebsAI/src/auth/mod.rs"
+auth_path = os.path.join(APP_DIR, "src/auth/mod.rs")
 with open(auth_path, "r") as f:
     lines = f.readlines()
 

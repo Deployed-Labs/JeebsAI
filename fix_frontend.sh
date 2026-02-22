@@ -1,5 +1,7 @@
 #!/bin/bash
-cd /root/JeebsAI
+# Use APP_DIR env var if set, otherwise default to /root/JeebsAI
+APP_DIR=${APP_DIR:-"/root/JeebsAI"}
+cd "$APP_DIR"
 # Change all login paths to the /api/ prefix
 find . -type f \( -name "*.html" -o -name "*.js" \) -exec sed -i 's|/login|/api/login|g' {} +
 # Remove any hardcoded localhost URLs causing Network Errors
