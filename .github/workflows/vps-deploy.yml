@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -13,6 +14,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y clang llvm pkg-config nettle-dev build-essential libssl-dev libsqlite3-dev libmysqlclient-dev
+          echo "PKG_CONFIG_PATH=/usr/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig" >> $GITHUB_ENV
       - name: Checkout code
         uses: actions/checkout@v3
       - name: Build Rust project (fail early)
@@ -21,26 +23,49 @@ jobs:
       - name: Test Rust project
         run: |
           cargo test --release || (echo "Rust tests failed" && exit 1)
-      - name: Copy repo to VPS (retry up to 3 times)
-        uses: appleboy/scp-action@v0.1.7
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
           port: ${{ secrets.VPS_PORT }}
-          source: '.'
-          target: ${{ secrets.VPS_TARGET }}
-        continue-on-error: true
-      - name: Run update script on VPS (with error handling)
-        uses: appleboy/ssh-action@v0.1.7
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          password: ${{ secrets.VPS_PASSWORD }}
-          port: ${{ secrets.VPS_PORT }}
+          command_timeout: 30m
           script: |
-            cd ${{ secrets.VPS_TARGET }}
-            ./update_master.sh || (echo "VPS update failed" && exit 1)
+            echo "🚀 Starting deployment on VPS..."
+            
+            # 1. Navigate to target directory
+            TARGET="${{ secrets.VPS_TARGET }}"
+            if [ -z "$TARGET" ]; then TARGET="/root/JeebsAI"; fi
+            
+            mkdir -p "$TARGET"
+            cd "$TARGET"
+            
+            # 2. Update Code (Git Pull)
+            # If not a git repo, clone it. Otherwise fetch and reset.
+            if [ ! -d ".git" ]; then
+                echo "Cloning repository..."
+                git clone https://github.com/${{ github.repository }} .
+            else
+                echo "Updating repository..."
+                git fetch origin
+                git reset --hard origin/main
+            fi
+            
+            # 3. Build Release
+            echo "Building release binary..."
+            # Ensure cargo is in PATH
+            export PATH="$HOME/.cargo/bin:$PATH"
+            cargo build --release
+            
+            # 4. Restart Service
+            echo "Restarting JeebsAI service..."
+            if sudo systemctl restart jeebs; then
+                echo "✅ Service restart command sent."
+            else
+                echo "❌ Failed to restart service. Check permissions."
+                exit 1
+            fi
       - name: Notify on failure
         if: failure()
         run: |

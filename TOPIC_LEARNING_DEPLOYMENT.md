@@ -7,6 +7,7 @@
 ```bash
 bash deploy_now.sh
 ```
+Simply commit and push your changes to the `main` branch. The GitHub Action will handle the rest!
 
 That's it! This will:
 - Stage your changes
@@ -20,12 +21,16 @@ That's it! This will:
 1. SSH into your VPS:
 ```bash
 ssh your-user@your-vps-ip
+git add .
+git commit -m "Update Topic Learning"
+git push origin main
 ```
 
 2. Navigate to JeebsAI:
 ```bash
 cd ~/JeebsAI  # or wherever you installed it
 ```
+Check the **Actions** tab in your GitHub repository to see the deployment progress.
 
 3. Pull latest changes:
 ```bash
