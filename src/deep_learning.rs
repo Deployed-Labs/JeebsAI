@@ -7,6 +7,9 @@ use serde_json::json;
 use sqlx::{Row, SqlitePool};
 use std::collections::HashMap;
 use uuid::Uuid;
+use rand::Rng;
+use std::time::Duration;
+use tokio::time::sleep;
 
 const DEEP_LEARNING_KEY_PREFIX: &str = "deeplearn:";
 const LEARNING_SESSION_PREFIX: &str = "learnsession:";
@@ -29,6 +32,144 @@ pub struct DeepLearningSession {
     pub study_hours: f32,
     pub confidence: f32, // 0.0 - 1.0
     pub status: String,  // "novice", "learning", "intermediate", "advanced", "expert"
+}
+
+/// Run an extended learning session for a period (minutes). This is a background
+/// task that periodically synthesizes new facts and connections to deepen the
+/// session. The implementation is conservative and does not call external APIs
+/// — it demonstrates a framework for longer research cycles and inference.
+pub async fn run_extended_learning_session(
+    db: &SqlitePool,
+    session_id: &str,
+    minutes: u32,
+    inference_enabled: bool,
+    run_id: &str,
+) -> Result<(), String> {
+    let iterations = ((minutes as u64) * 60) / 5;
+    let mut facts_added_total: u32 = 0;
+    for i in 0..iterations {
+        // check cancel flag from run record
+        let run_key = format!("deeplearn_run:{}", run_id);
+        if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
+            .bind(&run_key)
+            .fetch_optional(db)
+            .await
+        {
+            let value: Vec<u8> = row.get(0);
+            if let Ok(mut meta) = serde_json::from_slice::<serde_json::Value>(&value) {
+                if meta.get("cancelled").and_then(|v| v.as_bool()).unwrap_or(false) {
+                    // mark stopped
+                    meta["status"] = serde_json::Value::String("cancelled".to_string());
+                    meta["progress_percent"] = serde_json::Value::Number(serde_json::Number::from_f64(((i as f64) / (iterations as f64) * 100.0).min(100.0)).unwrap());
+                    let _ = sqlx::query("UPDATE jeebs_store SET value = ? WHERE key = ?")
+                        .bind(serde_json::to_vec(&meta).unwrap_or_default())
+                        .bind(&run_key)
+                        .execute(db)
+                        .await;
+                    return Ok(());
+                }
+            }
+        }
+
+        // fetch current session
+        if let Ok(Some(mut session)) = get_learning_session_by_id(db, session_id).await {
+            // synthesize a new fact using simple concept extraction + randomized phrasing
+            let mut rng = rand::thread_rng();
+            let seed_concepts = session
+                .subtopics
+                .iter()
+                .take(3)
+                .cloned()
+                .collect::<Vec<_>>();
+
+            let concept = seed_concepts.get((i as usize) % seed_concepts.len()).cloned().unwrap_or_else(|| session.topic.clone());
+            let fact_text = if inference_enabled {
+                format!("Inferred relation: {} relates to {} via implication {}", session.topic, concept, i)
+            } else {
+                format!("Observed concept: {} — note #{}", concept, i)
+            };
+
+            let importance = 0.3 + (rng.gen::<f32>() * 0.7);
+
+            let added_ok = add_learned_fact(db, &session.id, &fact_text, "auto-research", importance).await.is_ok();
+            if added_ok { facts_added_total += 1; }
+
+            // add a simple connection record
+            let conn = TopicConnection {
+                topic: concept.clone(),
+                how_connected: format!("auto-derived connection #{}", i),
+                found_at: Local::now().to_rfc3339(),
+            };
+            session.connections_made.push(conn);
+
+            // increment study hours slightly
+            session.study_hours += 0.08; // ~5 minutes worth spread across iterations
+            update_session_status(&mut session);
+
+            // persist updated session (value replace)
+            if let Ok(payload) = serde_json::to_vec(&session) {
+                let key = format!("{}{}", LEARNING_SESSION_PREFIX, session_id);
+                let _ = sqlx::query("UPDATE jeebs_store SET value = ? WHERE key = ?")
+                    .bind(&payload)
+                    .bind(&key)
+                    .execute(db)
+                    .await;
+            }
+
+            // update run progress
+            if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
+                .bind(&run_key)
+                .fetch_optional(db)
+                .await
+            {
+                let mut meta: serde_json::Value = serde_json::from_slice::<serde_json::Value>(&row.get::<Vec<u8>, _>(0)).unwrap_or(serde_json::json!({}));
+                let pct = (((i + 1) as f64) / (iterations as f64) * 100.0).min(100.0);
+                meta["progress_percent"] = serde_json::Value::Number(serde_json::Number::from_f64(pct).unwrap());
+                meta["last_update"] = serde_json::Value::String(Local::now().to_rfc3339());
+                // append to history
+                let entry = json!({
+                    "ts": Local::now().to_rfc3339(),
+                    "progress_percent": pct,
+                    "facts_added_total": facts_added_total,
+                });
+                if meta.get("history").is_none() {
+                    meta["history"] = json!([entry]);
+                } else if let Some(arr) = meta.get_mut("history") {
+                    if arr.is_array() {
+                        arr.as_array_mut().unwrap().push(entry);
+                    }
+                }
+
+                let _ = sqlx::query("UPDATE jeebs_store SET value = ? WHERE key = ?")
+                    .bind(serde_json::to_vec(&meta).unwrap_or_default())
+                    .bind(&run_key)
+                    .execute(db)
+                    .await;
+            }
+        }
+
+        sleep(Duration::from_secs(5)).await;
+    }
+
+    // mark run done
+    let run_key = format!("deeplearn_run:{}", run_id);
+    if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
+        .bind(&run_key)
+        .fetch_optional(db)
+        .await
+    {
+        let mut meta: serde_json::Value = serde_json::from_slice::<serde_json::Value>(&row.get::<Vec<u8>, _>(0)).unwrap_or(serde_json::json!({}));
+        meta["status"] = serde_json::Value::String("done".to_string());
+        meta["progress_percent"] = serde_json::Value::Number(serde_json::Number::from_f64(100.0).unwrap());
+        meta["completed_at"] = serde_json::Value::String(Local::now().to_rfc3339());
+        let _ = sqlx::query("UPDATE jeebs_store SET value = ? WHERE key = ?")
+            .bind(serde_json::to_vec(&meta).unwrap_or_default())
+            .bind(&run_key)
+            .execute(db)
+            .await;
+    }
+
+    Ok(())
 }
 
 /// A fact learned about a topic
@@ -381,6 +522,27 @@ pub async fn get_all_learning_sessions(
     }
 
     Ok(sessions)
+}
+
+/// Get a single learning session by id
+pub async fn get_learning_session_by_id(
+    db: &SqlitePool,
+    session_id: &str,
+) -> Result<Option<DeepLearningSession>, String> {
+    let key = format!("{}{}", LEARNING_SESSION_PREFIX, session_id);
+
+    if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
+        .bind(&key)
+        .fetch_optional(db)
+        .await
+    {
+        let value: Vec<u8> = row.get(0);
+        if let Ok(session) = serde_json::from_slice::<DeepLearningSession>(&value) {
+            return Ok(Some(session));
+        }
+    }
+
+    Ok(None)
 }
 
 /// Get learning statistics

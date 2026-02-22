@@ -33,23 +33,23 @@ pub async fn retrieve_knowledge(
     let mut all_items = Vec::new();
     let mut seen_ids = HashSet::new();
 
-    // 1. Search brain nodes
-    let brain_items = search_brain_nodes(db, &query_terms).await?;
+    // 1. Search brain nodes — single batched query with OR conditions
+    let brain_items = search_brain_nodes_batched(db, &query_terms).await?;
     for item in brain_items {
         if seen_ids.insert(item.id.clone()) {
             all_items.push(item);
         }
     }
 
-    // 2. Search knowledge triples
-    let triple_items = search_knowledge_triples(db, &query_terms).await?;
+    // 2. Search knowledge triples — single batched query
+    let triple_items = search_knowledge_triples_batched(db, &query_terms).await?;
     for item in triple_items {
         if seen_ids.insert(item.id.clone()) {
             all_items.push(item);
         }
     }
 
-    // 3. Search stored contexts
+    // 3. Search stored contexts (already scans once)
     let context_items = search_contexts(db, &query_terms).await?;
     for item in context_items {
         if seen_ids.insert(item.id.clone()) {
@@ -57,7 +57,7 @@ pub async fn retrieve_knowledge(
         }
     }
 
-    // 4. Search FAQ/learned responses
+    // 4. Search FAQ/learned responses (already scans once)
     let faq_items = search_faq(db, &query_terms).await?;
     for item in faq_items {
         if seen_ids.insert(item.id.clone()) {
@@ -154,109 +154,146 @@ fn is_stop_word(word: &str) -> bool {
     )
 }
 
-/// Search brain nodes
-async fn search_brain_nodes(
+/// Search brain nodes with a single batched query
+async fn search_brain_nodes_batched(
     db: &SqlitePool,
     terms: &[String],
 ) -> Result<Vec<KnowledgeItem>, String> {
-    let mut items = Vec::new();
+    if terms.is_empty() {
+        return Ok(Vec::new());
+    }
 
+    // Build a single query with OR conditions for all terms
+    let mut conditions = Vec::new();
+    let mut bind_values = Vec::new();
     for term in terms {
         let pattern = format!("%{}%", term);
-        let rows = sqlx::query(
-            "SELECT id, COALESCE(label, '') AS label, COALESCE(summary, '') AS summary,
-                    COALESCE(data, '{}') AS data, created_at
-             FROM brain_nodes
-             WHERE label LIKE ? OR summary LIKE ? OR id LIKE ?
-             ORDER BY created_at DESC
-             LIMIT 20",
-        )
-        .bind(&pattern)
-        .bind(&pattern)
-        .bind(&pattern)
-        .fetch_all(db)
-        .await
-        .map_err(|e| e.to_string())?;
+        conditions.push("(label LIKE ? OR summary LIKE ? OR id LIKE ?)");
+        bind_values.push(pattern.clone());
+        bind_values.push(pattern.clone());
+        bind_values.push(pattern);
+    }
 
-        for row in rows {
-            let id: String = row.get(0);
-            let label: String = row.get(1);
-            let summary: String = row.get(2);
-            let data: Vec<u8> = row.get(3);
-            let created_at: String = row.get(4);
+    let where_clause = conditions.join(" OR ");
+    let sql = format!(
+        "SELECT id, COALESCE(label, '') AS label, COALESCE(summary, '') AS summary,
+                COALESCE(data, '{{}}') AS data, created_at
+         FROM brain_nodes
+         WHERE {}
+         ORDER BY created_at DESC
+         LIMIT 40",
+        where_clause
+    );
 
-            let content = if let Ok(json_val) = serde_json::from_slice::<serde_json::Value>(&data) {
-                json_val
-                    .get("text")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string()
-            } else {
-                String::new()
-            };
+    let mut query = sqlx::query(&sql);
+    for val in &bind_values {
+        query = query.bind(val);
+    }
 
-            items.push(KnowledgeItem {
-                id: format!("brain:{}", id),
-                label,
-                summary,
-                content,
-                category: "brain_node".to_string(),
-                tags: vec![],
-                relevance_score: 0.0,
-                created_at,
-            });
+    let rows = query.fetch_all(db).await.map_err(|e| e.to_string())?;
+
+    let mut items = Vec::new();
+    let mut seen = HashSet::new();
+    for row in rows {
+        let id: String = row.get(0);
+        if !seen.insert(id.clone()) {
+            continue;
         }
+        let label: String = row.get(1);
+        let summary: String = row.get(2);
+        let data: Vec<u8> = row.get(3);
+        let created_at: String = row.get(4);
+
+        let content = if let Ok(json_val) = serde_json::from_slice::<serde_json::Value>(&data) {
+            json_val
+                .get("text")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string()
+        } else {
+            String::new()
+        };
+
+        items.push(KnowledgeItem {
+            id: format!("brain:{}", id),
+            label,
+            summary,
+            content,
+            category: "brain_node".to_string(),
+            tags: vec![],
+            relevance_score: 0.0,
+            created_at,
+        });
     }
 
     Ok(items)
 }
 
-/// Search knowledge triples
-async fn search_knowledge_triples(
+/// Search knowledge triples with a single batched query
+async fn search_knowledge_triples_batched(
     db: &SqlitePool,
     terms: &[String],
 ) -> Result<Vec<KnowledgeItem>, String> {
-    let mut items = Vec::new();
+    if terms.is_empty() {
+        return Ok(Vec::new());
+    }
 
+    let mut conditions = Vec::new();
+    let mut bind_values = Vec::new();
     for term in terms {
         let pattern = format!("%{}%", term);
-        let rows = sqlx::query(
-            "SELECT subject, predicate, object, confidence, created_at
-             FROM knowledge_triples
-             WHERE subject LIKE ? OR predicate LIKE ? OR object LIKE ?
-             ORDER BY confidence DESC, created_at DESC
-             LIMIT 15",
-        )
-        .bind(&pattern)
-        .bind(&pattern)
-        .bind(&pattern)
-        .fetch_all(db)
-        .await
-        .map_err(|e| e.to_string())?;
+        conditions.push("(subject LIKE ? OR predicate LIKE ? OR object LIKE ?)");
+        bind_values.push(pattern.clone());
+        bind_values.push(pattern.clone());
+        bind_values.push(pattern);
+    }
 
-        for row in rows {
-            let subject: String = row.get(0);
-            let predicate: String = row.get(1);
-            let object: String = row.get(2);
-            let confidence: f64 = row.get(3);
-            let created_at: String = row.get(4);
+    let where_clause = conditions.join(" OR ");
+    let sql = format!(
+        "SELECT subject, predicate, object, confidence, created_at
+         FROM knowledge_triples
+         WHERE {}
+         ORDER BY confidence DESC, created_at DESC
+         LIMIT 30",
+        where_clause
+    );
 
-            let summary = format!("{} {} {}", subject, predicate, object);
+    let mut query = sqlx::query(&sql);
+    for val in &bind_values {
+        query = query.bind(val);
+    }
 
-            items.push(KnowledgeItem {
-                id: format!("triple:{}:{}:{}", subject, predicate, object),
-                label: subject.clone(),
-                summary,
-                content: format!(
-                    "Fact: {} {} {} (confidence: {:.2})",
-                    subject, predicate, object, confidence
-                ),
-                category: "knowledge_triple".to_string(),
-                tags: vec![subject, predicate, object],
-                relevance_score: confidence,
-                created_at,
-            });
+    let rows = query.fetch_all(db).await.map_err(|e| e.to_string())?;
+
+    let mut items = Vec::new();
+    let mut seen = HashSet::new();
+    for row in rows {
+        let subject: String = row.get(0);
+        let predicate: String = row.get(1);
+        let object: String = row.get(2);
+        let confidence: f64 = row.get(3);
+        let created_at: String = row.get(4);
+
+        let id_key = format!("triple:{}:{}:{}", subject, predicate, object);
+        if !seen.insert(id_key.clone()) {
+            continue;
         }
+
+        let summary = format!("{} {} {}", subject, predicate, object);
+
+        items.push(KnowledgeItem {
+            id: id_key,
+            label: subject.clone(),
+            summary,
+            content: format!(
+                "Fact: {} {} {} (confidence: {:.2})",
+                subject, predicate, object, confidence
+            ),
+            category: "knowledge_triple".to_string(),
+            tags: vec![subject, predicate, object],
+            relevance_score: confidence,
+            created_at,
+        });
     }
 
     Ok(items)

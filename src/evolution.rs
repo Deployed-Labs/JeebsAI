@@ -94,6 +94,12 @@ pub struct ProposedUpdate {
     pub resolved_at: Option<String>,
     #[serde(default)]
     pub rolled_back_at: Option<String>,
+    #[serde(default)]
+    pub votes_up: i64,
+    #[serde(default)]
+    pub votes_down: i64,
+    #[serde(default)]
+    pub votes_by_user: std::collections::HashMap<String, String>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -1485,6 +1491,9 @@ fn build_update_from_signals(signals: &SignalSnapshot) -> ProposedUpdate {
         denied_at: None,
         resolved_at: None,
         rolled_back_at: None,
+        votes_up: 0,
+        votes_down: 0,
+        votes_by_user: std::collections::HashMap::new(),
     };
 
     update.fingerprint = update_fingerprint(&update);
@@ -1682,6 +1691,129 @@ pub async fn list_updates(data: web::Data<AppState>, session: Session) -> impl R
         updates,
         role: "admin".to_string(),
     })
+}
+
+// Public listing for everyone — returns same update objects but role indicates caller capabilities
+#[get("/api/evolution/updates")]
+pub async fn public_list_updates(data: web::Data<AppState>, session: Session) -> impl Responder {
+    let updates = load_all_updates(&data.db).await;
+    // determine role
+    let role = if crate::auth::is_root_admin_session(&session) {
+        "admin".to_string()
+    } else if session.get::<bool>("logged_in").ok().flatten().unwrap_or(false) {
+        "user".to_string()
+    } else {
+        "guest".to_string()
+    };
+
+    HttpResponse::Ok().json(UpdatesResponse { updates, role })
+}
+
+/// Public brain stats — no auth required. Exposes key metrics so the evolution
+/// page can show brain growth and activity to everyone.
+#[get("/api/evolution/stats")]
+pub async fn public_evolution_stats(data: web::Data<AppState>) -> impl Responder {
+    let state = load_runtime_state(&data.db).await;
+    let updates = load_all_updates(&data.db).await;
+    let signals = collect_signals(&data.db).await;
+
+    let pending = updates.iter().filter(|u| u.status == "pending").count();
+    let applied = updates.iter().filter(|u| u.status == "applied").count();
+    let denied = updates.iter().filter(|u| u.status == "denied").count();
+
+    HttpResponse::Ok().json(json!({
+        "thinker": {
+            "status": state.status,
+            "total_cycles": state.total_cycles,
+            "total_proposals": state.total_proposals,
+            "empty_cycles": state.empty_cycles,
+            "last_cycle_at": state.last_cycle_at,
+            "last_proposal_at": state.last_proposal_at,
+            "last_reason": state.last_reason,
+            "started_at": state.started_at,
+        },
+        "brain": {
+            "nodes": signals.brain_nodes_count,
+            "learned_facts": signals.learned_fact_count,
+            "chat_logs_24h": signals.chat_logs_last_24h,
+            "warnings_24h": signals.warn_last_24h,
+            "errors_24h": signals.error_last_24h,
+            "unanswered_24h": signals.unanswered_questions_last_24h,
+            "top_unknown_topics": signals.top_unknown_topics,
+            "knowledge_drive": knowledge_drive_score(&signals),
+        },
+        "proposals": {
+            "total": updates.len(),
+            "pending": pending,
+            "applied": applied,
+            "denied": denied,
+        }
+    }))
+}
+
+#[derive(Deserialize)]
+struct VoteBody {
+    vote: String,
+}
+
+// Allow everyone to vote (up/down). Votes are tracked per-user when username available, otherwise counted as anonymous.
+#[post("/api/evolution/vote/{id}")]
+pub async fn vote_update(
+    data: web::Data<AppState>,
+    path: web::Path<String>,
+    body: web::Json<VoteBody>,
+    session: Session,
+) -> impl Responder {
+    let id = path.into_inner();
+    let key = format!("{}{}", UPDATE_KEY_PREFIX, id);
+
+    let voter = session
+        .get::<String>("username")
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "anon".to_string());
+
+    let vote = body.vote.to_lowercase();
+    if vote != "up" && vote != "down" {
+        return HttpResponse::BadRequest().json(json!({"error": "vote must be 'up' or 'down'"}));
+    }
+
+    if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?").bind(&key).fetch_optional(&data.db).await {
+        let val: Vec<u8> = row.get(0);
+        if let Some(mut update) = decode_json::<ProposedUpdate>(&val) {
+            let prev = update.votes_by_user.remove(&voter);
+            // adjust counts if previous vote existed
+            if let Some(prev_vote) = prev {
+                if prev_vote == "up" {
+                    update.votes_up = update.votes_up.saturating_sub(1);
+                } else if prev_vote == "down" {
+                    update.votes_down = update.votes_down.saturating_sub(1);
+                }
+            }
+
+            // apply new vote
+            if vote == "up" {
+                update.votes_up = update.votes_up.saturating_add(1);
+                update.votes_by_user.insert(voter.clone(), "up".to_string());
+            } else {
+                update.votes_down = update.votes_down.saturating_add(1);
+                update.votes_by_user.insert(voter.clone(), "down".to_string());
+            }
+
+            // Persist update
+            if let Ok(json_bytes) = serde_json::to_vec(&update) {
+                if let Ok(new_val) = encode_all(&json_bytes, 1) {
+                    if let Err(e) = sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)").bind(&key).bind(new_val).execute(&data.db).await {
+                        return HttpResponse::InternalServerError().json(json!({"error": format!("Database error: {}", e)}));
+                    }
+                }
+            }
+
+            return HttpResponse::Ok().json(json!({"votes_up": update.votes_up, "votes_down": update.votes_down}));
+        }
+    }
+
+    HttpResponse::NotFound().json(json!({"error": "Update not found"}))
 }
 
 #[get("/api/admin/evolution/status")]
@@ -2127,6 +2259,9 @@ mod tests {
             denied_at: None,
             resolved_at: None,
             rolled_back_at: None,
+            votes_up: 0,
+            votes_down: 0,
+            votes_by_user: std::collections::HashMap::new(),
         };
 
         let mut variant = base.clone();

@@ -205,6 +205,8 @@
                     const res = await safeFetch("/api/profile", { credentials: "same-origin", headers: authHeaders() });
                     if (res.ok) {
                         const data = await res.json();
+                        // expose profile to other functions (used to hide admin activity)
+                        window.currentProfile = data;
                         document.getElementById("profileInfo").innerHTML = `
                         <p><strong>Username:</strong> ${data.username}</p>
                         <p><strong>Email:</strong> ${data.email}</p>
@@ -224,6 +226,11 @@
 
             async function loadActivity() {
                 try {
+                    // hide recent activity when the profile belongs to an admin or username '1090mb'
+                    if (window.currentProfile && (window.currentProfile.role === 'admin' || window.currentProfile.username === '1090mb')) {
+                        document.getElementById("activityLog").innerHTML = '<p>Recent activity hidden for privacy.</p>';
+                        return;
+                    }
                     const res = await safeFetch("/api/my_logs", { credentials: "same-origin", headers: authHeaders() });
                     if (res.ok) {
                         const logs = await res.json();
@@ -404,8 +411,8 @@
                     .replace(/'/g, "&#039;");
             }
 
-            loadProfile();
-            loadActivity();
+            // ensure activity loads after profile has been fetched
+            loadProfile().then(loadActivity);
         </script>
     </body>
 </html>

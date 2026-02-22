@@ -2083,6 +2083,116 @@ pub async fn add_practice_problem(
     }
 }
 
+#[derive(Debug, Deserialize)]
+pub struct RunExtendedRequest {
+    pub session_id: String,
+    pub minutes: u32,
+    pub inference: Option<bool>,
+}
+
+#[post("/api/learning/run-extended")]
+pub async fn run_extended_learning(req: web::Json<RunExtendedRequest>, state: web::Data<AppState>) -> impl Responder {
+    let inference = req.inference.unwrap_or(false);
+    let session_id = req.session_id.clone();
+    // create run metadata in jeebs_store
+    let run_id = uuid::Uuid::new_v4().to_string();
+    let run_key = format!("deeplearn_run:{}", run_id);
+    let meta = json!({
+        "run_id": run_id,
+        "session_id": session_id,
+        "minutes": req.minutes,
+        "inference": inference,
+        "started_at": chrono::Local::now().to_rfc3339(),
+        "status": "running",
+        "progress_percent": 0,
+        "cancelled": false
+    });
+    let _ = sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)")
+        .bind(&run_key)
+        .bind(serde_json::to_vec(&meta).unwrap_or_default())
+        .execute(&state.db)
+        .await;
+
+    // spawn background task so request returns quickly
+    let db = state.db.clone();
+    let run_id_clone = run_id.clone();
+    actix_web::rt::spawn(async move {
+        let _ = crate::deep_learning::run_extended_learning_session(&db, &session_id, req.minutes, inference, &run_id_clone).await;
+    });
+
+    HttpResponse::Ok().json(json!({"success": true, "message": "Extended learning started", "run_id": run_id}))
+}
+
+#[get("/api/learning/extended-runs")]
+pub async fn list_extended_runs(state: web::Data<AppState>) -> impl Responder {
+    // Query jeebs_store for keys starting with deeplearn_run:
+    match sqlx::query("SELECT key, value FROM jeebs_store WHERE key LIKE ?")
+        .bind(format!("deeplearn_run:%"))
+        .fetch_all(&state.db)
+        .await
+    {
+        Ok(rows) => {
+            let mut runs = Vec::new();
+            for r in rows {
+                let _k: String = r.get(0);
+                let v: Vec<u8> = r.get(1);
+                if let Ok(j) = serde_json::from_slice::<serde_json::Value>(&v) {
+                    runs.push(j);
+                }
+            }
+            HttpResponse::Ok().json(json!({"success": true, "runs": runs}))
+        }
+        Err(e) => HttpResponse::InternalServerError().json(json!({"success": false, "error": e.to_string()})),
+    }
+}
+
+#[post("/api/learning/extended-run/{id}/cancel")]
+pub async fn cancel_extended_run(path: web::Path<String>, state: web::Data<AppState>) -> impl Responder {
+    let run_id = path.into_inner();
+    let run_key = format!("deeplearn_run:{}", run_id);
+    match sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
+        .bind(&run_key)
+        .fetch_optional(&state.db)
+        .await
+    {
+        Ok(Some(row)) => {
+            let mut meta: serde_json::Value = serde_json::from_slice(&row.get::<Vec<u8>, _>(0)).unwrap_or(serde_json::json!({}));
+            meta["cancelled"] = serde_json::Value::Bool(true);
+            meta["status"] = serde_json::Value::String("cancelling".to_string());
+            let _ = sqlx::query("UPDATE jeebs_store SET value = ? WHERE key = ?")
+                .bind(serde_json::to_vec(&meta).unwrap_or_default())
+                .bind(&run_key)
+                .execute(&state.db)
+                .await;
+            HttpResponse::Ok().json(json!({"success": true}))
+        }
+        Ok(None) => HttpResponse::NotFound().json(json!({"success": false, "error": "not_found"})),
+        Err(e) => HttpResponse::InternalServerError().json(json!({"success": false, "error": e.to_string()})),
+    }
+}
+
+#[get("/api/learning/extended-run/{id}")]
+pub async fn get_extended_run(path: web::Path<String>, state: web::Data<AppState>) -> impl Responder {
+    let run_id = path.into_inner();
+    let run_key = format!("deeplearn_run:{}", run_id);
+    match sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
+        .bind(&run_key)
+        .fetch_optional(&state.db)
+        .await
+    {
+        Ok(Some(row)) => {
+            let v: Vec<u8> = row.get(0);
+            if let Ok(j) = serde_json::from_slice::<serde_json::Value>(&v) {
+                HttpResponse::Ok().json(json!({"success": true, "run": j}))
+            } else {
+                HttpResponse::InternalServerError().json(json!({"success": false, "error": "invalid_run_data"}))
+            }
+        }
+        Ok(None) => HttpResponse::NotFound().json(json!({"success": false, "error": "not_found"})),
+        Err(e) => HttpResponse::InternalServerError().json(json!({"success": false, "error": e.to_string()})),
+    }
+}
+
 #[get("/api/learning/sessions")]
 pub async fn get_learning_sessions(state: web::Data<AppState>) -> impl Responder {
     match crate::deep_learning::get_all_learning_sessions(&state.db).await {
@@ -2137,57 +2247,806 @@ pub async fn get_learning_summary_endpoint(state: web::Data<AppState>) -> impl R
     }
 }
 
+#[get("/api/learning/session/{id}")]
+pub async fn get_learning_session_endpoint(path: web::Path<String>, state: web::Data<AppState>) -> impl Responder {
+    let session_id = path.into_inner();
+    match crate::deep_learning::get_learning_session_by_id(&state.db, &session_id).await {
+        Ok(Some(session)) => HttpResponse::Ok().json(json!({
+            "success": true,
+            "session": session
+        })),
+        Ok(None) => HttpResponse::NotFound().json(json!({
+            "success": false,
+            "error": "session_not_found"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(json!({
+            "success": false,
+            "error": e
+        })),
+    }
+}
+
 // ===== CORTEX STRUCT & IMPLEMENTATION =====
+
+/// Intent categories for routing conversation logic
+#[derive(Debug, Clone, PartialEq)]
+enum Intent {
+    Greeting,
+    Farewell,
+    Thanks,
+    SelfIntro,        // "my name is …"
+    AboutJeebs,       // "who are you", "what can you do"
+    MemoryStore,       // "remember that …"
+    MemoryRecall,      // "what do you know about me"
+    MemoryLookup,      // "what is my …"
+    CommStyle,         // "how am i communicating"
+    FollowUp,          // "go on", "continue"
+    PluginTime,
+    PluginCalc,
+    PluginHash,
+    PluginBase64,
+    PluginPassword,
+    PluginSystem,
+    PluginLogic,
+    KnowledgeQuestion, // general question requiring knowledge lookup
+    Conversation,      // default free-form chat
+}
+
+fn classify_intent(lower: &str) -> Intent {
+    // Greetings
+    if matches!(
+        lower,
+        "hi" | "hello" | "hey" | "yo" | "sup" | "howdy" | "hiya" | "good morning"
+            | "good afternoon" | "good evening"
+    ) || lower.starts_with("hi ")
+        || lower.starts_with("hello ")
+        || lower.starts_with("hey ")
+    {
+        return Intent::Greeting;
+    }
+
+    // Farewells
+    if matches!(
+        lower,
+        "bye" | "goodbye" | "see you" | "later" | "see ya" | "cya" | "goodnight"
+    ) || lower.starts_with("bye ")
+        || lower.starts_with("goodbye ")
+    {
+        return Intent::Farewell;
+    }
+
+    // Thanks
+    if lower.starts_with("thank")
+        || lower == "thanks"
+        || lower == "ty"
+        || lower.contains("thank you")
+    {
+        return Intent::Thanks;
+    }
+
+    // Self intro
+    if lower.starts_with("my name is ")
+        || lower.starts_with("i am ")
+        || lower.starts_with("i'm ")
+    {
+        if extract_name_from_intro(lower).is_some() {
+            return Intent::SelfIntro;
+        }
+    }
+
+    // About Jeebs
+    if lower.contains("who are you")
+        || lower.contains("what are you")
+        || lower.contains("what can you do")
+        || lower.contains("tell me about yourself")
+        || lower == "help"
+        || lower.contains("your name")
+        || lower.contains("what is jeebs")
+        || lower.contains("what's jeebs")
+    {
+        return Intent::AboutJeebs;
+    }
+
+    // Memory store
+    if extract_learnable_fact(lower).is_some() {
+        // Don't override other intents
+        if !lower.contains('?') {
+            return Intent::MemoryStore;
+        }
+    }
+
+    // Memory overview
+    if wants_personal_memory_overview(lower) {
+        return Intent::MemoryRecall;
+    }
+
+    // Memory lookup
+    if wants_personal_memory_lookup(lower) {
+        return Intent::MemoryLookup;
+    }
+
+    // Communication style
+    if wants_communication_reflection(lower) {
+        return Intent::CommStyle;
+    }
+
+    // Follow up
+    if is_follow_up_prompt(lower) {
+        return Intent::FollowUp;
+    }
+
+    // Plugin: time
+    if lower.contains("what time")
+        || lower.contains("current time")
+        || lower.contains("what date")
+        || lower.contains("current date")
+        || lower == "time"
+        || lower == "date"
+        || lower.contains("today's date")
+    {
+        return Intent::PluginTime;
+    }
+
+    // Plugin: calc
+    if lower.starts_with("calc ")
+        || lower.starts_with("calculate ")
+        || lower.starts_with("compute ")
+        || lower.starts_with("evaluate ")
+        || lower.starts_with("solve ")
+        || (lower.contains('+')
+            || lower.contains('*')
+            || lower.contains('/')
+            || (lower.contains('-') && lower.chars().filter(|c| c.is_ascii_digit()).count() >= 2))
+            && lower.chars().filter(|c| c.is_ascii_digit()).count() >= 2
+    {
+        return Intent::PluginCalc;
+    }
+
+    // Plugin: hash
+    if lower.starts_with("hash ") || lower.starts_with("md5 ") || lower.starts_with("sha") {
+        return Intent::PluginHash;
+    }
+
+    // Plugin: base64
+    if lower.starts_with("base64 ")
+        || lower.starts_with("encode ")
+        || lower.starts_with("decode ")
+    {
+        return Intent::PluginBase64;
+    }
+
+    // Plugin: password
+    if lower.contains("generate password")
+        || lower.contains("random password")
+        || lower.starts_with("password")
+    {
+        return Intent::PluginPassword;
+    }
+
+    // Plugin: system
+    if lower.contains("system status")
+        || lower.contains("system info")
+        || lower.contains("server status")
+        || lower.contains("uptime")
+        || lower.contains("cpu usage")
+        || lower.contains("memory usage")
+    {
+        return Intent::PluginSystem;
+    }
+
+    // Plugin: logic
+    if lower.starts_with("if ")
+        || lower.contains(" true ")
+        || lower.contains(" false ")
+        || lower.contains("boolean")
+        || lower.starts_with("logic ")
+    {
+        return Intent::PluginLogic;
+    }
+
+    // Knowledge question
+    if lower.contains('?')
+        || lower.starts_with("what ")
+        || lower.starts_with("who ")
+        || lower.starts_with("where ")
+        || lower.starts_with("when ")
+        || lower.starts_with("why ")
+        || lower.starts_with("how ")
+        || lower.starts_with("explain ")
+        || lower.starts_with("define ")
+        || lower.starts_with("describe ")
+        || lower.starts_with("tell me about ")
+        || lower.starts_with("do you know ")
+    {
+        return Intent::KnowledgeQuestion;
+    }
+
+    Intent::Conversation
+}
+
+/// Extract math expression from user input
+fn extract_math_expression(input: &str) -> String {
+    let lower = input.to_lowercase();
+    let stripped = lower
+        .trim_start_matches("calc ")
+        .trim_start_matches("calculate ")
+        .trim_start_matches("compute ")
+        .trim_start_matches("evaluate ")
+        .trim_start_matches("solve ")
+        .trim_start_matches("what is ")
+        .trim_start_matches("what's ")
+        .trim();
+
+    // Remove trailing question marks and whitespace
+    stripped.trim_end_matches('?').trim().to_string()
+}
 
 /// Main Cortex struct for AI thinking and responses
 pub struct Cortex;
 
 impl Cortex {
-    /// Generate a response for a user's prompt
+    /// Generate a response for a user's prompt with full context
     pub async fn think_for_user(
         prompt: &str,
         state: &web::Data<AppState>,
-        _user_id: &str,
-        _username: Option<&str>,
+        user_id: &str,
+        username: Option<&str>,
     ) -> String {
-        Self::think(prompt, state).await
-    }
-
-    /// Generate a response for a prompt
-    pub async fn think(prompt: &str, state: &web::Data<AppState>) -> String {
-        if prompt.is_empty() {
-            return "Please provide a prompt.".to_string();
+        if prompt.trim().is_empty() {
+            return "Please provide a prompt so I can help you.".to_string();
         }
 
-        // Try to get a response from knowledge retrieval first
-        if let Ok(result) =
-            crate::knowledge_retrieval::retrieve_knowledge(&state.db, prompt, 5).await
-        {
-            if !result.items.is_empty() {
-                let summaries: Vec<String> = result
+        let db = &state.db;
+        let lower = prompt.trim().to_lowercase();
+        let intent = classify_intent(&lower);
+
+        // ── Phase 1: Load user context ──
+        let owner = fact_owner_key(user_id, username);
+        let history = load_conversation_history(db, user_id).await;
+        let learned_facts = load_learned_facts(db, &owner).await;
+        let prev_profile = load_communication_profile(db, &owner).await;
+        let profile = analyze_communication_profile(prompt, &history, prev_profile.as_ref());
+        let display_name = username
+            .filter(|n| !n.is_empty())
+            .map(|n| n.to_string())
+            .or_else(|| {
+                learned_facts
+                    .iter()
+                    .find(|f| f.canonical.contains("my name is"))
+                    .map(|f| {
+                        f.fact
+                            .split_whitespace()
+                            .last()
+                            .unwrap_or("friend")
+                            .to_string()
+                    })
+            });
+
+        // ── Phase 2: Route by intent ──
+        let response = match intent {
+            Intent::Greeting => {
+                let name_part = display_name
+                    .as_deref()
+                    .map(|n| format!(", {n}"))
+                    .unwrap_or_default();
+                let greetings = [
+                    format!("Hey{name_part}! What can I help you with?"),
+                    format!("Hello{name_part}! Ready when you are."),
+                    format!("Hi{name_part}! What's on your mind?"),
+                    format!("Good to see you{name_part}. How can I assist?"),
+                ];
+                let idx = (chrono::Local::now().timestamp() as usize) % greetings.len();
+                greetings[idx].clone()
+            }
+
+            Intent::Farewell => {
+                let name_part = display_name
+                    .as_deref()
+                    .map(|n| format!(", {n}"))
+                    .unwrap_or_default();
+                format!("Goodbye{name_part}! Feel free to come back anytime.")
+            }
+
+            Intent::Thanks => {
+                "You're welcome! Let me know if there's anything else I can help with."
+                    .to_string()
+            }
+
+            Intent::SelfIntro => {
+                if let Some(name) = extract_name_from_intro(&lower) {
+                    let fact_text = format!("my name is {}", name);
+                    let _ = save_learned_fact(db, &owner, &fact_text).await;
+                    format!(
+                        "Nice to meet you, {name}! I'll remember that. What can I do for you?"
+                    )
+                } else {
+                    "Nice to meet you! What can I help you with?".to_string()
+                }
+            }
+
+            Intent::AboutJeebs => {
+                let node_count = sqlx::query("SELECT COUNT(*) FROM brain_nodes")
+                    .fetch_optional(db)
+                    .await
+                    .ok()
+                    .flatten()
+                    .map(|r| r.get::<i64, _>(0))
+                    .unwrap_or(0);
+
+                let fact_count = learned_facts.len();
+
+                format!(
+                    "I'm **JeebsAI** — an autonomous AI assistant built in Rust. Here's what I can do:\n\n\
+                    🧠 **Knowledge** — I have {node_count} brain nodes and learn from every conversation.\n\
+                    🔢 **Calculate** — Math expressions (e.g. `calc 2+2*3`)\n\
+                    🕐 **Time** — Current date and time\n\
+                    🔐 **Hash** — MD5, SHA-256, BLAKE3 (e.g. `hash hello`)\n\
+                    🔑 **Passwords** — Secure password generation\n\
+                    📝 **Memory** — I remember facts about you ({fact_count} stored)\n\
+                    💻 **System** — Server status and metrics\n\
+                    🔎 **Search** — `.google <query>` to learn from the web\n\
+                    🧬 **Evolution** — I propose improvements to my own code\n\n\
+                    Just ask me anything!"
+                )
+            }
+
+            Intent::MemoryStore => {
+                if let Some(fact) = extract_learnable_fact(prompt.trim()) {
+                    match save_learned_fact(db, &owner, &fact).await {
+                        Ok(_) => format!("✅ Got it, I'll remember that: *{fact}*"),
+                        Err(_) => "I tried to save that but ran into a storage issue.".to_string(),
+                    }
+                } else {
+                    "I wasn't sure what to remember from that. Can you rephrase?".to_string()
+                }
+            }
+
+            Intent::MemoryRecall => {
+                if learned_facts.is_empty() {
+                    "I don't have any stored memories about you yet. Tell me things and I'll remember them!".to_string()
+                } else {
+                    let items: Vec<String> = learned_facts
+                        .iter()
+                        .take(10)
+                        .enumerate()
+                        .map(|(i, f)| format!("{}. {}", i + 1, f.fact))
+                        .collect();
+                    format!(
+                        "Here's what I know about you ({} facts):\n\n{}",
+                        learned_facts.len(),
+                        items.join("\n")
+                    )
+                }
+            }
+
+            Intent::MemoryLookup => {
+                let relevant = rank_relevant_facts(&learned_facts, prompt.trim(), 5);
+                if relevant.is_empty() {
+                    "I don't have any stored info matching that. You can tell me facts and I'll remember them.".to_string()
+                } else {
+                    let items: Vec<String> = relevant
+                        .iter()
+                        .take(5)
+                        .map(|f| format!("• {}", f.fact))
+                        .collect();
+                    format!("Here's what I recall:\n\n{}", items.join("\n"))
+                }
+            }
+
+            Intent::CommStyle => render_communication_reflection(&profile),
+
+            Intent::FollowUp => {
+                // Use last assistant turn for context
+                if let Some(last) = last_turn_by_role(&history, "assistant") {
+                    let topic_summary = recent_conversation_summary(&history)
+                        .unwrap_or_else(|| "our conversation".to_string());
+
+                    // Try knowledge retrieval on the topic
+                    let kb_response = Self::knowledge_search(db, &topic_summary).await;
+                    if !kb_response.is_empty() {
+                        format!(
+                            "Building on what we discussed: {}\n\nAdditionally, from my knowledge: {}",
+                            truncate_chars(&last.content, 200),
+                            kb_response
+                        )
+                    } else {
+                        format!(
+                            "Continuing from where we left off — I said: \"{}\"\n\nWould you like me to elaborate on a specific part?",
+                            truncate_chars(&last.content, 300)
+                        )
+                    }
+                } else {
+                    "I don't have context from a previous message. What topic would you like to explore?"
+                        .to_string()
+                }
+            }
+
+            Intent::PluginTime => {
+                let now = chrono::Local::now();
+                format!(
+                    "🕐 Current date and time: **{}**\n📅 Date: {}\n⏰ Time: {}",
+                    now.format("%A, %B %e, %Y at %I:%M:%S %p %Z"),
+                    now.format("%Y-%m-%d"),
+                    now.format("%H:%M:%S")
+                )
+            }
+
+            Intent::PluginCalc => {
+                let expr = extract_math_expression(prompt.trim());
+                match meval::eval_str(&expr) {
+                    Ok(result) => {
+                        if result == result.floor() && result.abs() < 1e15 {
+                            format!("🔢 `{}` = **{}**", expr, result as i64)
+                        } else {
+                            format!("🔢 `{}` = **{:.6}**", expr, result)
+                        }
+                    }
+                    Err(e) => format!(
+                        "I couldn't evaluate `{}` — {}\n\nTry expressions like `calc 2+3*4` or `calc sqrt(144)`.",
+                        expr, e
+                    ),
+                }
+            }
+
+            Intent::PluginHash => {
+                let input_text = lower
+                    .trim_start_matches("hash ")
+                    .trim_start_matches("md5 ")
+                    .trim_start_matches("sha256 ")
+                    .trim_start_matches("sha1 ")
+                    .trim_start_matches("blake3 ")
+                    .trim();
+
+                if input_text.is_empty() {
+                    "Provide text to hash. Example: `hash hello world`".to_string()
+                } else {
+                    use sha2::Digest as Sha2Digest;
+
+                    let md5_hash = {
+                        let digest = md5::Md5::digest(input_text.as_bytes());
+                        format!("{:x}", digest)
+                    };
+                    let sha256_hash = {
+                        let digest = sha2::Sha256::digest(input_text.as_bytes());
+                        format!("{:x}", digest)
+                    };
+                    let blake3_hash = blake3::hash(input_text.as_bytes()).to_hex().to_string();
+
+                    format!(
+                        "🔐 Hashes for `{}`:\n\n• **MD5**: `{}`\n• **SHA-256**: `{}`\n• **BLAKE3**: `{}`",
+                        input_text, md5_hash, sha256_hash, blake3_hash
+                    )
+                }
+            }
+
+            Intent::PluginBase64 => {
+                use base64::Engine;
+                let trimmed = prompt.trim().to_lowercase();
+                if trimmed.starts_with("decode ") || trimmed.starts_with("base64 decode ") {
+                    let data = trimmed
+                        .trim_start_matches("base64 decode ")
+                        .trim_start_matches("decode ")
+                        .trim();
+                    match base64::engine::general_purpose::STANDARD.decode(data) {
+                        Ok(bytes) => {
+                            let decoded = String::from_utf8_lossy(&bytes);
+                            format!("📦 Decoded: `{}`", decoded)
+                        }
+                        Err(e) => format!("Failed to decode base64: {}", e),
+                    }
+                } else {
+                    let data = trimmed
+                        .trim_start_matches("base64 encode ")
+                        .trim_start_matches("base64 ")
+                        .trim_start_matches("encode ")
+                        .trim();
+                    let encoded = base64::engine::general_purpose::STANDARD.encode(data.as_bytes());
+                    format!("📦 Base64 encoded: `{}`", encoded)
+                }
+            }
+
+            Intent::PluginPassword => {
+                let mut rng = rand::thread_rng();
+                let charset: &[u8] =
+                    b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_=+";
+                let password: String = (0..20)
+                    .map(|_| {
+                        let idx = rand::Rng::gen_range(&mut rng, 0..charset.len());
+                        charset[idx] as char
+                    })
+                    .collect();
+                format!(
+                    "🔑 Generated secure password (20 chars):\n\n`{}`\n\n*Store this somewhere safe — I won't remember it.*",
+                    password
+                )
+            }
+
+            Intent::PluginSystem => {
+                let (total_mem, used_mem, cpu_count, avg_cpu) = {
+                    let mut sys = state.sys.lock().unwrap();
+                    sys.refresh_all();
+                    let total_mem = sys.total_memory();
+                    let used_mem = sys.used_memory();
+                    let cpu_count = sys.cpus().len();
+                    let avg_cpu = if cpu_count > 0 {
+                        sys.cpus().iter().map(|c| c.cpu_usage()).sum::<f32>() / cpu_count as f32
+                    } else {
+                        0.0
+                    };
+                    (total_mem, used_mem, cpu_count, avg_cpu)
+                };
+
+                let mem_pct = if total_mem > 0 {
+                    (used_mem as f64 / total_mem as f64) * 100.0
+                } else {
+                    0.0
+                };
+
+                let node_count = sqlx::query("SELECT COUNT(*) FROM brain_nodes")
+                    .fetch_optional(db)
+                    .await
+                    .ok()
+                    .flatten()
+                    .map(|r| r.get::<i64, _>(0))
+                    .unwrap_or(0);
+
+                format!(
+                    "💻 **System Status**\n\n\
+                    • **CPU**: {:.1}% avg across {} cores\n\
+                    • **Memory**: {:.1}% used ({:.0} MB / {:.0} MB)\n\
+                    • **Brain nodes**: {}\n\
+                    • **Server**: JeebsAI v0.0.1 (Rust/Actix)",
+                    avg_cpu,
+                    cpu_count,
+                    mem_pct,
+                    used_mem as f64 / 1_048_576.0,
+                    total_mem as f64 / 1_048_576.0,
+                    node_count
+                )
+            }
+
+            Intent::PluginLogic => {
+                let expr = lower
+                    .trim_start_matches("logic ")
+                    .trim();
+                match evalexpr::eval(expr) {
+                    Ok(val) => format!("🧮 Logic result: `{}` → **{}**", expr, val),
+                    Err(e) => format!(
+                        "Could not evaluate logic expression `{}`: {}\n\nTry: `logic true && false` or `logic 5 > 3`",
+                        expr, e
+                    ),
+                }
+            }
+
+            Intent::KnowledgeQuestion => {
+                Self::answer_knowledge_question(db, prompt.trim(), &learned_facts, &history, &profile)
+                    .await
+            }
+
+            Intent::Conversation => {
+                Self::conversational_response(db, prompt.trim(), &learned_facts, &history, &profile)
+                    .await
+            }
+        };
+
+        // ── Phase 3: Persist context ──
+        let now = chrono::Local::now().to_rfc3339();
+        let mut new_history = history.clone();
+        new_history.push(ConversationTurn {
+            role: "user".to_string(),
+            content: sanitize_turn_content(prompt),
+            timestamp: now.clone(),
+        });
+        new_history.push(ConversationTurn {
+            role: "assistant".to_string(),
+            content: sanitize_turn_content(&response),
+            timestamp: now,
+        });
+        let _ = save_conversation_history(db, user_id, &new_history).await;
+        let _ = save_communication_profile(db, &owner, &profile).await;
+
+        // Learn from conversation passively
+        let _ = crate::language_learning::learn_from_input(db, prompt).await;
+
+        response
+    }
+
+    /// Stateless think — creates ephemeral context for non-user scenarios
+    pub async fn think(prompt: &str, state: &web::Data<AppState>) -> String {
+        let ephemeral_id = format!("ephemeral:{}", blake3::hash(b"default").to_hex());
+        Self::think_for_user(prompt, state, &ephemeral_id, None).await
+    }
+
+    /// Search knowledge base and synthesize a response
+    async fn knowledge_search(db: &SqlitePool, query: &str) -> String {
+        match crate::knowledge_retrieval::retrieve_knowledge(db, query, 5).await {
+            Ok(result) if !result.items.is_empty() => {
+                if let Some(ref answer) = result.synthesized_answer {
+                    if !answer.is_empty() {
+                        return answer.clone();
+                    }
+                }
+                result
                     .items
                     .iter()
                     .take(3)
-                    .map(|item| format!("{}. {}", item.label, item.summary))
-                    .collect();
+                    .map(|i| i.summary.clone())
+                    .collect::<Vec<_>>()
+                    .join(". ")
+            }
+            _ => String::new(),
+        }
+    }
 
-                // Format a response with knowledge
-                return format!("Based on my knowledge: {}", summaries.join(" "));
+    /// Answer a knowledge question using multi-source retrieval
+    async fn answer_knowledge_question(
+        db: &SqlitePool,
+        prompt: &str,
+        facts: &[LearnedFact],
+        _history: &[ConversationTurn],
+        profile: &CommunicationProfile,
+    ) -> String {
+        let timer = Instant::now();
+
+        // 1. Check personal facts first
+        let relevant_personal = rank_relevant_facts(facts, prompt, 3);
+
+        // 2. Knowledge base retrieval
+        let kb_result = crate::knowledge_retrieval::retrieve_knowledge(db, prompt, 8)
+            .await
+            .unwrap_or_else(|_| crate::knowledge_retrieval::RetrievalResult {
+                items: Vec::new(),
+                total_searched: 0,
+                query_terms: Vec::new(),
+                synthesized_answer: None,
+            });
+
+        // 3. Build response
+        let mut parts = Vec::new();
+
+        // Add personal context if relevant
+        if !relevant_personal.is_empty() {
+            let personal: Vec<String> = relevant_personal
+                .iter()
+                .take(2)
+                .map(|f| f.fact.clone())
+                .collect();
+            parts.push(format!("From what I know about you: {}", personal.join("; ")));
+        }
+
+        // Add synthesized knowledge answer
+        if let Some(ref answer) = kb_result.synthesized_answer {
+            if !answer.is_empty() {
+                parts.push(answer.clone());
+            }
+        } else if !kb_result.items.is_empty() {
+            // Build answer from top items
+            let top_summaries: Vec<String> = kb_result
+                .items
+                .iter()
+                .take(3)
+                .filter(|i| !i.summary.is_empty())
+                .map(|i| {
+                    if i.category == "knowledge_triple" {
+                        i.content.clone()
+                    } else {
+                        i.summary.clone()
+                    }
+                })
+                .collect();
+
+            if !top_summaries.is_empty() {
+                parts.push(top_summaries.join(". "));
             }
         }
 
-        // If knowledge integration is available, try to enhance with learned facts
-        if let Ok(enhanced) = crate::knowledge_integration::enhance_response_with_knowledge(
-            &state.db,
-            &format!("I understand your question about: {}", prompt),
-            prompt,
-        )
-        .await
-        {
-            return enhanced;
+        // Add connected insights
+        if kb_result.items.len() >= 2 {
+            let linked = crate::knowledge_integration::detect_topics_in_message(prompt);
+            if !linked.is_empty() {
+                let topics: Vec<String> = linked.iter().take(3).map(|(t, _)| t.clone()).collect();
+                parts.push(format!("Related topics: {}", topics.join(", ")));
+            }
         }
 
-        // Default response
-        format!("I understand your question: '{}'. This is a default response as the full AI engine is loading.", prompt)
+        if parts.is_empty() {
+            // No knowledge found — provide a helpful fallback
+            let topic_hint = prompt
+                .split_whitespace()
+                .filter(|w| w.len() > 3)
+                .take(3)
+                .collect::<Vec<_>>()
+                .join(" ");
+
+            // Adapt tone based on communication profile
+            match profile.style.as_str() {
+                "frustrated" => format!(
+                    "I don't have specific information on that yet, but I'm actively learning. \
+                     You can teach me by saying: `remember that <fact>`, or use `.google {}` to have me research it.",
+                    topic_hint
+                ),
+                "curious" => format!(
+                    "Great question! I don't have that in my knowledge base yet. \
+                     I can learn about it — try `.google {}` and I'll research and store the findings.",
+                    topic_hint
+                ),
+                _ => format!(
+                    "I don't have enough information to answer that confidently. \
+                     You can help me learn by using `.google {}` or by telling me facts with `remember that ...`.",
+                    topic_hint
+                ),
+            }
+        } else {
+            let elapsed = timer.elapsed().as_millis();
+            let answer = parts.join("\n\n");
+
+            // If response is very short, add context
+            if answer.len() < 100 && kb_result.total_searched > 0 {
+                format!(
+                    "{}\n\n*Searched {} knowledge items in {}ms.*",
+                    answer, kb_result.total_searched, elapsed
+                )
+            } else {
+                answer
+            }
+        }
+    }
+
+    /// Generate a conversational response for non-question, non-command input
+    async fn conversational_response(
+        db: &SqlitePool,
+        prompt: &str,
+        _facts: &[LearnedFact],
+        history: &[ConversationTurn],
+        profile: &CommunicationProfile,
+    ) -> String {
+        // Check for teachable facts
+        if let Some(fact) = extract_learnable_fact(prompt) {
+            // This was missed by the intent classifier — store it
+            let owner_key = "ephemeral:default";
+            if save_learned_fact(db, owner_key, &fact).await.is_ok() {
+                return format!("✅ Noted: *{fact}*. I'll keep that in mind.");
+            }
+        }
+
+        // See if there's relevant knowledge to share
+        let kb_response = Self::knowledge_search(db, prompt).await;
+        if !kb_response.is_empty() && kb_response.len() > 20 {
+            return kb_response;
+        }
+
+        // Context-aware conversational response
+        let recent_topics = if !history.is_empty() {
+            let topics = infer_recent_topics(history, 4);
+            if !topics.is_empty() {
+                format!(
+                    " I notice we've been discussing: {}.",
+                    topics.join(", ")
+                )
+            } else {
+                String::new()
+            }
+        } else {
+            String::new()
+        };
+
+        // Adapt response based on communication style
+        match profile.style.as_str() {
+            "frustrated" => format!(
+                "I hear you. Let me know if there's something specific I can help with.{recent_topics}"
+            ),
+            "curious" => format!(
+                "Interesting thought! Want me to look into that further? You can also try `.google` to have me research a topic.{recent_topics}"
+            ),
+            "direct" => format!(
+                "Got it. What would you like me to do with that?{recent_topics}"
+            ),
+            "reflective" => format!(
+                "That's a thoughtful perspective.{recent_topics} I can explore related knowledge if you'd like."
+            ),
+            _ => format!(
+                "I see! Is there something specific you'd like me to help with or look up?{recent_topics}"
+            ),
+        }
     }
 }

@@ -115,6 +115,41 @@
     </div>
 
     <div class="card">
+        <h3>Live Learning</h3>
+        <div class="muted">Real-time view of learning sessions and statistics.</div>
+        <div style="display:flex; gap:12px; margin-top:12px; flex-wrap:wrap;">
+            <div style="flex:1; min-width:260px;">
+                <div class="muted">Active sessions</div>
+                <div id="learning-sessions" class="output">Loading sessions...</div>
+                <div id="learning-detail" class="output" style="margin-top:8px; display:none">Select a session to view details.</div>
+            </div>
+            <div style="flex:1; min-width:260px;">
+                <div class="muted">Statistics</div>
+                <div id="learning-stats" class="output">Loading stats...</div>
+            </div>
+        </div>
+        <div style="margin-top:12px">
+            <div class="muted">Summary</div>
+            <div id="learning-summary" class="output">Loading summary...</div>
+        </div>
+        <div style="margin-top:12px">
+            <div class="muted">Extended Research</div>
+            <div style="display:flex; gap:8px; align-items:center; margin-top:8px;">
+                <input id="extended-minutes" class="input" type="number" min="1" value="10" style="width:120px" />
+                <label style="display:flex; align-items:center; gap:6px; color:var(--muted)"><input id="extended-inference" type="checkbox" /> Enable inference</label>
+                <button class="btn accent" onclick="startExtendedRun()">Start Extended Run</button>
+            </div>
+            <div id="extended-status" class="muted" style="margin-top:8px">No extended run active.</div>
+        </div>
+        <div class="card" style="margin-top:12px">
+            <h3>Background Runs</h3>
+            <div class="muted">Active and recent extended learning runs.</div>
+            <div id="background-runs" class="output">Loading runs...</div>
+            <div id="run-detail" class="output" style="display:none; margin-top:8px"></div>
+        </div>
+    </div>
+
+    <div class="card">
         <h3>Proposals</h3>
         <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
             <label style="margin:0">Filter:</label>
@@ -130,13 +165,16 @@
     </div>
 </div>
 
-<script src="/webui/auth.js"></script>
+    <script src="/webui/auth.js"></script>
 <script>
 (async () => {
     var authStatusEl = document.getElementById("authStatus");
     var outputEl = document.getElementById("trainerOutput");
     var auth = await requireAuth("trainer");
-    if (!auth) return;
+    if (!auth || !auth.loggedIn) {
+        authStatusEl.textContent = "Access denied - please sign in as a trainer or admin.";
+        return;
+    }
     authStatusEl.textContent = "Trainer access granted for " + auth.username + ".";
     // use defaults from auth.js (60s ping, longer guard) to reduce transient redirects
     startSessionPing();
@@ -234,6 +272,174 @@
 
     // Load proposals after auth granted
     loadProposals();
+
+    // Live learning: sessions, stats and summary
+    async function loadLearningSessions() {
+        try {
+            const res = await safeFetch('/api/learning/sessions', { credentials: 'same-origin', headers: authHeaders() });
+            const el = document.getElementById('learning-sessions');
+            if (!res.ok) { el.textContent = 'Failed to load learning sessions'; return; }
+            const payload = await res.json();
+            const sessions = payload.sessions || [];
+            if (sessions.length === 0) { el.textContent = 'No learning sessions.'; return; }
+            el.innerHTML = sessions.map(s => `
+                <div data-session-id="${escapeHtml(s.id||'') }" style="padding:8px; border-bottom:1px solid rgba(255,255,255,0.03); cursor:pointer" onclick="window.loadLearningDetails('${escapeHtml(s.id||'')}')">
+                    <div style="font-weight:700">${escapeHtml(s.topic)} <span style="font-size:0.85em; color:var(--muted);">(${escapeHtml(s.status)})</span></div>
+                    <div style="font-size:0.9em; color:var(--muted)">Depth: ${s.depth_level} • Facts: ${s.facts_learned} • Problems: ${s.problems_added}</div>
+                </div>
+            `).join('');
+        } catch (e) {
+            const el = document.getElementById('learning-sessions'); if (el) el.textContent = 'Error loading sessions: ' + e;
+        }
+    }
+
+    async function loadLearningStats() {
+        try {
+            const res = await safeFetch('/api/learning/statistics', { credentials: 'same-origin', headers: authHeaders() });
+            const el = document.getElementById('learning-stats');
+            if (!res.ok) { el.textContent = 'Failed to load stats'; return; }
+            const payload = await res.json();
+            const stats = payload.statistics || {};
+            el.innerHTML = Object.keys(stats).map(k => `<div><strong>${escapeHtml(k)}:</strong> ${escapeHtml(String(stats[k]))}</div>`).join('');
+        } catch (e) {
+            const el = document.getElementById('learning-stats'); if (el) el.textContent = 'Error loading stats: ' + e;
+        }
+    }
+
+    async function loadLearningSummary() {
+        try {
+            const res = await safeFetch('/api/learning/summary', { credentials: 'same-origin', headers: authHeaders() });
+            const el = document.getElementById('learning-summary');
+            if (!res.ok) { el.textContent = 'Failed to load summary'; return; }
+            const payload = await res.json();
+            el.textContent = payload.summary || '(no summary)';
+        } catch (e) {
+            const el = document.getElementById('learning-summary'); if (el) el.textContent = 'Error loading summary: ' + e;
+        }
+    }
+
+    // bootload live learning and refresh periodically
+    await loadLearningSessions();
+    await loadLearningStats();
+    await loadLearningSummary();
+    setInterval(loadLearningSessions, 8000);
+    setInterval(loadLearningStats, 15000);
+    setInterval(loadLearningSummary, 30000);
+
+    // Load session details for a given session id
+    window.loadLearningDetails = async function(sessionId) {
+        const detailEl = document.getElementById('learning-detail');
+        if (!sessionId) { if (detailEl) { detailEl.style.display='none'; } return; }
+        detailEl.style.display = 'block';
+        detailEl.textContent = 'Loading session...';
+        try {
+            const res = await safeFetch('/api/learning/session/' + encodeURIComponent(sessionId), { credentials: 'same-origin', headers: authHeaders() });
+            if (!res.ok) { detailEl.textContent = 'Failed to load session details'; return; }
+            const payload = await res.json();
+            const s = payload.session;
+            const facts = (s.learned_facts || []).map(f => `<div style="margin-bottom:8px;"><strong>${escapeHtml(f.fact)}</strong> <div style="color:var(--muted); font-size:0.85em">Source: ${escapeHtml(f.source)} • Importance: ${f.importance}</div></div>`).join('');
+            const problems = (s.practice_problems || []).map(p => `<div style="margin-bottom:8px;"><strong>${escapeHtml(p.problem)}</strong> — ${escapeHtml(p.difficulty)}<div style="color:var(--muted); font-size:0.85em">Solved: ${p.solved} • Attempts: ${p.attempts}</div></div>`).join('');
+            const connections = (s.connections_made || []).map(c => `<div style="margin-bottom:6px;"><strong>${escapeHtml(c.topic)}</strong>: ${escapeHtml(c.how_connected)}</div>`).join('');
+            detailEl.innerHTML = `<div style="font-weight:700">${escapeHtml(s.topic)} — ${escapeHtml(s.status)} (depth ${s.depth_level})</div><div style="color:var(--muted); font-size:0.9em; margin-bottom:8px">Last studied: ${escapeHtml(s.last_studied)} • Hours: ${s.study_hours} • Confidence: ${(s.confidence||0).toFixed(2)}</div><div><h4>Facts</h4>${facts || '<div class="muted">No facts yet.</div>'}</div><div><h4>Practice Problems</h4>${problems || '<div class="muted">No problems yet.</div>'}</div><div><h4>Connections</h4>${connections || '<div class="muted">No connections discovered yet.</div>'}</div>`;
+        } catch (e) {
+            detailEl.textContent = 'Error loading details: ' + e;
+        }
+    };
+
+    // background runs UI
+    async function loadBackgroundRuns() {
+        try {
+            const res = await safeFetch('/api/learning/extended-runs', { credentials: 'same-origin', headers: authHeaders() });
+            const el = document.getElementById('background-runs');
+            if (!res.ok) { el.textContent = 'Failed to load runs'; return; }
+            const payload = await res.json();
+            const runs = payload.runs || [];
+            if (runs.length === 0) { el.textContent = 'No runs found.'; return; }
+            el.innerHTML = runs.map(r => {
+                const id = r.run_id || r.runId || '';
+                const sess = r.session_id || '';
+                const pct = Number(r.progress_percent || 0).toFixed(0);
+                const status = r.status || '';
+                const started = r.started_at || r.startedAt || '';
+                return `<div style="padding:8px; border-bottom:1px solid rgba(255,255,255,0.03); display:flex; justify-content:space-between; align-items:center"><div style="flex:1; min-width:0"><div style="font-weight:700">Run ${escapeHtml(id)} <span style="font-size:0.85em; color:var(--muted)">${escapeHtml(status)}</span></div><div style="color:var(--muted); font-size:0.9em">Session: ${escapeHtml(sess)} • ${escapeHtml(started)} • Progress: ${pct}%</div><div style="height:8px; background:linear-gradient(90deg,#233,#2b6); width:100%; margin-top:6px; border-radius:6px; overflow:hidden"><div style="width:${pct}%; height:8px; background:linear-gradient(90deg,#7fffd4,#2bff80)"></div></div></div><div style="flex-shrink:0; margin-left:12px"><button class="btn" onclick="showRun('${escapeHtml(id)}')">View</button><button class="btn danger" onclick="cancelRun('${escapeHtml(id)}')">Cancel</button></div></div>`;
+            }).join('');
+        } catch (e) {
+            const el = document.getElementById('background-runs'); if (el) el.textContent = 'Error loading runs: ' + e;
+        }
+    }
+
+    window.showRun = async function(id) {
+        try {
+            const res = await safeFetch('/api/learning/extended-run/' + encodeURIComponent(id), { credentials: 'same-origin', headers: authHeaders() });
+            if (!res.ok) { alert('Failed to load run'); return; }
+            const data = await res.json();
+            const run = data.run;
+            const el = document.getElementById('run-detail');
+            if (!el) return;
+            el.style.display = 'block';
+            const hist = run.history || [];
+            const histHtml = hist.map(h => `<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="font-weight:700">${escapeHtml(h.ts||h["ts"]||'')}</div><div style="color:var(--muted)">Progress: ${Math.round(h.progress_percent||h["progress_percent"]||0)}% • Facts total: ${h.facts_added_total||h["facts_added_total"]||0}</div></div>`).join('');
+            const sessLink = run.session_id ? `<button class="btn" onclick="(function(){ loadLearningDetails('${escapeHtml(run.session_id)}'); document.querySelector('[data-session-id="'+run.session_id+'"]')?.scrollIntoView({behavior:'smooth',block:'center'}); })()">Open Session</button>` : '';
+            el.innerHTML = `<div style="font-weight:700">Run ${escapeHtml(run.run_id||run.runId||'')}</div><div style="color:var(--muted)">Status: ${escapeHtml(run.status||'')} • Progress: ${Math.round(run.progress_percent||0)}% • Started: ${escapeHtml(run.started_at||'')}</div><div style="margin-top:8px">${sessLink} <button class="btn danger" onclick="cancelRun('${escapeHtml(run.run_id||run.runId||'')}')">Cancel</button></div><div style="margin-top:12px"><h4>History</h4>${histHtml || '<div class="muted">No history yet.</div>'}</div>`;
+
+            // highlight session if present
+            if (run.session_id) {
+                document.querySelectorAll('#learning-sessions [data-session-id]').forEach(n => n.style.border='none');
+                const node = document.querySelector(`#learning-sessions [data-session-id='${run.session_id}']`);
+                if (node) {
+                    node.style.border = '2px solid #7fffd4';
+                }
+            }
+        } catch (e) { alert('Error: ' + e); }
+    }
+
+    window.cancelRun = async function(id) {
+        if (!confirm('Cancel run ' + id + '?')) return;
+        try {
+            const res = await safeFetch('/api/learning/extended-run/' + encodeURIComponent(id) + '/cancel', { method: 'POST', credentials: 'same-origin', headers: authHeaders() });
+            if (!res.ok) { alert('Failed to cancel run'); return; }
+            await loadBackgroundRuns();
+        } catch (e) { alert('Error: ' + e); }
+    }
+
+    await loadBackgroundRuns();
+    setInterval(loadBackgroundRuns, 8000);
+
+    window.startExtendedRun = async function() {
+        const minutes = Number(document.getElementById('extended-minutes').value) || 10;
+        const inference = !!document.getElementById('extended-inference').checked;
+        const status = document.getElementById('extended-status');
+        status.textContent = 'Starting extended run...';
+        try {
+            // For now, require selecting a session in detail view
+            const detailEl = document.getElementById('learning-detail');
+            const sessionDiv = document.querySelector('#learning-sessions [data-session-id]');
+            // prefer currently selected id if present
+            let sessionId = null;
+            if (detailEl && detailEl.style.display !== 'none') {
+                // try to read from last loaded session via data attribute
+                const node = document.querySelector('#learning-sessions [style*="cursor:pointer"][onclick]');
+            }
+            const selected = document.querySelector('#learning-sessions [data-session-id]');
+            if (selected) sessionId = selected.getAttribute('data-session-id');
+            if (!sessionId) {
+                alert('Select a learning session first by clicking it.');
+                status.textContent = 'No session selected.';
+                return;
+            }
+
+            const res = await safeFetch('/api/learning/run-extended', {
+                method: 'POST', credentials: 'same-origin',
+                headers: authHeaders(true),
+                body: JSON.stringify({ session_id: sessionId, minutes, inference })
+            });
+            if (!res.ok) { status.textContent = 'Failed to start extended run.'; return; }
+            const data = await res.json();
+            status.textContent = data.message || 'Extended run started.';
+        } catch (e) {
+            status.textContent = 'Error: ' + e;
+        }
+    };
 })();
 </script>
 </body>

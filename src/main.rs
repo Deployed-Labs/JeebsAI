@@ -194,9 +194,9 @@ async fn main() -> std::io::Result<()> {
     // Governor configuration — throttles requests per client IP.
     // Defaults kept low because the VPS is modest; adjust via environment
     // variables if you need a higher rate.
-    let per_second: u32 = std::env::var("RATE_PER_SECOND")
+    let per_second: u64 = std::env::var("RATE_PER_SECOND")
         .ok()
-        .and_then(|v| v.parse().ok())
+        .and_then(|v| v.parse::<u64>().ok())
         .unwrap_or(20); // default 20 req/sec
     let burst_size: u32 = std::env::var("RATE_BURST")
         .ok()
@@ -262,6 +262,8 @@ async fn main() -> std::io::Result<()> {
             .service(logging::ws_index)
             .service(logging::get_my_logs)
             .service(evolution::list_updates)
+            .service(evolution::public_list_updates)
+            .service(evolution::public_evolution_stats)
             .service(evolution::get_evolution_status)
             .service(evolution::run_think_cycle)
             .service(evolution::apply_update)
@@ -272,6 +274,7 @@ async fn main() -> std::io::Result<()> {
             .service(evolution::get_notifications)
             .service(evolution::dismiss_notification)
             .service(evolution::brainstorm_update)
+            .service(evolution::vote_update)
             .service(brain_parsing_api::parse_brain_node)
             .service(brain_parsing_api::visualize)
             .service(brain_parsing_api::build_brain_graph)
@@ -288,6 +291,11 @@ async fn main() -> std::io::Result<()> {
             .service(cortex::add_learned_fact)
             .service(cortex::add_practice_problem)
             .service(cortex::get_learning_sessions)
+            .service(cortex::get_learning_session_endpoint)
+            .service(cortex::run_extended_learning)
+            .service(cortex::get_extended_run)
+            .service(cortex::list_extended_runs)
+            .service(cortex::cancel_extended_run)
             .service(cortex::get_learning_statistics)
             .service(cortex::get_learning_summary_endpoint)
             .service(Files::new("/webui", "./webui").index_file("index.html"))

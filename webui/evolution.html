@@ -5,11 +5,11 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Jeebs Evolution</title>
         <style>
-        /* admin dashboard base styles */
         :root {
             --bg: #0f1117; --panel: #181c24; --panel-2: #1f2533;
             --text: #f6f8fb; --muted: #9da7bd; --accent: #7fffd4;
             --danger: #ff6b6b; --success: #8bc34a; --border: #2b3245;
+            --glow: rgba(127,255,212,0.08);
         }
         * { box-sizing: border-box; }
         body {
@@ -23,6 +23,8 @@
         .shell { max-width: 1200px; margin: 0 auto; }
         header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
         h1 { margin: 0; font-size: 26px; letter-spacing: .3px; color: var(--accent); }
+        h2 { margin: 0 0 12px; font-size: 18px; color: var(--accent); }
+        h3 { margin: 0 0 8px; font-size: 15px; }
         .nav-links { display: flex; gap: 10px; flex-wrap: wrap; }
         .nav-link {
             color: var(--text); text-decoration: none; padding: 8px 12px;
@@ -32,134 +34,122 @@
         .nav-link:hover { border-color: var(--accent); transform: translateY(-1px); }
         .grid { display: grid; gap: 16px; }
         .grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
-        .grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+        .grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+        .grid.cols-4 { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
         .card {
             background: var(--panel); border: 1px solid var(--border);
             border-radius: 12px; padding: 18px;
             box-shadow: 0 8px 24px rgba(0,0,0,.25);
         }
-        .card h3 { margin: 0 0 12px; font-size: 16px; letter-spacing: .2px; color: var(--text); }
+        .card.glow { border-color: rgba(127,255,212,0.2); box-shadow: 0 0 20px var(--glow), 0 8px 24px rgba(0,0,0,.25); }
         .muted { color: var(--muted); font-size: 13px; }
-        .badge {
-            display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px;
-            border-radius: 999px; font-size: 13px; font-weight: 600;
-            border: 1px solid var(--border); background: var(--panel-2);
-        }
-        .badge.success { color: var(--success); border-color: #335c2d; }
-        .badge.danger { color: var(--danger); border-color: #613138; }
-        .btn {
-            border: 1px solid var(--border); background: var(--panel-2); color: var(--text);
-            padding: 10px 14px; border-radius: 8px; font-weight: 600; cursor: pointer;
-            transition: all .15s ease;
-        }
-        .btn.accent { background: var(--accent); color: #0e1a1f; border-color: #9fffe3; }
-        .btn.success { background: var(--success); color: #0f1a0f; border-color: #9ddf7f; }
-        .btn.danger { background: var(--danger); color: #1a0f0f; border-color: #f8a3a3; }
-        .btn:disabled { opacity: .5; cursor: not-allowed; }
-        .btn:hover:not(:disabled) { transform: translateY(-1px); }
-        .stack { display: flex; flex-direction: column; gap: 8px; }
-        .row { display: flex; gap: 10px; align-items: center; }
-        .input {
-            background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
-            padding: 10px; border-radius: 8px; width: 100%;
-        }
-        .list {
-            background: var(--panel-2); border: 1px solid var(--border);
-            border-radius: 10px; padding: 10px; max-height: 220px; overflow: auto; font-size: 13px;
-        }
-        .log-list { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
-        .spacer { flex: 1; }
-        .pill {
-            padding: 6px 10px; border-radius: 999px; background: var(--panel-2);
-            border: 1px solid var(--border); font-size: 12px; color: var(--muted);
-        }
-        .link-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 12px; }
-        .link-tile {
-            background: var(--panel-2); border: 1px solid var(--border); padding: 12px;
-            border-radius: 10px; text-decoration: none; color: var(--text); font-size: 14px;
-            transition: all .15s ease;
-        }
-        .link-tile:hover { border-color: var(--accent); transform: translateY(-1px); }
-
-        /* evolution-specific tweaks */
-        .update-header { display: flex; justify-content: space-between; align-items: center; }
+        .badge { display:inline-block; padding:4px 10px; border-radius:999px; background:var(--panel-2); border:1px solid var(--border); font-size: 13px; }
+        .btn { border: 1px solid var(--border); background: var(--panel-2); color: var(--text); padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; transition: all .15s; }
+        .btn:hover { border-color: var(--accent); transform: translateY(-1px); }
+        .btn.accent { background: var(--accent); color: #0e1a1f; border-color: var(--accent); font-weight: 600; }
+        .btn.danger { background: var(--danger); color: #1a0f0f; border-color: var(--danger); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .stack { display:flex; flex-direction:column; gap:8px; }
+        .update-header { display:flex; justify-content:space-between; align-items:center; gap:8px; }
         .status { padding: 3px 8px; border-radius: 3px; font-size: 0.8em; text-transform: uppercase; }
         .status.pending { background: #d4a017; color: #000; }
         .status.applied { background: #2e7d32; color: #fff; }
         .status.denied { background: #c62828; color: #fff; }
-        .status.rolled_back { background: #555; color: #fff; }
-        .status.resolved { background: #607d8b; color: #fff; }
         .severity { padding: 3px 8px; border-radius: 3px; font-size: 0.8em; margin-right: 5px; text-transform: uppercase; font-weight: bold; }
         .severity.low { background: #1b5e20; color: #a5d6a7; border: 1px solid #2e7d32; }
         .severity.medium { background: #e65100; color: #ffcc80; border: 1px solid #ef6c00; }
         .severity.high { background: #b71c1c; color: #ef9a9a; border: 1px solid #c62828; }
-        .thinker-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin: 12px 0 16px; font-size: 0.92rem; }
-    </style>
+        .metric-box { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; transition: all .2s; }
+        .metric-box:hover { border-color: rgba(127,255,212,0.3); box-shadow: 0 0 14px var(--glow); }
+        .metric-value { font-size: 28px; font-weight: 700; color: var(--accent); line-height: 1.2; }
+        .metric-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-top: 4px; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+        .live-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--success); margin-right:6px; animation: pulse 2s infinite; }
+        .live-dot.off { background: var(--danger); animation: none; }
+        .progress-bar { height:6px; background:var(--panel-2); border-radius:3px; overflow:hidden; margin-top:6px; }
+        .progress-fill { height:100%; background: linear-gradient(90deg, var(--accent), #4ac29a); border-radius:3px; transition: width .5s ease; }
+        .session-row { display:flex; gap:8px; align-items:center; padding:8px; border-bottom:1px solid var(--border); }
+        .session-row:last-child { border-bottom: none; }
+        </style>
     </head>
     <body>
         <div class="shell">
         <header>
             <div>
-                <h1>Jeebs Evolution</h1>
-                <div class="muted">Review and manage self‑evolution proposals.</div>
+                <h1>&#x1F9E0; Jeebs Evolution</h1>
+                <div class="muted">Brain intelligence, growth metrics, and self-evolution proposals.</div>
             </div>
             <div class="nav-links">
                 <a class="nav-link" href="/webui/index.html">Home</a>
                 <a class="nav-link" href="/webui/admin_dashboard.html">Admin</a>
-                <a class="nav-link" href="/webui/evolution.html">Evolution</a>
+                <a class="nav-link" href="/webui/evolution.html" style="border-color:var(--accent)">Evolution</a>
             </div>
         </header>
-        <div class="thinker-panel">
-            <div
-                style="
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    gap: 8px;
-                    flex-wrap: wrap;
-                "
-            >
-                <strong>Autonomous Thinker</strong>
-                <span id="thinker-last-cycle" style="color: #90caf9"></span>
+
+        <div id="auth-debug-banner" style="margin-bottom:12px"></div>
+
+        <!-- Brain Metrics -->
+        <section style="margin-bottom:20px">
+            <div class="grid cols-4" id="brain-metrics">
+                <div class="metric-box">
+                    <div class="metric-value" id="m-brain-nodes">&mdash;</div>
+                    <div class="metric-label">Brain Nodes</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-value" id="m-learned-facts">&mdash;</div>
+                    <div class="metric-label">Learned Facts</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-value" id="m-chats-24h">&mdash;</div>
+                    <div class="metric-label">Chats (24h)</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-value" id="m-proposals">&mdash;</div>
+                    <div class="metric-label">Proposals</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-value" id="m-cycles">&mdash;</div>
+                    <div class="metric-label">Think Cycles</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-value" id="m-unanswered">&mdash;</div>
+                    <div class="metric-label">Unanswered (24h)</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-value" id="m-warnings">&mdash;</div>
+                    <div class="metric-label">Warnings (24h)</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-value" id="m-errors">&mdash;</div>
+                    <div class="metric-label">Errors (24h)</div>
+                </div>
             </div>
-            <div class="thinker-grid">
-                <div class="thinker-metric" id="metric-status">Status: -</div>
-                <div class="thinker-metric" id="metric-pending">Pending: -</div>
-                <div class="thinker-metric" id="metric-total">
-                    Total proposals: -
+        </section>
+
+        <!-- Thinker + Topics -->
+        <div class="grid cols-2" style="margin-bottom:20px">
+            <div class="card glow">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px">
+                    <h2 style="margin:0"><span class="live-dot" id="thinker-dot"></span> Autonomous Thinker</h2>
+                    <span class="badge" id="thinker-status">&mdash;</span>
                 </div>
-                <div class="thinker-metric" id="metric-warn">WARN (24h): -</div>
-                <div class="thinker-metric" id="metric-error">
-                    ERROR (24h): -
-                </div>
-                <div class="thinker-metric" id="metric-brain">
-                    Brain nodes: -
-                </div>
-                <div class="thinker-metric" id="metric-unknown">
-                    Unknown Qs (24h): -
-                </div>
-                <div class="thinker-metric" id="metric-reason">
-                    Last reason: -
+                <div class="stack" style="gap:6px; font-size:0.9rem">
+                    <div>Knowledge Drive: <strong id="thinker-drive">&mdash;</strong></div>
+                    <div id="drive-bar" class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
+                    <div style="margin-top:4px">Last cycle: <span id="thinker-last-cycle" class="muted">&mdash;</span></div>
+                    <div>Last reason: <span id="thinker-reason" class="muted">&mdash;</span></div>
                 </div>
             </div>
-            <div
-                id="metric-topics"
-                style="margin-top: 8px; font-size: 0.85rem; color: #b0bec5"
-            ></div>
+            <div class="card">
+                <h2>Unknown Topics</h2>
+                <div id="unknown-topics" class="muted" style="font-size:0.9rem">Loading...</div>
+            </div>
         </div>
-        <!-- Training UI moved to Trainer Panel for a cleaner workflow -->
-        <div id="notifications-area"></div>
-        <div
-            style="
-                margin-bottom: 15px;
-                display: flex;
-                align-items: center;
-                gap: 10px;
-                flex-wrap: wrap;
-            "
-        >
-            <label for="statusFilter" style="margin: 0">Filter:</label>
-            <select id="statusFilter" onchange="renderUpdates()">
+
+        <!-- Controls -->
+        <div style="margin-bottom: 15px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <label for="statusFilter" style="margin:0; font-size:14px">Filter:</label>
+            <select id="statusFilter" onchange="renderUpdates()" style="padding:6px 10px; border-radius:6px; background:var(--panel-2); color:var(--text); border:1px solid var(--border);">
                 <option value="all">All</option>
                 <option value="pending">Pending</option>
                 <option value="applied">Applied</option>
@@ -167,691 +157,43 @@
                 <option value="resolved">Resolved</option>
                 <option value="rolled_back">Rolled Back</option>
             </select>
-            <button class="btn-apply" onclick="brainstormUpdate()">
-                Think Now
-            </button>
-            <button class="btn-resolve" onclick="loadUpdates()">Refresh</button>
-            <a
-                href="/webui/admin_dashboard.html"
-                style="
-                    color: var(--text-main);
-                    text-decoration: none;
-                    margin-left: auto;
-                "
-                >Back to Admin</a
-            >
+            <button class="btn accent" onclick="brainstormUpdate()">&#x1F4A1; Think Now</button>
+            <button class="btn" onclick="fullRefresh()">&#x1F504; Refresh</button>
+            <div style="margin-left:auto">
+                <span class="muted" style="font-size:12px">Auto-refresh: 15s</span>
+            </div>
         </div>
-        <div
-            id="status-message"
-            style="margin-bottom: 12px; min-height: 20px; color: #90caf9"
-        ></div>
-        <div id="updates-list">Loading...</div>
+
+        <div id="status-message" style="margin-bottom:12px; min-height:20px; color:#90caf9; font-size:14px"></div>
+
+        <!-- Main Content -->
+        <div class="grid cols-2">
+            <div id="updates-list" style="min-height:200px">
+                <div class="card"><div class="muted" style="text-align:center; padding:20px">Loading evolution proposals...</div></div>
+            </div>
+            <div>
+                <div class="card" style="margin-bottom:16px">
+                    <h3>Active Sessions</h3>
+                    <div id="active-sessions"><div class="muted">Loading sessions...</div></div>
+                </div>
+                <div class="card" id="admin-controls-card" style="display:none">
+                    <h3>Admin Controls</h3>
+                    <div class="stack">
+                        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+                            <span style="font-size:14px">Training:</span>
+                            <button class="btn" onclick="setTrainingMode(true)">Start</button>
+                            <button class="btn danger" onclick="setTrainingMode(false)">Stop</button>
+                            <button class="btn" onclick="runTrainingNow()">Run Now</button>
+                        </div>
+                        <div id="training-status" class="muted" style="font-size:0.85rem">&mdash;</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        </div>
 
         <script src="/webui/auth.js"></script>
-        <script>
-            const ROOT_ADMIN_USERNAME = JEEBS_ROOT_ADMIN;
-            let allUpdates = [];
-            let userRole = "";
-            let rootAdminAuthorized = false;
-            let evolutionStatus = null;
-            let trainingStatus = null;
-
-            // Theme Init
-            if (localStorage.getItem("theme") === "light")
-                document.body.classList.add("light-mode");
-            function toggleTheme() {
-                document.body.classList.toggle("light-mode");
-                localStorage.setItem(
-                    "theme",
-                    document.body.classList.contains("light-mode")
-                        ? "light"
-                        : "dark",
-                );
-            }
-
-            function setStatus(message, isError = false) {
-                const status = document.getElementById("status-message");
-                status.textContent = message || "";
-                status.style.color = isError ? "#ef9a9a" : "#90caf9";
-            }
-
-            async function parseErrorMessage(res, fallback) {
-                try {
-                    const payload = await res.json();
-                    if (payload && payload.error) return payload.error;
-                    if (payload && payload.message) return payload.message;
-                } catch {}
-                try {
-                    const text = await res.text();
-                    if (text) return text;
-                } catch {}
-                return fallback;
-            }
-
-            async function ensureRootAdminAccess() {
-                try {
-                    const auth = await requireAuth("admin");
-                    if (!auth) return false;
-                    rootAdminAuthorized = true;
-                    startAuthGuard("admin", 60000);
-                    return true;
-                } catch {
-                    window.location.replace("/webui/index.html");
-                    return false;
-                }
-            }
-
-            async function loadUpdates() {
-                if (!rootAdminAuthorized) return;
-
-                const res = await safeFetch("/api/admin/evolution/updates", {
-                    credentials: "same-origin",
-                    headers: authHeaders(),
-                });
-                if (!res.ok) {
-                    const message = await parseErrorMessage(
-                        res,
-                        "Failed to load evolution updates.",
-                    );
-                    setStatus(message, true);
-                    document.getElementById("updates-list").innerText =
-                        "Access Denied. You do not have permission to view this page.";
-                    return;
-                }
-                const data = await res.json();
-                allUpdates = data.updates;
-                userRole = data.role;
-                setStatus(`Loaded ${allUpdates.length} evolution proposal(s).`);
-                loadNotifications();
-                loadEvolutionStatus();
-                renderUpdates();
-            }
-
-            function renderEvolutionStatus() {
-                const lastCycle = document.getElementById("thinker-last-cycle");
-                const metricStatus = document.getElementById("metric-status");
-                const metricPending = document.getElementById("metric-pending");
-                const metricTotal = document.getElementById("metric-total");
-                const metricWarn = document.getElementById("metric-warn");
-                const metricError = document.getElementById("metric-error");
-                const metricBrain = document.getElementById("metric-brain");
-                const metricUnknown = document.getElementById("metric-unknown");
-                const metricReason = document.getElementById("metric-reason");
-                const metricTopics = document.getElementById("metric-topics");
-
-                if (!evolutionStatus) {
-                    lastCycle.textContent = "";
-                    metricStatus.textContent = "Status: unavailable";
-                    metricPending.textContent = "Pending: -";
-                    metricTotal.textContent = "Total proposals: -";
-                    metricWarn.textContent = "WARN (24h): -";
-                    metricError.textContent = "ERROR (24h): -";
-                    metricBrain.textContent = "Brain nodes: -";
-                    metricUnknown.textContent = "Unknown Qs (24h): -";
-                    metricReason.textContent = "Last reason: -";
-                    metricTopics.textContent = "";
-                    return;
-                }
-
-                const state = evolutionStatus.state || {};
-                const lastCycleRaw = state.last_cycle_at || state.started_at;
-                lastCycle.textContent = lastCycleRaw
-                    ? `Last cycle: ${new Date(lastCycleRaw).toLocaleString()}`
-                    : "Last cycle: unknown";
-                metricStatus.textContent = `Status: ${state.status || "unknown"}`;
-                metricPending.textContent = `Pending: ${evolutionStatus.pending_updates ?? 0}`;
-                metricTotal.textContent = `Total proposals: ${evolutionStatus.total_updates ?? 0}`;
-                metricWarn.textContent = `WARN (24h): ${evolutionStatus.warn_last_24h ?? 0}`;
-                metricError.textContent = `ERROR (24h): ${evolutionStatus.error_last_24h ?? 0}`;
-                metricBrain.textContent = `Brain nodes: ${evolutionStatus.brain_nodes_count ?? 0}`;
-                metricUnknown.textContent = `Unknown Qs (24h): ${evolutionStatus.unanswered_questions_last_24h ?? 0}`;
-                metricReason.textContent = `Last reason: ${state.last_reason || "n/a"}`;
-                const topics = evolutionStatus.top_unknown_topics || [];
-                metricTopics.textContent =
-                    topics.length > 0
-                        ? `Top unknown topics: ${topics.join(", ")}`
-                        : "Top unknown topics: none";
-            }
-
-            async function loadEvolutionStatus() {
-                if (!rootAdminAuthorized) return;
-                const res = await safeFetch("/api/admin/evolution/status", {
-                    credentials: "same-origin",
-                    headers: authHeaders(),
-                });
-                if (!res.ok) {
-                    evolutionStatus = null;
-                    renderEvolutionStatus();
-                    return;
-                }
-                evolutionStatus = await res.json();
-                renderEvolutionStatus();
-            }
-
-            function formatDateTime(raw) {
-                if (!raw) return "n/a";
-                const dt = new Date(raw);
-                if (Number.isNaN(dt.getTime())) return raw;
-                return dt.toLocaleString();
-            }
-
-            function formatDurationMs(ms) {
-                const value = Number(ms || 0);
-                if (value <= 0) return "0ms";
-                if (value < 1000) return `${value}ms`;
-                return `${(value / 1000).toFixed(1)}s`;
-            }
-
-            function renderTrainingStatus() {
-                // If training elements were removed from this page, skip rendering.
-                if (!document.getElementById('training-enabled')) return;
-                const updatedAt = document.getElementById(
-                    "training-updated-at",
-                );
-                const enabled = document.getElementById("training-enabled");
-                const internet = document.getElementById("training-internet");
-                const cycles = document.getElementById("training-cycles");
-                const nodes = document.getElementById("training-nodes");
-                const topics = document.getElementById("training-topics");
-                const websites = document.getElementById("training-websites");
-                const live = document.getElementById("training-live");
-                const detail = document.getElementById("training-detail");
-                const lastCycle = document.getElementById(
-                    "training-last-cycle",
-                );
-                const cycleHistory = document.getElementById(
-                    "training-cycle-history",
-                );
-                const learned = document.getElementById("training-learned");
-
-                if (!trainingStatus) {
-                    updatedAt.textContent = "";
-                    enabled.textContent = "Enabled: -";
-                    internet.textContent = "Internet: -";
-                    cycles.textContent = "Cycles: -";
-                    nodes.textContent = "Nodes written: -";
-                    topics.textContent = "";
-                    websites.textContent = "";
-                        live.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#999;margin-right:8px;vertical-align:middle"></span> Live: -`;
-                    detail.textContent = "Detailed totals will appear here.";
-                    lastCycle.textContent =
-                        "Last cycle details will appear here.";
-                    cycleHistory.textContent = "No cycle history yet.";
-                    learned.textContent = "No learned node writes yet.";
-                    return;
-                }
-
-                const training = trainingStatus.training || {};
-                const updatedRaw =
-                    training.updated_at || training.last_cycle_at;
-                updatedAt.textContent = updatedRaw
-                    ? `Updated: ${formatDateTime(updatedRaw)}`
-                    : "Updated: unknown";
-                enabled.textContent = `Enabled: ${training.enabled ? "yes" : "no"}`;
-                internet.textContent = `Internet: ${trainingStatus.internet_enabled ? "enabled" : "disabled"}`;
-                cycles.textContent = `Cycles: ${training.total_cycles ?? 0}`;
-                nodes.textContent = `Nodes written: ${training.total_nodes_written ?? 0}`;
-                const lastTopics = training.last_topics || [];
-                const intervalSeconds = trainingStatus.interval_seconds ?? 5;
-                topics.textContent =
-                    lastTopics.length > 0
-                        ? `Last training topics: ${lastTopics.join(", ")} (every ${intervalSeconds}s while enabled)`
-                        : `Last training topics: none (every ${intervalSeconds}s while enabled)`;
-
-                const lastWebsites = training.last_websites || [];
-                websites.textContent =
-                    lastWebsites.length > 0
-                        ? `Websites scraped this cycle: ${lastWebsites.join(", ")}`
-                        : "Websites scraped this cycle: none";
-
-                const running = training.is_cycle_running === true;
-                const activePhase = training.active_phase || "idle";
-                const activeTarget = training.active_target || "n/a";
-                const activeStarted = formatDateTime(
-                    training.active_cycle_started_at,
-                );
-                const activeUpdated = formatDateTime(
-                    training.active_updated_at,
-                );
-                const activeNodes = training.active_nodes_written ?? 0;
-                const activeWebsites = training.active_websites_completed ?? 0;
-                const activeTopics = training.active_topics_completed ?? 0;
-                    const dotColor = running ? '#66bb6a' : '#ef5350';
-                    const liveMsg = running ? `Running (${training.active_phase || 'active'})` : `Idle`;
-                    live.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${dotColor};margin-right:8px;vertical-align:middle"></span> ${liveMsg}`;
-
-                const totalWebsites = training.total_websites_scraped ?? 0;
-                const totalVisited = training.total_crawl_pages_visited ?? 0;
-                const totalStored = training.total_crawl_pages_stored ?? 0;
-                const totalLinks = training.total_crawl_links_followed ?? 0;
-                const totalCrawlNodes = training.total_crawl_nodes_written ?? 0;
-                const totalWikiDocs =
-                    training.total_wikipedia_docs_written ?? 0;
-                const lastDuration = formatDurationMs(
-                    training.last_cycle_duration_ms ?? 0,
-                );
-                const lastNodes = training.last_cycle_nodes_written ?? 0;
-                const lastErrors = training.last_cycle_errors || [];
-                detail.innerHTML = `
-                    <div><strong>Detailed Totals</strong></div>
-                    <div>websites_scraped=${totalWebsites}, crawl_pages_visited=${totalVisited}, crawl_pages_stored=${totalStored}, crawl_links_followed=${totalLinks}</div>
-                    <div>crawl_nodes_written=${totalCrawlNodes}, wikipedia_docs_written=${totalWikiDocs}, total_nodes_written=${training.total_nodes_written ?? 0}</div>
-                    <div>last_cycle_duration=${lastDuration}, last_cycle_nodes=${lastNodes}, last_cycle_errors=${lastErrors.length}</div>
-                `;
-
-                const summary = training.last_cycle_summary || null;
-                if (!summary) {
-                    lastCycle.textContent =
-                        "Last cycle details will appear here.";
-                } else {
-                    const summaryErrors = (summary.errors || [])
-                        .slice(0, 5)
-                        .map((e) => escapeHtml(e))
-                        .join(" | ");
-                    lastCycle.innerHTML = `
-                        <div><strong>Last Cycle</strong> ${escapeHtml(formatDateTime(summary.cycle_finished_at))}</div>
-                        <div>duration=${formatDurationMs(summary.duration_ms)}, nodes=${summary.nodes_written}, websites=${(summary.websites_scraped || []).length}, topics=${(summary.topics || []).length}</div>
-                        <div>crawl visited=${summary.crawl_pages_visited}, stored=${summary.crawl_pages_stored}, links=${summary.crawl_links_followed}, wiki_docs=${summary.wikipedia_docs_written}</div>
-                        <div>errors: ${summaryErrors || "none"}</div>
-                    `;
-                }
-
-                const historyRows = (training.recent_cycles || []).slice(0, 12);
-                if (historyRows.length === 0) {
-                    cycleHistory.textContent = "No cycle history yet.";
-                } else {
-                    cycleHistory.innerHTML = historyRows
-                        .map((cycle, idx) => {
-                            const cycleErrors = (cycle.errors || []).length;
-                            return `
-                                <div style="padding:6px 0; border-bottom:1px solid var(--border);">
-                                    <div><strong>#${idx + 1}</strong> ${escapeHtml(formatDateTime(cycle.cycle_finished_at))}</div>
-                                    <div>duration=${formatDurationMs(cycle.duration_ms)}, nodes=${cycle.nodes_written}, websites=${(cycle.websites_scraped || []).length}, topics=${(cycle.topics || []).length}, errors=${cycleErrors}</div>
-                                </div>
-                            `;
-                        })
-                        .join("");
-                }
-
-                const learnedItems = training.last_learned_items || [];
-                if (learnedItems.length === 0) {
-                    learned.textContent = "No learned node writes yet.";
-                } else {
-                    learned.innerHTML = learnedItems
-                        .slice(0, 20)
-                        .map((item) => {
-                            const sourceType = item.source_type || "unknown";
-                            const title = escapeHtml(item.title || "Untitled");
-                            const summary = escapeHtml(item.summary || "");
-                            const sourceUrl = escapeHtml(item.source_url || "");
-                            const nodeId = escapeHtml(item.node_id || "");
-                            const topic = escapeHtml(item.topic || "");
-                            return `
-                                <div style="padding:8px; border-bottom:1px solid var(--border);">
-                                    <div><strong>${title}</strong> <span style="opacity:0.7;">(${sourceType})</span></div>
-                                    <div style="opacity:0.85; margin-top:3px;">${summary}</div>
-                                    <div style="opacity:0.7; margin-top:3px;">Topic: ${topic}</div>
-                                    <div style="opacity:0.7; margin-top:2px;">Node: ${nodeId}</div>
-                                    <div style="margin-top:2px;"><a href="${sourceUrl}" target="_blank" style="color:#90caf9;">${sourceUrl}</a></div>
-                                </div>
-                            `;
-                        })
-                        .join("");
-                }
-            }
-
-            async function loadTrainingStatus() {
-                if (!rootAdminAuthorized) return;
-                const res = await safeFetch("/api/admin/training/status", {
-                    credentials: "same-origin",
-                    headers: authHeaders(),
-                });
-                if (!res.ok) {
-                    trainingStatus = null;
-                    renderTrainingStatus();
-                    return;
-                }
-                trainingStatus = await res.json();
-                renderTrainingStatus();
-            }
-
-            async function setTrainingMode(enabled) {
-                const res = await safeFetch("/api/admin/training/mode", {
-                    method: "POST",
-                    credentials: "same-origin",
-                    headers: authHeaders(true),
-                    body: JSON.stringify({ enabled }),
-                });
-                if (!res.ok) {
-                    setStatus(
-                        await parseErrorMessage(
-                            res,
-                            "Failed to update training mode.",
-                        ),
-                        true,
-                    );
-                    return;
-                }
-                const payload = await res.json();
-                const internetEnabled = payload?.internet_enabled === true;
-                if (enabled) {
-                    const nodesWritten = payload?.report?.nodes_written ?? 0;
-                    const websitesScraped =
-                        payload?.report?.websites_scraped?.length ?? 0;
-                    const durationMs = payload?.report?.duration_ms ?? 0;
-                    setStatus(
-                        `Training mode enabled. Internet is ${internetEnabled ? "enabled" : "disabled"}. Initial cycle: ${websitesScraped} website(s), ${nodesWritten} node(s), duration ${formatDurationMs(durationMs)}.`,
-                    );
-                } else {
-                    setStatus("Training mode stopped.");
-                }
-                loadTrainingStatus();
-            }
-
-            async function runTrainingNow() {
-                const res = await safeFetch("/api/admin/training/run", {
-                    method: "POST",
-                    credentials: "same-origin",
-                    headers: authHeaders(),
-                });
-                if (!res.ok) {
-                    setStatus(
-                        await parseErrorMessage(
-                            res,
-                            "Failed to run training cycle.",
-                        ),
-                        true,
-                    );
-                    return;
-                }
-                const payload = await res.json();
-                const nodesWritten = payload?.report?.nodes_written ?? 0;
-                const websitesScraped =
-                    payload?.report?.websites_scraped?.length ?? 0;
-                const durationMs = payload?.report?.duration_ms ?? 0;
-                setStatus(
-                    `Training cycle completed. Websites scraped: ${websitesScraped}. Nodes written: ${nodesWritten}. Duration: ${formatDurationMs(durationMs)}.`,
-                );
-                loadTrainingStatus();
-            }
-
-            function renderUpdates() {
-                const filter = document.getElementById("statusFilter").value;
-                const updates =
-                    filter === "all"
-                        ? allUpdates
-                        : allUpdates.filter((u) => u.status === filter);
-                const container = document.getElementById("updates-list");
-                container.innerHTML = "";
-
-                if (updates.length === 0) {
-                    container.innerHTML = "<p>No updates found.</p>";
-                    return;
-                }
-
-                updates.forEach((u) => {
-                    const card = document.createElement("div");
-                    card.className = "card update-card";
-
-                    let actions = "";
-                    if (userRole === "admin") {
-                        if (u.status === "pending") {
-                            actions = `
-                            <button class="btn btn.success" onclick="applyUpdate('${u.id}')">Apply</button>
-                            <button class="btn btn.danger" onclick="denyUpdate('${u.id}')">Deny</button>
-                            <button class="btn btn.accent" onclick="resolveUpdate('${u.id}')">Resolve</button>
-                        `;
-                        } else if (u.status === "applied") {
-                            actions = `<button class="btn btn.danger" onclick="rollbackUpdate('${u.id}')">Rollback</button>`;
-                    let changesHtml = u.changes
-                        .map(
-                            (c) =>
-                                `<div><strong>${c.path}</strong><pre>${escapeHtml(c.new_content)}</pre></div>`,
-                        )
-                        .join("");
-
-                    const severityClass = u.severity
-                        ? u.severity.toLowerCase()
-                        : "low";
-                    const severityLabel = u.severity || "Low";
-
-                    let commentsHtml =
-                        u.comments && u.comments.length > 0
-                            ? u.comments
-                                  .map(
-                                      (c) =>
-                                          `<div style="background:#333; padding:5px; margin:2px 0; font-size:0.9em; border-radius:3px;"><strong>${escapeHtml(c.author)}</strong>: ${escapeHtml(c.content)}</div>`,
-                                  )
-                                  .join("")
-                            : '<div style="color:#777; font-style:italic; font-size:0.9em;">No comments yet.</div>';
-
-                    let commentForm = `
-                    <div style="margin-top:10px; border-top:1px solid #444; padding-top:10px;">
-                        <div style="margin-bottom:5px;">${commentsHtml}</div>
-                        <div style="display:flex;">
-                            <input type="text" id="comment-input-${u.id}" placeholder="Add a comment..." style="flex-grow:1; padding:5px; background:#222; border:1px solid #555; color:#eee; margin-right:5px; border-radius:3px;">
-                            <button onclick="addComment('${u.id}')" style="background:#0277bd; color:white;">Post</button>
-                        </div>
-                    </div>
-                `;
-
-                    card.innerHTML = `
-                    <div class="update-header">
-                        <h2>${escapeHtml(u.title)}</h2>
-                        <div>
-                            <span class="severity ${severityClass}">${severityLabel}</span>
-                            <span class="status ${u.status}">${u.status}</span>
-                            ${(() => {
-                                const feeling = (u.feeling || '').toLowerCase();
-                                if (!feeling) return '';
-                                const icon = feeling === 'like' ? '👍' : feeling === 'dislike' ? '👎' : '😐';
-                                const color = feeling === 'like' ? '#66bb6a' : feeling === 'dislike' ? '#ef5350' : '#999';
-                                return `<span style="margin-left:8px; color:${color}; font-size:1.1em;">${icon}</span>`;
-                            })()}
-                        </div>
-                    </div>
-                    <div style="font-size: 0.9em; color: #aaa; margin-bottom: 5px;">Author: ${escapeHtml(u.author)}</div>
-                    <p>${escapeHtml(u.description)}</p>
-                    <small>${new Date(u.created_at).toLocaleString()}</small>
-                    <details>
-                        <summary>View Changes</summary>
-                        ${changesHtml}
-                    </details>
-                    ${commentForm}
-                    <div style="margin-top: 10px;">${actions}</div>
-                `;
-                    container.appendChild(card);
-                });
-            }
-
-            async function loadNotifications() {
-                if (userRole !== "admin") return;
-                const res = await safeFetch("/api/admin/notifications", {
-                    credentials: "same-origin",
-                    headers: authHeaders(),
-                });
-                if (res.ok) {
-                    const notifs = await res.json();
-                    const area = document.getElementById("notifications-area");
-                    area.innerHTML = notifs
-                        .map(
-                            (n) => `
-                    <div class="notification-banner">
-                        <span><strong>ALERT:</strong> ${escapeHtml(n.message)}</span>
-                        <button onclick="dismissNotification('${n.id}')" style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.5);">Dismiss</button>
-                    </div>
-                `,
-                        )
-                        .join("");
-                }
-            }
-
-            async function dismissNotification(id) {
-                const res = await safeFetch(`/api/admin/notification/${id}`, {
-                    method: "DELETE",
-                    credentials: "same-origin",
-                    headers: authHeaders(),
-                });
-                if (!res.ok) {
-                    setStatus(
-                        await parseErrorMessage(
-                            res,
-                            "Failed to dismiss notification.",
-                        ),
-                        true,
-                    );
-                    return;
-                }
-                loadNotifications();
-            }
-
-            async function applyUpdate(id) {
-                if (!confirm("Apply this update?")) return;
-                const res = await safeFetch(`/api/admin/evolution/apply/${id}`, {
-                    method: "POST",
-                    credentials: "same-origin",
-                    headers: authHeaders(),
-                });
-                if (!res.ok) {
-                    setStatus(
-                        await parseErrorMessage(res, "Failed to apply update."),
-                        true,
-                    );
-                    return;
-                }
-                setStatus("Update applied.");
-                loadUpdates();
-            }
-
-            async function denyUpdate(id) {
-                if (!confirm("Deny this update?")) return;
-                const res = await safeFetch(`/api/admin/evolution/deny/${id}`, {
-                    method: "POST",
-                    credentials: "same-origin",
-                    headers: authHeaders(),
-                });
-                if (!res.ok) {
-                    setStatus(
-                        await parseErrorMessage(res, "Failed to deny update."),
-                        true,
-                    );
-                    return;
-                }
-                setStatus("Update denied.");
-                loadUpdates();
-            }
-
-            async function resolveUpdate(id) {
-                if (
-                    !confirm(
-                        "Mark this update as resolved (manual fix/ignored)?",
-                    )
-                )
-                    return;
-                const res = await safeFetch(`/api/admin/evolution/resolve/${id}`, {
-                    method: "POST",
-                    credentials: "same-origin",
-                    headers: authHeaders(),
-                });
-                if (!res.ok) {
-                    setStatus(
-                        await parseErrorMessage(
-                            res,
-                            "Failed to resolve update.",
-                        ),
-                        true,
-                    );
-                    return;
-                }
-                setStatus("Update resolved.");
-                loadUpdates();
-            }
-
-            async function rollbackUpdate(id) {
-                if (!confirm("Rollback this update?")) return;
-                const res = await safeFetch(`/api/admin/evolution/rollback/${id}`, {
-                    method: "POST",
-                    credentials: "same-origin",
-                    headers: authHeaders(),
-                });
-                if (!res.ok) {
-                    setStatus(
-                        await parseErrorMessage(
-                            res,
-                            "Failed to roll back update.",
-                        ),
-                        true,
-                    );
-                    return;
-                }
-                setStatus("Update rolled back.");
-                loadUpdates();
-            }
-
-            async function addComment(id) {
-                const input = document.getElementById(`comment-input-${id}`);
-                const content = input.value.trim();
-                if (!content) return;
-
-                const res = await safeFetch(`/api/admin/evolution/comment/${id}`, {
-                    method: "POST",
-                    credentials: "same-origin",
-                    headers: authHeaders(true),
-                    body: JSON.stringify({ content }),
-                });
-                if (!res.ok) {
-                    setStatus(
-                        await parseErrorMessage(res, "Failed to add comment."),
-                        true,
-                    );
-                    return;
-                }
-                setStatus("Comment added.");
-                loadUpdates();
-            }
-
-            async function brainstormUpdate() {
-                const res = await safeFetch("/api/admin/evolution/think", {
-                    method: "POST",
-                    credentials: "same-origin",
-                    headers: authHeaders(),
-                });
-                if (!res.ok) {
-                    setStatus(
-                        await parseErrorMessage(
-                            res,
-                            "Failed to brainstorm update.",
-                        ),
-                        true,
-                    );
-                    return;
-                }
-                const payload = await res.json();
-                const reason = payload.reason ? ` (${payload.reason})` : "";
-                setStatus(
-                    (payload.message || "Think cycle complete.") + reason,
-                );
-                loadUpdates();
-            }
-
-            function escapeHtml(text) {
-                if (!text) return "";
-                return text
-                    .replace(/&/g, "&amp;")
-                    .replace(/</g, "&lt;")
-                    .replace(/>/g, "&gt;")
-                    .replace(/"/g, "&quot;")
-                    .replace(/'/g, "&#039;");
-            }
-
-            (async () => {
-                const allowed = await ensureRootAdminAccess();
-                if (!allowed) return;
-                loadUpdates();
-                loadEvolutionStatus();
-                setInterval(loadEvolutionStatus, 15000);
-            })();
-        </script>
-        </div> <!-- /.shell -->
+        <script src="/webui/js/evolution.js"></script>
     </body>
 </html>

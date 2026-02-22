@@ -218,6 +218,9 @@ pub async fn brainstorm_update(data: web::Data<AppState>, session: Session) -> i
         status: "pending".to_string(),
         created_at: chrono::Local::now().to_rfc3339(),
         backup: None,
+        votes_up: 0,
+        votes_down: 0,
+        votes_by_user: std::collections::HashMap::new(),
     };
     let key = format!("evolution:update:{}", id);
     if let Ok(json_bytes) = serde_json::to_vec(&update) {

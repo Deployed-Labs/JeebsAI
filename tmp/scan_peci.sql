@@ -1,0 +1,1 @@
+SELECT key, length(value) as len, instr(CAST(value as TEXT),'peci') as instr_peci, instr(CAST(value as TEXT),'peaci') as instr_peaci, hex(value) as hexval FROM jeebs_store WHERE CAST(value as TEXT) LIKE '%peci%' OR CAST(value as TEXT) LIKE '%peaci%' OR hex(value) LIKE '%70656369%' OR hex(value) LIKE '%7065616369%';
