@@ -488,7 +488,7 @@ pub async fn build_knowledge_graph(
     parser: &BrainParser,
 ) -> Result<KnowledgeGraph, String> {
     let brain_nodes: Vec<(String, String, String)> =
-        sqlx::query_as("SELECT id, key, value FROM brain")
+        sqlx::query_as("SELECT id, label, COALESCE(summary,'') || ' ' || COALESCE(CAST(data AS TEXT),'') FROM brain_nodes")
             .fetch_all(db)
             .await
             .map_err(|e| format!("Failed to fetch brain nodes: {}", e))?;
