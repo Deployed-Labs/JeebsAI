@@ -192,6 +192,8 @@ async fn main() -> std::io::Result<()> {
             .service(user_chat::chat_status)
             // Removed admin/knowledge routes that are no longer implemented in cortex
             .service(admin::status::get_system_status)
+            .service(admin::status::health_check)
+            .service(admin::status::get_server_stats)
             .service(admin::sessions::get_active_sessions)
             .service(admin::sessions::terminate_session)
             .service(admin::export::export_database)

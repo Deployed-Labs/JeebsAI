@@ -7,32 +7,128 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="/webui/style.css"/>
+<style>
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+.stat-box{background:var(--bg-1);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;transition:border-color .2s}
+.stat-box:hover{border-color:var(--accent)}
+.stat-label{font-size:.75em;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:6px}
+.stat-value{font-family:'JetBrains Mono',monospace;font-size:1.4em;font-weight:700;color:var(--text)}
+.stat-value.accent{color:var(--accent)}
+.progress-bar{height:8px;border-radius:4px;background:var(--bg-2);overflow:hidden;margin-top:8px}
+.progress-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--accent),#3bbef0);transition:width .6s ease}
+.progress-fill.warn{background:linear-gradient(90deg,#f5a623,#e74c3c)}
+.feature-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;font-size:.85em;font-weight:600;border:1px solid var(--border)}
+.feature-pill .dot{width:8px;height:8px;border-radius:50%}
+.feature-pill.on .dot{background:var(--accent);box-shadow:0 0 6px var(--accent)}
+.feature-pill.off .dot{background:var(--danger)}
+.session-row{display:grid;grid-template-columns:1fr 1fr 2fr auto;gap:8px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--border);font-size:.85em}
+.session-row:last-child{border-bottom:none}
+.session-header{font-weight:600;color:var(--text-muted);font-size:.75em;text-transform:uppercase;letter-spacing:.06em}
+.session-user{font-weight:600;color:var(--accent)}
+.session-ip{font-family:'JetBrains Mono',monospace;color:var(--text-muted);font-size:.82em}
+.kick-btn{background:transparent;border:1px solid var(--danger);color:var(--danger);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:.78em;font-weight:600;transition:all .2s}
+.kick-btn:hover{background:var(--danger);color:#fff}
+.health-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:16px;font-weight:600;font-size:.9em}
+.health-badge.ok{background:rgba(83,216,251,.12);color:var(--accent)}
+.health-badge.degraded{background:rgba(231,76,60,.12);color:var(--danger)}
+.pulse{animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.refresh-info{display:flex;align-items:center;gap:8px;color:var(--text-muted);font-size:.8em}
+.refresh-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 2s ease-in-out infinite}
+@media(max-width:600px){
+  .stat-grid{grid-template-columns:repeat(2,1fr)}
+  .session-row{grid-template-columns:1fr 1fr;gap:4px}
+  .session-row .ua-col{display:none}
+}
+</style>
 </head>
 <body>
 <nav id="topnav"></nav>
-<div class="shell" style="max-width:640px;padding-top:60px">
-  <div style="text-align:center;margin-bottom:32px">
-    <h1 style="margin-bottom:8px">Server Status</h1>
-    <p class="text-muted">Real-time health monitoring</p>
-  </div>
+<div class="shell" style="max-width:860px;padding-top:60px">
 
-  <div class="card card-glow" style="text-align:center;padding:32px">
-    <div id="status-icon" style="font-size:3em;margin-bottom:12px">
-      <div class="spinner" style="margin:0 auto"></div>
+  <!-- Header -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px">
+    <div>
+      <h1 style="margin:0 0 4px">Server Status</h1>
+      <p class="text-muted" style="margin:0">Real-time system monitoring</p>
     </div>
-    <div id="status-indicator" style="font-size:1.4em;font-weight:700;margin-bottom:8px">Checking...</div>
-    <div id="timestamp" class="text-muted"></div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="refresh-info"><span class="refresh-dot"></span> Auto-refresh 10s</div>
+      <button class="btn btn-primary" onclick="loadAll()" id="refresh-btn">Refresh</button>
+    </div>
   </div>
 
-  <div class="card" id="deps-card" style="display:none">
-    <h3>Dependencies</h3>
-    <div id="dependencies-status" class="data-list"></div>
+  <!-- Health Status -->
+  <div class="card card-glow" id="health-card" style="margin-bottom:16px">
+    <div style="display:flex;align-items:center;justify-content:between;gap:12px">
+      <span id="health-icon" style="font-size:1.6em">
+        <div class="spinner" style="width:24px;height:24px;margin:0"></div>
+      </span>
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span id="health-badge" class="health-badge">Checking...</span>
+          <span id="health-db" class="text-muted" style="font-size:.82em"></span>
+        </div>
+        <div id="health-time" class="text-muted" style="font-size:.78em;margin-top:2px"></div>
+      </div>
+    </div>
   </div>
 
-  <div class="card" style="margin-top:12px">
+  <!-- System Metrics -->
+  <div class="card" id="metrics-card" style="margin-bottom:16px">
+    <h3 style="margin-top:0;margin-bottom:14px">System Metrics</h3>
+    <div class="stat-grid" id="metrics-grid">
+      <div class="stat-box"><div class="stat-label">Uptime</div><div class="stat-value" id="s-uptime">—</div></div>
+      <div class="stat-box"><div class="stat-label">CPUs</div><div class="stat-value" id="s-cpu">—</div></div>
+      <div class="stat-box"><div class="stat-label">Memory Used</div><div class="stat-value" id="s-mem-used">—</div></div>
+      <div class="stat-box"><div class="stat-label">Memory Total</div><div class="stat-value" id="s-mem-total">—</div></div>
+      <div class="stat-box" style="grid-column:1/-1">
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <div class="stat-label">Memory Usage</div>
+          <div class="stat-value" id="s-mem-pct" style="font-size:1em">—</div>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="mem-bar" style="width:0%"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Database Stats -->
+  <div class="card" id="db-card" style="margin-bottom:16px">
+    <h3 style="margin-top:0;margin-bottom:14px">Database</h3>
+    <div class="stat-grid">
+      <div class="stat-box"><div class="stat-label">Brain Nodes</div><div class="stat-value accent" id="s-brain">—</div></div>
+      <div class="stat-box"><div class="stat-label">Knowledge</div><div class="stat-value accent" id="s-knowledge">—</div></div>
+      <div class="stat-box"><div class="stat-label">Store Entries</div><div class="stat-value" id="s-store">—</div></div>
+      <div class="stat-box"><div class="stat-label">System Logs</div><div class="stat-value" id="s-logs">—</div></div>
+      <div class="stat-box"><div class="stat-label">Anomalies</div><div class="stat-value" id="s-anomalies">—</div></div>
+    </div>
+  </div>
+
+  <!-- Feature Toggles -->
+  <div class="card" id="features-card" style="margin-bottom:16px">
+    <h3 style="margin-top:0;margin-bottom:14px">Features</h3>
+    <div style="display:flex;gap:12px;flex-wrap:wrap" id="feature-pills">
+      <span class="feature-pill off" id="f-internet"><span class="dot"></span>Internet</span>
+      <span class="feature-pill off" id="f-training"><span class="dot"></span>Training</span>
+    </div>
+  </div>
+
+  <!-- Active Sessions -->
+  <div class="card" id="sessions-card" style="margin-bottom:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <h3 style="margin:0">Active Sessions <span id="session-count" class="text-muted" style="font-size:.7em;font-weight:400"></span></h3>
+    </div>
+    <div id="sessions-list">
+      <div class="text-muted" style="text-align:center;padding:20px">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Footer links -->
+  <div class="card" style="margin-bottom:32px">
     <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-      <button class="btn btn-primary" onclick="checkHealth()">Refresh Now</button>
       <a href="/webui/admin_dashboard.html" class="btn btn-ghost">Admin Dashboard</a>
+      <a href="/webui/evolution.html" class="btn btn-ghost">Evolution</a>
+      <a href="/webui/logs.html" class="btn btn-ghost">Logs</a>
     </div>
   </div>
 </div>
@@ -42,44 +138,107 @@
 <script>
 JeebsNav.init('status');
 
+function fmt(n){return n==null?'—':Number(n).toLocaleString()}
+function fmtMB(n){return n==null?'—':n>=1024?(n/1024).toFixed(1)+' GB':n.toFixed(0)+' MB'}
+
 async function checkHealth(){
-  const statusEl=document.getElementById('status-indicator');
-  const timeEl=document.getElementById('timestamp');
-  const depsEl=document.getElementById('dependencies-status');
-  const depsCard=document.getElementById('deps-card');
-  const iconEl=document.getElementById('status-icon');
+  const badge=document.getElementById('health-badge');
+  const icon=document.getElementById('health-icon');
+  const dbEl=document.getElementById('health-db');
+  const timeEl=document.getElementById('health-time');
   try{
     const res=await safeFetch('/health');
-    const data=await res.json();
-    if(res.ok||res.status===503){
-      const ok=data.status==='ok';
-      statusEl.textContent='Status: '+data.status.toUpperCase();
-      statusEl.style.color=ok?'var(--accent)':'var(--danger)';
-      iconEl.innerHTML=ok?'<span style="color:var(--accent)">&#x2714;</span>':'<span style="color:var(--danger)">&#x26A0;</span>';
-      timeEl.textContent='Last check: '+new Date(data.timestamp).toLocaleString();
-      if(data.dependencies){
-        depsCard.style.display='';
-        let html='';
-        for(const[key,value]of Object.entries(data.dependencies)){
-          const isOk=value==='ok';
-          html+='<div class="data-list-item"><span>'+key+'</span><span class="badge '+(isOk?'badge-success':'badge-danger')+'">'+(isOk?'\u2714':'\u2718')+' '+value.toUpperCase()+'</span></div>';
-        }
-        depsEl.innerHTML=html;
-      }
-    }else{
-      statusEl.textContent='Error: '+(data.error||'Access Denied');
-      statusEl.style.color='var(--danger)';
-      iconEl.innerHTML='<span style="color:var(--danger)">&#x26A0;</span>';
-    }
+    const d=await res.json();
+    const ok=d.status==='ok';
+    badge.textContent=ok?'Online':'Degraded';
+    badge.className='health-badge '+(ok?'ok':'degraded');
+    icon.innerHTML=ok?'<span style="color:var(--accent)">&#x2714;</span>':'<span style="color:var(--danger)">&#x26A0;</span>';
+    dbEl.textContent='DB: '+(d.dependencies?.database||'unknown').toUpperCase();
+    timeEl.textContent='Checked: '+new Date(d.timestamp).toLocaleTimeString();
   }catch(e){
-    statusEl.textContent='Error: Could not connect to server.';
-    statusEl.style.color='var(--danger)';
-    iconEl.innerHTML='<span style="color:var(--danger)">&#x2718;</span>';
-    timeEl.textContent='';
+    badge.textContent='Offline';badge.className='health-badge degraded';
+    icon.innerHTML='<span style="color:var(--danger)">&#x2718;</span>';
+    dbEl.textContent='';timeEl.textContent='Connection failed';
   }
 }
-checkHealth();
-setInterval(checkHealth,10000);
+
+async function loadStats(){
+  try{
+    const res=await safeFetch('/api/server/stats');
+    if(!res.ok)return;
+    const d=await res.json();
+    const s=d.system, m=s.memory, db=d.database, f=d.features, sess=d.sessions;
+
+    // System
+    document.getElementById('s-uptime').textContent=s.uptime_formatted;
+    document.getElementById('s-cpu').textContent=s.cpu_count;
+    document.getElementById('s-mem-used').textContent=fmtMB(m.used_mb);
+    document.getElementById('s-mem-total').textContent=fmtMB(m.total_mb);
+    document.getElementById('s-mem-pct').textContent=m.used_percent+'%';
+    const bar=document.getElementById('mem-bar');
+    bar.style.width=m.used_percent+'%';
+    bar.className='progress-fill'+(m.used_percent>85?' warn':'');
+
+    // Database
+    document.getElementById('s-brain').textContent=fmt(db.brain_nodes);
+    document.getElementById('s-knowledge').textContent=fmt(db.knowledge_triples);
+    document.getElementById('s-store').textContent=fmt(db.store_entries);
+    document.getElementById('s-logs').textContent=fmt(db.system_logs);
+    document.getElementById('s-anomalies').textContent=fmt(db.anomalies);
+
+    // Features
+    setPill('f-internet',f.internet_enabled);
+    setPill('f-training',f.training_enabled);
+
+    // Sessions
+    document.getElementById('session-count').textContent='('+sess.active_count+')';
+    const list=document.getElementById('sessions-list');
+    if(!sess.list.length){
+      list.innerHTML='<div class="text-muted" style="text-align:center;padding:20px">No active sessions</div>';
+      return;
+    }
+    let html='<div class="session-row session-header"><span>User</span><span>IP</span><span class="ua-col">User Agent</span><span></span></div>';
+    for(const s of sess.list){
+      const ago=timeAgo(s.last_seen);
+      const ua=s.user_agent||'—';
+      const shortUA=ua.length>50?ua.slice(0,47)+'…':ua;
+      html+='<div class="session-row">'
+        +'<span class="session-user">'+esc(s.username)+'</span>'
+        +'<span class="session-ip">'+esc(s.ip)+'</span>'
+        +'<span class="ua-col text-muted" title="'+esc(ua)+'">'+esc(shortUA)+'</span>'
+        +'<button class="kick-btn" onclick="kickSession(\''+esc(s.username)+'\')">Kick</button>'
+        +'</div>';
+    }
+    list.innerHTML=html;
+  }catch(e){console.error('Stats error',e);}
+}
+
+function setPill(id,on){
+  const el=document.getElementById(id);
+  el.className='feature-pill '+(on?'on':'off');
+}
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+
+function timeAgo(iso){
+  try{const diff=Date.now()-new Date(iso).getTime();const m=Math.floor(diff/60000);return m<1?'just now':m+'m ago';}catch(e){return '';}
+}
+
+async function kickSession(username){
+  if(!confirm('Terminate session for '+username+'?'))return;
+  try{
+    await safeFetch('/api/admin/session/'+encodeURIComponent(username),{method:'DELETE'});
+    loadStats();
+  }catch(e){alert('Failed to kick session');}
+}
+
+function loadAll(){
+  checkHealth();
+  loadStats();
+}
+
+loadAll();
+setInterval(loadAll,10000);
 </script>
 </body>
 </html>
