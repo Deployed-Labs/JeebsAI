@@ -2,13 +2,14 @@ use crate::state::AppState;
 use actix::ActorContext;
 use actix::AsyncContext;
 use actix_session::Session;
-use actix_web::{delete, get, web, HttpResponse, Responder};
+use actix_web::{delete, get, web, HttpResponse, Responder, post};
 use actix_web_actors::ws;
 use chrono::Local;
 use csv::Writer;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqlitePool};
+use std::collections::HashMap;
 use std::sync::Mutex;
 use std::sync::OnceLock;
 use tokio::sync::broadcast;
@@ -38,6 +39,13 @@ fn get_broadcaster() -> &'static broadcast::Sender<LogEntry> {
 // In-memory recent-log buffer for admin UI
 static LOG_BUFFER: OnceLock<Mutex<Vec<String>>> = OnceLock::new();
 
+// Scan job tracker
+static SCAN_JOBS: OnceLock<Mutex<HashMap<u64, String>>> = OnceLock::new();
+
+fn get_scan_jobs() -> &'static Mutex<HashMap<u64, String>> {
+    SCAN_JOBS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
 pub fn get_log_buffer() -> &'static Mutex<Vec<String>> {
     LOG_BUFFER.get_or_init(|| Mutex::new(Vec::new()))
 }
@@ -56,6 +64,25 @@ pub async fn init(db: &SqlitePool) {
     .await
     {
         eprintln!("[WARN] Failed to initialize logging table: {err}");
+    }
+
+    // Ensure anomalies table exists
+    if let Err(err) = sqlx::query(
+        "CREATE TABLE IF NOT EXISTS anomalies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            log_id INTEGER,
+            timestamp TEXT NOT NULL,
+            level TEXT NOT NULL,
+            category TEXT NOT NULL,
+            message TEXT NOT NULL,
+            reason TEXT,
+            metadata TEXT
+        )",
+    )
+    .execute(db)
+    .await
+    {
+        eprintln!("[WARN] Failed to initialize anomalies table: {err}");
     }
 }
 
@@ -92,6 +119,106 @@ async fn insert_log_row(
     Ok(result.last_insert_rowid())
 }
 
+#[derive(Serialize, Clone, sqlx::FromRow)]
+pub struct AnomalyEntry {
+    pub id: i64,
+    pub log_id: Option<i64>,
+    pub timestamp: String,
+    pub level: String,
+    pub category: String,
+    pub message: String,
+    pub reason: Option<String>,
+    pub metadata: Option<String>,
+}
+
+async fn insert_anomaly_row(
+    db: &SqlitePool,
+    log_id: Option<i64>,
+    timestamp: &str,
+    level: &str,
+    category: &str,
+    message: &str,
+    reason: Option<&str>,
+    metadata: Option<&str>,
+) -> Result<i64, sqlx::Error> {
+    let result = sqlx::query(
+        "INSERT INTO anomalies (log_id, timestamp, level, category, message, reason, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    )
+    .bind(log_id)
+    .bind(timestamp)
+    .bind(level)
+    .bind(category)
+    .bind(message)
+    .bind(reason)
+    .bind(metadata)
+    .execute(db)
+    .await?;
+
+    Ok(result.last_insert_rowid())
+}
+
+#[derive(Serialize, Clone, sqlx::FromRow)]
+pub struct ReasoningTrace {
+    pub id: i64,
+    pub timestamp: String,
+    pub username: Option<String>,
+    pub prompt: String,
+    pub response: String,
+    pub metadata: Option<String>,
+}
+
+async fn insert_reasoning_trace_row(
+    db: &SqlitePool,
+    username: Option<&str>,
+    prompt: &str,
+    response: &str,
+    metadata: Option<&str>,
+) -> Result<i64, sqlx::Error> {
+    let result = sqlx::query(
+        "INSERT INTO reasoning_traces (timestamp, username, prompt, response, metadata) VALUES (?, ?, ?, ?, ?)",
+    )
+    .bind(Local::now().to_rfc3339())
+    .bind(username)
+    .bind(prompt)
+    .bind(response)
+    .bind(metadata)
+    .execute(db)
+    .await?;
+
+    Ok(result.last_insert_rowid())
+}
+
+/// Public helper to record a reasoning trace (best-effort)
+pub async fn record_reasoning_trace(
+    db: &SqlitePool,
+    username: Option<&str>,
+    prompt: &str,
+    response: &str,
+    metadata: Option<&str>,
+) {
+    let _ = insert_reasoning_trace_row(db, username, prompt, response, metadata).await;
+}
+
+#[get("/api/admin/reasoning_traces")]
+pub async fn get_reasoning_traces(data: web::Data<AppState>, session: Session) -> impl Responder {
+    if !crate::auth::is_root_admin_session(&session) {
+        return HttpResponse::Forbidden()
+            .json(serde_json::json!({"error": "Restricted to 1090mb admin account"}));
+    }
+
+    let rows = sqlx::query_as::<_, ReasoningTrace>(
+        "SELECT id, timestamp, username, prompt, response, metadata FROM reasoning_traces ORDER BY id DESC LIMIT 200",
+    )
+    .fetch_all(&data.db)
+    .await;
+
+    match rows {
+        Ok(traces) => HttpResponse::Ok().json(traces),
+        Err(_) => HttpResponse::InternalServerError()
+            .json(serde_json::json!({"error": "Failed to fetch traces"})),
+    }
+}
+
 pub async fn log(db: &SqlitePool, level: &str, category: &str, message: &str) {
     let timestamp = Local::now().to_rfc3339();
     let message = truncate_message(message);
@@ -125,7 +252,78 @@ pub async fn log(db: &SqlitePool, level: &str, category: &str, message: &str) {
                     buf.drain(0..(len - 1000));
                 }
             }
-            let _ = get_broadcaster().send(entry);
+            let _ = get_broadcaster().send(entry.clone());
+            // Improved anomaly detection heuristics
+            let msg_lc = entry.message.to_lowercase();
+            let keywords = [
+                "panic",
+                "failed",
+                "exception",
+                "traceback",
+                "segfault",
+                "oom",
+                "permission denied",
+                "forbidden",
+                "denied",
+                "rate limit",
+                "429",
+                "503",
+                "500",
+                "timeout",
+                "connection refused",
+                "unhandled",
+                "error",
+            ];
+
+            let mut hit_keyword = false;
+            for k in keywords.iter() {
+                if msg_lc.contains(k) {
+                    hit_keyword = true;
+                    break;
+                }
+            }
+
+            // Detect repeated identical messages in recent buffer
+            let mut repeated = false;
+            if let Ok(buf) = get_log_buffer().lock() {
+                let mut count = 0usize;
+                for item in buf.iter().rev().take(200) {
+                    if item.contains(&entry.message) {
+                        count += 1;
+                    }
+                    if count >= 5 {
+                        repeated = true;
+                        break;
+                    }
+                }
+            }
+
+            // Treat WARN/ERROR as anomaly; also treat INFO containing keywords/repeats
+            let is_anomaly = matches!(level, "ERROR" | "WARN") || hit_keyword || repeated;
+
+            if is_anomaly {
+                let reason = if matches!(level, "ERROR" | "WARN") {
+                    "level"
+                } else if repeated {
+                    "repeated"
+                } else if hit_keyword {
+                    "keyword"
+                } else {
+                    "auto-detected"
+                };
+
+                let _ = insert_anomaly_row(
+                    db,
+                    Some(id),
+                    &timestamp,
+                    level,
+                    category,
+                    &entry.message,
+                    Some(reason),
+                    None,
+                )
+                .await;
+            }
         }
         Err(err) => {
             eprintln!("[WARN] Failed to persist system log entry: {err}");
@@ -413,6 +611,177 @@ pub async fn get_categories(data: web::Data<AppState>, session: Session) -> impl
         }
         Err(_) => HttpResponse::InternalServerError()
             .json(serde_json::json!({"error": "Failed to fetch categories"})),
+    }
+}
+
+#[get("/api/admin/anomalies")]
+pub async fn get_anomalies(data: web::Data<AppState>, session: Session) -> impl Responder {
+    if !crate::auth::is_root_admin_session(&session) {
+        return HttpResponse::Forbidden()
+            .json(serde_json::json!({"error": "Restricted to 1090mb admin account"}));
+    }
+
+    let rows = sqlx::query_as::<_, AnomalyEntry>(
+        "SELECT id, log_id, timestamp, level, category, message, reason, metadata FROM anomalies ORDER BY id DESC LIMIT 200",
+    )
+    .fetch_all(&data.db)
+    .await;
+
+    match rows {
+        Ok(anoms) => HttpResponse::Ok().json(anoms),
+        Err(_) => HttpResponse::InternalServerError()
+            .json(serde_json::json!({"error": "Failed to fetch anomalies"})),
+    }
+}
+
+#[get("/api/admin/anomalies/scan/jobs")]
+pub async fn list_scan_jobs(data: web::Data<AppState>, session: Session) -> impl Responder {
+    if !crate::auth::is_root_admin_session(&session) {
+        return HttpResponse::Forbidden()
+            .json(serde_json::json!({"error": "Restricted to 1090mb admin account"}));
+    }
+    let jobs = get_scan_jobs().lock().unwrap();
+    let mut out: Vec<serde_json::Value> = Vec::new();
+    for (k, v) in jobs.iter() {
+        out.push(serde_json::json!({"job_id": k, "status": v}));
+    }
+    HttpResponse::Ok().json(out)
+}
+
+#[get("/api/admin/anomalies/scan/status/{job_id}")]
+pub async fn scan_job_status(data: web::Data<AppState>, session: Session, path: web::Path<u64>) -> impl Responder {
+    if !crate::auth::is_root_admin_session(&session) {
+        return HttpResponse::Forbidden()
+            .json(serde_json::json!({"error": "Restricted to 1090mb admin account"}));
+    }
+    let job_id = path.into_inner();
+    let jobs = get_scan_jobs().lock().unwrap();
+    if let Some(status) = jobs.get(&job_id) {
+        HttpResponse::Ok().json(serde_json::json!({"job_id": job_id, "status": status}))
+    } else {
+        HttpResponse::NotFound().json(serde_json::json!({"error": "Job not found"}))
+    }
+}
+
+#[post("/api/admin/anomalies/scan")]
+pub async fn scan_legacy_logs(
+    data: web::Data<AppState>,
+    session: Session,
+    query: web::Query<HashMap<String, String>>,
+) -> impl Responder {
+    if !crate::auth::is_root_admin_session(&session) {
+        return HttpResponse::Forbidden()
+            .json(serde_json::json!({"error": "Restricted to 1090mb admin account"}));
+    }
+    // Optional parameters: async=true, limit=N, days=M
+    let is_async = query.get("async").map(|s| s == "1" || s == "true").unwrap_or(false);
+    let limit: i64 = query
+        .get("limit")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(2000);
+    let days: Option<i64> = query.get("days").and_then(|s| s.parse().ok());
+
+    if is_async {
+        // spawn background job and return job id
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let start = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let job_id = start as u64;
+        {
+            let mut jobs = get_scan_jobs().lock().unwrap();
+            jobs.insert(job_id, "running".to_string());
+        }
+
+        let db = data.db.clone();
+        let q = query.into_inner();
+        tokio::spawn(async move {
+            let mut flagged = 0u32;
+            // build query depending on days
+            let rows = if let Some(d) = days {
+                let threshold = (Local::now() - chrono::Duration::days(d)).to_rfc3339();
+                sqlx::query_as::<_, LogEntry>(
+                    "SELECT id, timestamp, level, category, message FROM system_logs WHERE timestamp >= ? ORDER BY id DESC LIMIT ?",
+                )
+                .bind(threshold)
+                .bind(limit)
+                .fetch_all(&db)
+                .await
+            } else {
+                sqlx::query_as::<_, LogEntry>(
+                    "SELECT id, timestamp, level, category, message FROM system_logs ORDER BY id DESC LIMIT ?",
+                )
+                .bind(limit)
+                .fetch_all(&db)
+                .await
+            };
+
+            if let Ok(logs) = rows {
+                for log in logs.into_iter() {
+                    let exists = sqlx::query_scalar::<_, i64>("SELECT COUNT(1) FROM anomalies WHERE log_id = ?")
+                        .bind(log.id)
+                        .fetch_one(&db)
+                        .await
+                        .unwrap_or(0);
+                    if exists > 0 { continue; }
+                    let msg_lc = log.message.to_lowercase();
+                    let keywords = ["panic","failed","exception","traceback","segfault","oom","permission denied","forbidden","denied","rate limit","429","503","500","timeout","connection refused","unhandled","error"];
+                    let mut hit = false;
+                    for k in keywords.iter() { if msg_lc.contains(k) { hit = true; break; } }
+                    if hit {
+                        let _ = insert_anomaly_row(&db, Some(log.id), &log.timestamp, &log.level, &log.category, &log.message, Some("retro-keyword"), None).await;
+                        flagged += 1;
+                    }
+                }
+            }
+
+            let mut jobs = get_scan_jobs().lock().unwrap();
+            jobs.insert(job_id, format!("done:{}", flagged));
+        });
+
+        return HttpResponse::Ok().json(serde_json::json!({"ok": true, "job_id": start}));
+    }
+
+    // synchronous path (short run)
+    let rows = if let Some(d) = days {
+        let threshold = (Local::now() - chrono::Duration::days(d)).to_rfc3339();
+        sqlx::query_as::<_, LogEntry>(
+            "SELECT id, timestamp, level, category, message FROM system_logs WHERE timestamp >= ? ORDER BY id DESC LIMIT ?",
+        )
+        .bind(threshold)
+        .bind(limit)
+        .fetch_all(&data.db)
+        .await
+    } else {
+        sqlx::query_as::<_, LogEntry>(
+            "SELECT id, timestamp, level, category, message FROM system_logs ORDER BY id DESC LIMIT ?",
+        )
+        .bind(limit)
+        .fetch_all(&data.db)
+        .await
+    };
+
+    match rows {
+        Ok(logs) => {
+            let mut flagged = 0u32;
+            for log in logs.into_iter() {
+                let exists = sqlx::query_scalar::<_, i64>("SELECT COUNT(1) FROM anomalies WHERE log_id = ?")
+                    .bind(log.id)
+                    .fetch_one(&data.db)
+                    .await
+                    .unwrap_or(0);
+                if exists > 0 { continue; }
+                let msg_lc = log.message.to_lowercase();
+                let keywords = ["panic","failed","exception","traceback","segfault","oom","permission denied","forbidden","denied","rate limit","429","503","500","timeout","connection refused","unhandled","error"];
+                let mut hit = false;
+                for k in keywords.iter() { if msg_lc.contains(k) { hit = true; break; } }
+                if hit {
+                    let _ = insert_anomaly_row(&data.db, Some(log.id), &log.timestamp, &log.level, &log.category, &log.message, Some("retro-keyword"), None).await;
+                    flagged += 1;
+                }
+            }
+            HttpResponse::Ok().json(serde_json::json!({"ok": true, "flagged": flagged}))
+        }
+        Err(_) => HttpResponse::InternalServerError()
+            .json(serde_json::json!({"error": "Failed to fetch logs for scan"})),
     }
 }
 

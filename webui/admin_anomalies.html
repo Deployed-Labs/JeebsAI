@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Admin — Anomalies</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;margin:20px}
+    table{border-collapse:collapse;width:100%}
+    th,td{border:1px solid #ddd;padding:8px}
+    th{background:#f4f4f4}
+    .level-ERROR{color:#b00020;font-weight:bold}
+    .level-WARN{color:#d97706}
+    .small{font-size:0.9em;color:#666}
+  </style>
+</head>
+<body>
+  <h1>Anomalies</h1>
+  <p class="small">Shows recent entries flagged as anomalies. Admin only.</p>
+    <div>
+    <button id="refresh">Refresh</button>
+    <button id="export">Export CSV</button>
+    <button id="scan">Scan (sync)</button>
+    <button id="scanAsync">Scan (background)</button>
+  </div>
+  <div style="margin-top:12px">
+    <table id="anomalies-table">
+      <thead>
+        <tr><th>ID</th><th>Timestamp</th><th>Level</th><th>Category</th><th>Message</th><th>Reason</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script src="/webui/js/admin_anomalies.js"></script>
+</body>
+</html>
