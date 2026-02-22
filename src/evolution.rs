@@ -2301,6 +2301,8 @@ mod tests {
             confidence: 0.6,
             fingerprint: String::new(),
             requires_restart: false,
+            feeling: None,
+            feeling_confidence: 0.0,
             applied_at: None,
             denied_at: None,
             resolved_at: None,

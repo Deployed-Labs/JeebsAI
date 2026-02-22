@@ -11,7 +11,8 @@ use rand::Rng;
 use std::time::Duration;
 use tokio::time::sleep;
 
-const DEEP_LEARNING_KEY_PREFIX: &str = "deeplearn:";
+/// Key prefix for deep learning session data in the brain store
+pub const DEEP_LEARNING_KEY_PREFIX: &str = "deeplearn:";
 const LEARNING_SESSION_PREFIX: &str = "learnsession:";
 const KNOWLEDGE_APPLICATION_PREFIX: &str = "apply_knowledge:";
 const TOPIC_EXPERTISE_PREFIX: &str = "expertise:";

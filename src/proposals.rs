@@ -51,6 +51,7 @@ struct FileChangeLite {
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 struct EvolutionUpdateLite {
     #[serde(default)]
     changes: Vec<FileChangeLite>,

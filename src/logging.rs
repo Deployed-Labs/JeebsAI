@@ -635,7 +635,7 @@ pub async fn get_anomalies(data: web::Data<AppState>, session: Session) -> impl 
 }
 
 #[get("/api/admin/anomalies/scan/jobs")]
-pub async fn list_scan_jobs(data: web::Data<AppState>, session: Session) -> impl Responder {
+pub async fn list_scan_jobs(_data: web::Data<AppState>, session: Session) -> impl Responder {
     if !crate::auth::is_root_admin_session(&session) {
         return HttpResponse::Forbidden()
             .json(serde_json::json!({"error": "Restricted to 1090mb admin account"}));
@@ -649,7 +649,7 @@ pub async fn list_scan_jobs(data: web::Data<AppState>, session: Session) -> impl
 }
 
 #[get("/api/admin/anomalies/scan/status/{job_id}")]
-pub async fn scan_job_status(data: web::Data<AppState>, session: Session, path: web::Path<u64>) -> impl Responder {
+pub async fn scan_job_status(_data: web::Data<AppState>, session: Session, path: web::Path<u64>) -> impl Responder {
     if !crate::auth::is_root_admin_session(&session) {
         return HttpResponse::Forbidden()
             .json(serde_json::json!({"error": "Restricted to 1090mb admin account"}));
@@ -692,7 +692,7 @@ pub async fn scan_legacy_logs(
         }
 
         let db = data.db.clone();
-        let q = query.into_inner();
+        let _q = query.into_inner();
         tokio::spawn(async move {
             let mut flagged = 0u32;
             // build query depending on days

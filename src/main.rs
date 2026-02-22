@@ -4,7 +4,7 @@ use actix_files::Files;
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
 use actix_web::cookie::Key;
 use actix_web::{web, App, HttpServer};
-use base64;
+use base64::Engine as _;
 use jeebs::plugins::{
     Base64Plugin, CalcPlugin, ContactPlugin, ErrorPlugin, HashPlugin, LogicPlugin, MemoryPlugin,
     NewsPlugin, PasswordPlugin, SummaryPlugin, SystemPlugin, TimePlugin, TodoPlugin,
@@ -21,14 +21,10 @@ use std::path::Path;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 use sysinfo::System;
-use serde::Deserialize;
 
 // Rate limiter key extractor removed — no per-IP throttling.
 
-#[derive(Deserialize)]
-struct ChatRequest {
-    pub message: String,
-}
+
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -167,7 +163,7 @@ async fn main() -> std::io::Result<()> {
     // Session cookie secret: prefer SESSION_KEY_B64 env var (base64-encoded).
     // If not set or invalid, fall back to a generated ephemeral key.
     let secret_key = match std::env::var("SESSION_KEY_B64") {
-        Ok(s) => match base64::decode(&s) {
+        Ok(s) => match base64::engine::general_purpose::STANDARD.decode(&s) {
             Ok(bytes) => {
                 if bytes.is_empty() {
                     eprintln!("SESSION_KEY_B64 is empty; generating ephemeral key");

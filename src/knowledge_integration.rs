@@ -108,7 +108,8 @@ pub async fn build_enhanced_context(
     })
 }
 
-fn to_tags(s: &str) -> Vec<String> {
+/// Split a comma-separated string into a Vec of trimmed tag strings
+pub fn to_tags(s: &str) -> Vec<String> {
     s.split(',')
         .filter(|t| !t.is_empty())
         .map(|t| t.trim().to_string())

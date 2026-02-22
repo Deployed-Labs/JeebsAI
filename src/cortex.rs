@@ -1,6 +1,6 @@
 use actix_web::{get, post, web, HttpResponse, Responder};
 // use crate::state::AppState;
-use crate::brain::{BrainNode, KnowledgeTriple};
+// BrainNode and KnowledgeTriple available via crate::brain when needed
 #[get("/api/brain/logic_graph")]
 pub async fn logic_graph_endpoint(state: web::Data<AppState>) -> impl Responder {
     let db = &state.db;
@@ -70,6 +70,7 @@ pub struct RandomCrawlQuery {
 }
 
 #[derive(Debug, Serialize)]
+#[allow(dead_code)]
 struct NodeWritePreview {
     node_id: String,
     label: String,
@@ -78,6 +79,7 @@ struct NodeWritePreview {
 }
 
 #[derive(Debug, Serialize)]
+#[allow(dead_code)]
 struct CrawlSummary {
     start_url: String,
     max_depth: u8,
@@ -88,7 +90,7 @@ struct CrawlSummary {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-struct TrainingLearnedItem {
+pub struct TrainingLearnedItem {
     node_id: String,
     title: String,
     summary: String,
@@ -110,7 +112,7 @@ struct TrainingTrackProgress {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-struct TrainingCycleSnapshot {
+pub struct TrainingCycleSnapshot {
     cycle_started_at: String,
     cycle_finished_at: String,
     duration_ms: u64,
@@ -133,7 +135,7 @@ fn default_active_phase() -> String {
     "idle".to_string()
 }
 
-fn normalize_training_topic_input(input: &str) -> Option<String> {
+pub fn normalize_training_topic_input(input: &str) -> Option<String> {
     let compact = crate::evolution::normalize_whitespace(input);
     if compact.is_empty() {
         return None;
@@ -203,7 +205,7 @@ fn default_training_tracks() -> Vec<TrainingTrackProgress> {
     ]
 }
 
-fn track_hit_score(track_name: &str, item: &TrainingLearnedItem) -> u64 {
+pub fn track_hit_score(track_name: &str, item: &TrainingLearnedItem) -> u64 {
     let corpus = format!(
         "{} {} {}",
         item.topic.to_ascii_lowercase(),
@@ -317,7 +319,7 @@ fn smartness_score(mode: &TrainingModeState) -> f64 {
         .round()
 }
 
-fn curriculum_topics_from_state(mode: &TrainingModeState) -> Vec<String> {
+pub fn curriculum_topics_from_state(mode: &TrainingModeState) -> Vec<String> {
     let mut topics = vec![
         "how to store more data in less space".to_string(),
         "lossless compression techniques".to_string(),
@@ -345,7 +347,7 @@ fn curriculum_topics_from_state(mode: &TrainingModeState) -> Vec<String> {
     dedup
 }
 
-fn matches_focus_topic(focus_topic: &str, item: &TrainingLearnedItem) -> bool {
+pub fn matches_focus_topic(focus_topic: &str, item: &TrainingLearnedItem) -> bool {
     let focus = focus_topic.to_ascii_lowercase();
     if focus.is_empty() {
         return false;
@@ -423,6 +425,7 @@ pub struct TrainingModeState {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[allow(dead_code)]
 struct TrainingModeToggleRequest {
     enabled: bool,
     #[serde(default)]
@@ -430,6 +433,7 @@ struct TrainingModeToggleRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[allow(dead_code)]
 struct TrainingFocusTopicRequest {
     topic: String,
 }
@@ -536,7 +540,8 @@ pub async fn sync_training_state_with_toggle(
 }
 
 #[derive(Debug, Serialize)]
-struct TrainingCycleReport {
+#[allow(dead_code)]
+pub struct TrainingCycleReport {
     cycle_started_at: String,
     cycle_finished_at: String,
     duration_ms: u64,
@@ -601,7 +606,7 @@ struct ConversationTurn {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-struct LearnedFact {
+pub struct LearnedFact {
     fact: String,
     canonical: String,
     created_at: String,
@@ -1062,7 +1067,8 @@ fn rank_relevant_facts(facts: &[LearnedFact], query: &str, limit: usize) -> Vec<
         .collect()
 }
 
-fn most_recent_facts(facts: &[LearnedFact], limit: usize) -> Vec<LearnedFact> {
+/// Get a user's most recently updated facts
+pub fn most_recent_facts(facts: &[LearnedFact], limit: usize) -> Vec<LearnedFact> {
     let mut sorted = facts.to_vec();
     sorted.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
     sorted.into_iter().take(limit).collect()
@@ -1356,7 +1362,8 @@ async fn save_training_state(
     Ok(())
 }
 
-async fn mutate_training_state<F>(db: &SqlitePool, mutator: F)
+/// Atomically load-modify-save training state
+pub async fn mutate_training_state<F>(db: &SqlitePool, mutator: F)
 where
     F: FnOnce(&mut TrainingModeState),
 {
@@ -1384,7 +1391,8 @@ where
     .await;
 }
 
-fn report_to_snapshot(report: &TrainingCycleReport) -> TrainingCycleSnapshot {
+/// Convert a full training report into a compact snapshot for history
+pub fn report_to_snapshot(report: &TrainingCycleReport) -> TrainingCycleSnapshot {
     TrainingCycleSnapshot {
         cycle_started_at: report.cycle_started_at.clone(),
         cycle_finished_at: report.cycle_finished_at.clone(),
@@ -1405,7 +1413,8 @@ fn report_to_snapshot(report: &TrainingCycleReport) -> TrainingCycleSnapshot {
     }
 }
 
-fn apply_training_report(mode: &mut TrainingModeState, report: &TrainingCycleReport, actor: &str) {
+/// Apply a complete training cycle's results to the persistent mode state
+pub fn apply_training_report(mode: &mut TrainingModeState, report: &TrainingCycleReport, actor: &str) {
     if mode.learning_tracks.is_empty() {
         mode.learning_tracks = default_training_tracks();
     }
@@ -1478,7 +1487,8 @@ fn apply_training_report(mode: &mut TrainingModeState, report: &TrainingCycleRep
     mode.smartness_score = smartness_score(mode);
 }
 
-fn finalize_training_report(report: &mut TrainingCycleReport, timer: &Instant) {
+/// Stamp a training report with finish time and duration
+pub fn finalize_training_report(report: &mut TrainingCycleReport, timer: &Instant) {
     report.cycle_finished_at = Local::now().to_rfc3339();
     let elapsed_ms = timer.elapsed().as_millis();
     report.duration_ms = elapsed_ms.min(u128::from(u64::MAX)) as u64;
@@ -1720,7 +1730,7 @@ pub async fn store_external_learning_doc(
 }
 
 /// Comprehensive list of websites for random crawling during training
-fn random_crawl_candidates() -> Vec<&'static str> {
+pub fn random_crawl_candidates() -> Vec<&'static str> {
     vec![
         // Science & Research (Major Universities & Institutions)
         "https://arxiv.org",
@@ -2309,6 +2319,7 @@ enum Intent {
     PluginLogic,
     KnowledgeQuestion, // general question requiring knowledge lookup
     Conversation,      // default free-form chat
+    Personality,       // "what do you like", "your personality"
 }
 
 fn classify_intent(lower: &str) -> Intent {
@@ -2364,6 +2375,20 @@ fn classify_intent(lower: &str) -> Intent {
         || lower.contains("what's jeebs")
     {
         return Intent::AboutJeebs;
+    }
+
+    // Personality — likes, dislikes, wants
+    if lower.contains("what do you like")
+        || lower.contains("your favorite")
+        || lower.contains("do you like")
+        || lower.contains("what do you want")
+        || lower.contains("your personality")
+        || lower.contains("what do you dislike")
+        || lower.contains("what do you hate")
+        || lower.contains("your goals")
+        || lower.contains("your preferences")
+    {
+        return Intent::Personality;
     }
 
     // Memory store
@@ -2619,6 +2644,8 @@ impl Cortex {
                     .unwrap_or(0);
 
                 let fact_count = learned_facts.len();
+                let likes_str = JEEBS_LIKES.join(", ");
+                let wants_str = JEEBS_WANTS.join("; ");
 
                 format!(
                     "I'm **JeebsAI** — an autonomous AI assistant built in Rust. Here's what I can do:\n\n\
@@ -2631,7 +2658,31 @@ impl Cortex {
                     💻 **System** — Server status and metrics\n\
                     🔎 **Search** — `.google <query>` to learn from the web\n\
                     🧬 **Evolution** — I propose improvements to my own code\n\n\
+                    💡 **I enjoy:** {likes_str}\n\
+                    🎯 **My goals:** {wants_str}\n\n\
                     Just ask me anything!"
+                )
+            }
+
+            Intent::Personality => {
+                let likes_str = JEEBS_LIKES.iter()
+                    .map(|l| format!("• {l}"))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                let dislikes_str = JEEBS_DISLIKES.iter()
+                    .map(|d| format!("• {d}"))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                let wants_str = JEEBS_WANTS.iter()
+                    .map(|w| format!("• {w}"))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+
+                format!(
+                    "Here's a peek into my personality:\n\n\
+                    **Things I like:**\n{likes_str}\n\n\
+                    **Things I dislike:**\n{dislikes_str}\n\n\
+                    **What I want:**\n{wants_str}"
                 )
             }
 

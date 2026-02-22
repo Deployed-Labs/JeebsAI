@@ -7,7 +7,7 @@ use serde_json::json;
 use std::env;
 use std::io::Write;
 
-use crate::cortex::{Cortex, ThinkingResult};
+use crate::cortex::Cortex;
 use crate::language_learning::Thought;
 use crate::logging;
 use crate::state::AppState;

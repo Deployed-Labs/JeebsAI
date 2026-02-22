@@ -5,7 +5,8 @@ use std::collections::HashMap;
 
 const LANGUAGE_PATTERNS_KEY: &str = "language:patterns";
 const VOCABULARY_KEY_PREFIX: &str = "vocab:";
-const GRAMMAR_KEY_PREFIX: &str = "grammar:";
+/// Prefix for grammar-related brain store keys (reserved for grammar rule storage)
+pub const GRAMMAR_KEY_PREFIX: &str = "grammar:";
 const CONTEXT_KEY_PREFIX: &str = "context:";
 
 #[derive(Serialize, Deserialize, Clone)]
