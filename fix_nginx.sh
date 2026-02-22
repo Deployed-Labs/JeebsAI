@@ -9,14 +9,20 @@ server {
     listen 443 ssl; server_name jeebs.club;
     ssl_certificate /etc/letsencrypt/live/jeebs.club/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/jeebs.club/privkey.pem;
-    root /root/JeebsAI; index index.html;
-    location / { try_files \$uri \$uri/ @proxy; }
-    location /api/ {
-        add_header 'Access-Control-Allow-Origin' '*' always;
+    # do NOT serve files out of /root; the app serves its own webui
+    # (nginx runs as www-data and cannot read /root anyway)
+    location / {
         proxy_pass http://127.0.0.1:8080;
-        proxy_set_header Host \$host;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_cache off;
     }
-    location @proxy { proxy_pass http://127.0.0.1:8080; }
 }
 EON
 sudo systemctl restart nginx

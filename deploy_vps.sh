@@ -6,6 +6,8 @@ set -euo pipefail
 APP_DIR="/root/JeebsAI"
 SERVICE="jeebs"
 PORT="8080"
+# optional domain for nginx proxy (leave empty for wildcard)
+DOMAIN="${DOMAIN:-_}"
 DB_FILE="$APP_DIR/jeebs.db"
 
 echo "=== JeebsAI VPS Deploy ==="
@@ -130,7 +132,9 @@ echo "  Service created: $SERVICE"
 # ── 7. Configure nginx reverse proxy ────────────────────────
 echo "[7/7] Configuring nginx..."
 if command -v nginx &>/dev/null; then
-    cat > /etc/nginx/sites-available/jeebs <<'NGINX'
+    # build appropriate site block based on DOMAIN
+    if [ "$DOMAIN" = "_" ]; then
+        cat > /etc/nginx/sites-available/jeebs <<'NGINX'
 server {
     listen 80;
     server_name _;
@@ -153,11 +157,57 @@ server {
     }
 }
 NGINX
+    else
+        cat > /etc/nginx/sites-available/jeebs <<NGINX
+server {
+    listen 80;
+    server_name $DOMAIN www.$DOMAIN;
+    return 301 https://\$host\$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name $DOMAIN www.$DOMAIN;
+    ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:$PORT;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_buffering off;
+        proxy_cache off;
+    }
+}
+NGINX
+    fi
 
     ln -sf /etc/nginx/sites-available/jeebs /etc/nginx/sites-enabled/jeebs
     rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
-    nginx -t && systemctl reload nginx
-    echo "  Nginx configured."
+
+    # make sure nginx is running before trying to reload
+    systemctl enable --now nginx >/dev/null 2>&1 || true
+
+    # permit common ports if ufw is available
+    if command -v ufw &>/dev/null; then
+        ufw allow 80,443/tcp || true
+    fi
+
+    if nginx -t; then
+        if systemctl is-active --quiet nginx; then
+            systemctl reload nginx
+        else
+            systemctl start nginx
+        fi
+        echo "  Nginx configured."
+    else
+        echo "  nginx configuration test failed, please inspect /etc/nginx/sites-available/jeebs"
+    fi
 else
     echo "  Nginx not installed — app will listen directly on port $PORT."
     echo "  You can install with: apt install nginx"
