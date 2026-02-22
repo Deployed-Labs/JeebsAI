@@ -94,6 +94,18 @@
       <a href="/webui/visualize.html" class="link-tile"><span class="link-tile-label">Brain Graph</span></a>
     </div>
   </div>
+
+  <!-- Training Controls -->
+  <div class="card">
+    <h3>Training Controls</h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <button class="btn btn-accent" onclick="setTrainingMode(true)">Train On</button>
+      <button class="btn btn-danger" onclick="setTrainingMode(false)">Train Off</button>
+      <button class="btn btn-primary" onclick="runTrainingNow()">Run Training</button>
+    </div>
+    <div id="training-status" class="text-muted" style="margin-bottom:8px">Loading training status...</div>
+    <div id="training-log" class="log-box" style="max-height:180px;min-height:60px;background:var(--bg-2);overflow:auto;font-size:.92em"></div>
+  </div>
 </div>
 
 <script src="/webui/auth.js"></script>
@@ -212,13 +224,67 @@ async function importData(input){
   input.value="";
 }
 
+async function loadTrainingStatus(){
+  try{
+    const res=await safeFetch('/api/admin/training/status');
+    if(!res.ok){document.getElementById('training-status').textContent='Training status unavailable';return;}
+    const d=await res.json();
+    const t=d.training||{};
+    document.getElementById('training-status').textContent='Training: '+(t.enabled?'ON':'OFF')+(t.status?(' | '+t.status):'');
+  }catch(e){document.getElementById('training-status').textContent='Training status error';}
+}
+
+async function setTrainingMode(on){
+  try{
+    await safeFetch('/api/admin/training/mode',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:on})});
+    loadTrainingStatus();
+    logTraining('Training mode set to '+(on?'ON':'OFF'));
+  }catch(e){logTraining('Failed to set training mode');}
+}
+
+async function runTrainingNow(){
+  logTraining('Starting training session...');
+  try{
+    const res=await safeFetch('/api/admin/training/run',{method:'POST'});
+    if(!res.ok){logTraining('Training failed to start');return;}
+    const d=await res.json();
+    logTraining('Training started: '+(d.status||'in progress'));
+    pollTrainingLog();
+  }catch(e){logTraining('Training error');}
+}
+
+function logTraining(msg){
+  const log=document.getElementById('training-log');
+  log.textContent=msg+'\n'+log.textContent;
+}
+
+async function pollTrainingLog(){
+  // Poll backend for training log/status every 5s
+  for(let i=0;i<60;i++){ // 5 min minimum
+    await new Promise(r=>setTimeout(r,5000));
+    try{
+      const res=await safeFetch('/api/admin/training/status');
+      if(!res.ok)continue;
+      const d=await res.json();
+      if(d.training&&d.training.log){
+        logTraining(d.training.log);
+      }
+      if(d.training&&d.training.status==='done'){
+        logTraining('Training complete.');
+        break;
+      }
+    }catch(e){logTraining('Training log error');}
+  }
+}
+
 (async function(){
   var auth=await requireAuth("admin");
   if(!auth)return;
   startAuthGuard("admin");
-  loadStatus();loadToggles();loadSessions();loadUsers();loadTrainers();loadLogs();
+  loadStatus();loadToggles();loadSessions();loadUsers();loadTrainers();loadLogs();loadTrainingStatus();
   setInterval(loadStatus,15000);
   setInterval(loadSessions,20000);
+  setInterval(loadTrainingStatus,10000);
 })();
 </script>
 </body>
