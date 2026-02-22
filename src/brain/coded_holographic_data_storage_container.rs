@@ -90,7 +90,7 @@ impl CodedHolographicDataStorageContainer {
     }
 
     /// Migrate old brain data (BrainNode) into CHDSC
-    pub fn migrate_from_brain_nodes(&mut self, old_nodes: Vec<crate::brain::mod::BrainNode>) {
+    pub fn migrate_from_brain_nodes(&mut self, old_nodes: Vec<crate::brain::BrainNode>) {
         for node in old_nodes {
             let tags = vec![node.label.clone(), node.summary.clone()];
             let mut meta = std::collections::HashMap::new();

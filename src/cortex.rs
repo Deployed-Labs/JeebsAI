@@ -45,6 +45,12 @@ use std::time::Instant;
 use crate::state::AppState;
 use crate::utils::decode_all;
 
+/// Result of Cortex thinking for a user prompt
+#[derive(Debug, Clone)]
+pub struct ThinkingResult {
+    pub response: String,
+    pub thought: Option<crate::language_learning::Thought>,
+}
 
 #[derive(Debug, Deserialize)]
 pub struct AdvancedSearchRequest {
@@ -2504,12 +2510,38 @@ impl Cortex {
         state: &web::Data<AppState>,
         user_id: &str,
         username: Option<&str>,
-    ) -> String {
+    ) -> ThinkingResult {
         if prompt.trim().is_empty() {
-            return "Please provide a prompt so I can help you.".to_string();
+            return ThinkingResult {
+                response: "Please provide a prompt so I can help you.".to_string(),
+                thought: None,
+            };
         }
 
         let db = &state.db;
+
+        // 🧠 COGNITIVE LAYER: Ponder the input before reacting
+        let thought = match crate::language_learning::ponder(db, prompt).await {
+            Ok(t) => t,
+            Err(e) => crate::language_learning::Thought {
+                internal_monologue: format!("Cognitive process error: {}", e),
+                detected_sentiment: 0.0,
+                curiosity_target: None,
+                suggested_angle: "neutral".to_string(),
+                new_concepts: vec![],
+            },
+        };
+
+        // Store thought for real-time UI visualization
+        let thought_key = format!("chat:thought:{}", user_id);
+        if let Ok(json) = serde_json::to_string(&thought) {
+            let _ = sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)")
+                .bind(&thought_key)
+                .bind(json.as_bytes())
+                .execute(db)
+                .await;
+        }
+
         let lower = prompt.trim().to_lowercase();
         let intent = classify_intent(&lower);
 
@@ -2861,13 +2893,16 @@ impl Cortex {
         // Learn from conversation passively
         let _ = crate::language_learning::learn_from_input(db, prompt).await;
 
-        response
+        ThinkingResult {
+            response,
+            thought: Some(thought),
+        }
     }
 
     /// Stateless think — creates ephemeral context for non-user scenarios
     pub async fn think(prompt: &str, state: &web::Data<AppState>) -> String {
         let ephemeral_id = format!("ephemeral:{}", blake3::hash(b"default").to_hex());
-        Self::think_for_user(prompt, state, &ephemeral_id, None).await
+        Self::think_for_user(prompt, state, &ephemeral_id, None).await.response
     }
 
     /// Search knowledge base and synthesize a response
@@ -3062,4 +3097,26 @@ impl Cortex {
             ),
         }
     }
+}
+
+#[get("/api/brain/thought/{user_id}")]
+pub async fn get_latest_thought_endpoint(
+    path: web::Path<String>,
+    state: web::Data<AppState>,
+) -> impl Responder {
+    let user_id = path.into_inner();
+    let key = format!("chat:thought:{}", user_id);
+
+    if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
+        .bind(&key)
+        .fetch_optional(&state.db)
+        .await
+    {
+        let value: Vec<u8> = row.get(0);
+        if let Ok(thought) = serde_json::from_slice::<crate::language_learning::Thought>(&value) {
+            return HttpResponse::Ok().json(json!({ "success": true, "thought": thought }));
+        }
+    }
+
+    HttpResponse::Ok().json(json!({ "success": false, "message": "No active thought process found." }))
 }

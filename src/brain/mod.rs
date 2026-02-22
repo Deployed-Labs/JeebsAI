@@ -1,3 +1,5 @@
+pub mod coded_holographic_data_storage_container;
+
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 

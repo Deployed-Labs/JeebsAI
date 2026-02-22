@@ -7,7 +7,8 @@ use serde_json::json;
 use std::env;
 use std::io::Write;
 
-use crate::cortex::Cortex;
+use crate::cortex::{Cortex, ThinkingResult};
+use crate::language_learning::Thought;
 use crate::logging;
 use crate::state::AppState;
 
@@ -21,6 +22,8 @@ struct JeebsRequest {
 #[derive(Serialize)]
 struct JeebsResponse {
     response: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    thought: Option<Thought>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -155,8 +158,11 @@ pub async fn jeebs_api(
         peer_addr(&http_req),
         prompt.chars().count()
     );
-    let response = Cortex::think_for_user(prompt, &data, &user_id, username.as_deref()).await;
-    HttpResponse::Ok().json(JeebsResponse { response })
+    let result = Cortex::think_for_user(prompt, &data, &user_id, username.as_deref()).await;
+    HttpResponse::Ok().json(JeebsResponse { 
+        response: result.response,
+        thought: result.thought,
+    })
 }
 
 pub fn start_cli(data: web::Data<AppState>) {

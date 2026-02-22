@@ -4,43 +4,15 @@
 
 ### Local Machine (Push to GitHub)
 
-```bash
-bash deploy_now.sh
-```
 Simply commit and push your changes to the `main` branch. The GitHub Action will handle the rest!
 
-That's it! This will:
-- Stage your changes
-- Commit with a descriptive message
-- Push to GitHub
-
----
-
-### VPS (Pull from GitHub)
-
-1. SSH into your VPS:
 ```bash
-ssh your-user@your-vps-ip
 git add .
 git commit -m "Update Topic Learning"
 git push origin main
 ```
 
-2. Navigate to JeebsAI:
-```bash
-cd ~/JeebsAI  # or wherever you installed it
-```
 Check the **Actions** tab in your GitHub repository to see the deployment progress.
-
-3. Pull latest changes:
-```bash
-bash pull_from_github.sh
-```
-
-The script will:
-- Pull latest code from GitHub
-- Detect if you're using systemd or Docker
-- Offer to restart Jeebs automatically
 
 ---
 
@@ -65,18 +37,6 @@ Located in `webui/admin_dashboard.html`:
 
 ---
 
-## 🛠️ Scripts Created
-
-### Local Scripts (for pushing)
-- **`deploy_now.sh`** - Simplest one-liner deployment ✨
-- **`deploy_topic_learning.sh`** - Full deployment with detailed output
-- **`quick_push.sh`** - Just git operations
-
-### VPS Scripts (for pulling)
-- **`pull_from_github.sh`** - Smart pull script with service restart
-
----
-
 ## 📍 How to Use the Feature
 
 1. Open admin dashboard:
@@ -96,24 +56,6 @@ Located in `webui/admin_dashboard.html`:
 
 ---
 
-## 🔧 Manual Deployment (if scripts don't work)
-
-### Push from Local:
-```bash
-git add webui/admin_dashboard.html pull_from_github.sh
-git commit -m "Add Topic Learning feature"
-git push origin main
-```
-
-### Pull on VPS:
-```bash
-cd ~/JeebsAI
-git pull origin main
-sudo systemctl restart jeebs  # or: docker-compose up -d --build
-```
-
----
-
 ## ✅ Verification
 
 After deployment, verify the feature works:
@@ -122,31 +64,6 @@ After deployment, verify the feature works:
 2. See the orange "🎓 Topic Learning" section
 3. Type a topic and click LEARN
 4. Should see status updates and Jeebs' response
-
----
-
-## 🆘 Troubleshooting
-
-### Script not executable?
-```bash
-chmod +x deploy_now.sh
-chmod +x pull_from_github.sh
-```
-
-### Git permission denied?
-Make sure you have:
-- SSH keys set up with GitHub
-- Correct remote URL: `git remote -v`
-
-### Jeebs not restarting?
-```bash
-# For systemd:
-sudo systemctl status jeebs
-sudo journalctl -u jeebs -n 50
-
-# For Docker:
-docker-compose logs --tail=50
-```
 
 ---
 

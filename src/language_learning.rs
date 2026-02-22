@@ -28,6 +28,10 @@ pub struct VocabularyEntry {
     pub antonyms: Vec<String>,
     pub frequency: u64,
     pub learned_at: String,
+    #[serde(default)]
+    pub sentiment: f32, // -1.0 (negative) to 1.0 (positive)
+    #[serde(default)]
+    pub associations: Vec<String>, // Related words/concepts
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -45,6 +49,15 @@ pub struct ContextualKnowledge {
     pub related_topics: Vec<String>,
     pub facts: Vec<String>,
     pub last_updated: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Thought {
+    pub internal_monologue: String,
+    pub detected_sentiment: f32,
+    pub curiosity_target: Option<String>,
+    pub suggested_angle: String, // "empathetic", "analytical", "curious", "direct"
+    pub new_concepts: Vec<String>,
 }
 
 /// Learn from user input by analyzing patterns
@@ -138,6 +151,8 @@ async fn learn_vocabulary(db: &SqlitePool, word: &str) -> Result<(), String> {
             antonyms: vec![],
             frequency: 1,
             learned_at: Local::now().to_rfc3339(),
+            sentiment: estimate_sentiment(word),
+            associations: Vec::new(),
         };
 
         if let Ok(payload) = serde_json::to_vec(&entry) {
@@ -348,6 +363,22 @@ fn guess_part_of_speech(word: &str) -> String {
     }
 }
 
+/// Estimate sentiment of a word (simple heuristic for initial learning)
+fn estimate_sentiment(word: &str) -> f32 {
+    let w = word.to_lowercase();
+    if ["good", "great", "love", "excellent", "happy", "awesome", "best", "like", "yes"].contains(&w.as_str()) {
+        0.8
+    } else if ["bad", "hate", "terrible", "sad", "awful", "worst", "no", "wrong", "fail"].contains(&w.as_str()) {
+        -0.8
+    } else if ["interesting", "cool", "okay", "fine", "sure"].contains(&w.as_str()) {
+        0.3
+    } else if ["hard", "difficult", "pain", "problem", "issue"].contains(&w.as_str()) {
+        -0.5
+    } else {
+        0.0
+    }
+}
+
 /// Get vocabulary statistics
 pub async fn get_vocabulary_stats(db: &SqlitePool) -> Result<HashMap<String, u64>, String> {
     let rows = sqlx::query("SELECT key, value FROM jeebs_store WHERE key LIKE ?")
@@ -420,4 +451,84 @@ pub async fn get_context(db: &SqlitePool, topic: &str) -> Option<ContextualKnowl
 
     let value: Vec<u8> = row.get(0);
     serde_json::from_slice(&value).ok()
+}
+
+/// Ponder the input to generate a thought process and cognitive stance
+pub async fn ponder(db: &SqlitePool, input: &str) -> Result<Thought, String> {
+    let words = extract_words(input);
+    let mut total_sentiment = 0.0;
+    let mut word_count = 0;
+    let mut new_concepts = Vec::new();
+    let mut curiosity_target = None;
+
+    // 1. Analyze Sentiment & Novelty
+    for word in &words {
+        let key = format!("{}{}", VOCABULARY_KEY_PREFIX, word);
+        if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
+            .bind(&key)
+            .fetch_optional(db)
+            .await
+        {
+            let value: Vec<u8> = row.get(0);
+            if let Ok(entry) = serde_json::from_slice::<VocabularyEntry>(&value) {
+                total_sentiment += entry.sentiment;
+                word_count += 1;
+            }
+        } else {
+            // Unknown word - potential curiosity target if it's significant
+            if !is_common_word(word) && word.len() > 4 {
+                new_concepts.push(word.clone());
+                if curiosity_target.is_none() {
+                    curiosity_target = Some(word.clone());
+                }
+            }
+        }
+    }
+
+    let avg_sentiment = if word_count > 0 {
+        total_sentiment / word_count as f32
+    } else {
+        0.0
+    };
+
+    // 2. Determine Angle
+    let angle = if avg_sentiment > 0.5 {
+        "celebratory"
+    } else if avg_sentiment < -0.5 {
+        "empathetic"
+    } else if curiosity_target.is_some() {
+        "curious"
+    } else if input.contains('?') {
+        "helpful"
+    } else {
+        "conversational"
+    };
+
+    // 3. Formulate Internal Monologue
+    let monologue = if !new_concepts.is_empty() {
+        format!(
+            "User mentioned new concepts: {:?}. I should learn more about {}. Sentiment seems {}.",
+            new_concepts,
+            curiosity_target.as_deref().unwrap_or("them"),
+            if avg_sentiment > 0.0 { "positive" } else { "neutral/negative" }
+        )
+    } else if avg_sentiment.abs() > 0.4 {
+        format!(
+            "User is expressing strong emotion ({:.2}). I should respond with a {} tone.",
+            avg_sentiment, angle
+        )
+    } else {
+        "Input is standard. I will process this logically and check my knowledge base.".to_string()
+    };
+
+    // 4. Update Cognitive State (Simple implementation: just log it for now)
+    // In a full implementation, we would store this state to persist "mood" across messages.
+    
+    Ok(Thought {
+        internal_monologue: monologue,
+        detected_sentiment: avg_sentiment,
+        curiosity_target,
+        suggested_angle: angle.to_string(),
+        new_concepts,
+    })
 }

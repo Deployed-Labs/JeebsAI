@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JeebsAI Cognitive Stream</title>
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #0d1117;
+            color: #c9d1d9;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            background-color: #161b22;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        h2 {
+            color: #58a6ff;
+            border-bottom: 1px solid #30363d;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        .thought-box {
+            margin-top: 20px;
+        }
+        .label {
+            font-size: 0.8em;
+            color: #8b949e;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+        .monologue {
+            font-size: 1.1em;
+            color: #e6edf3;
+            background: #0d1117;
+            padding: 15px;
+            border-left: 4px solid #238636;
+            border-radius: 4px;
+            min-height: 40px;
+        }
+        .meta-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .meta-item {
+            background: #21262d;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .highlight { color: #d2a8ff; }
+        .sentiment-pos { color: #7ee787; }
+        .sentiment-neg { color: #ff7b72; }
+        .refresh-status {
+            font-size: 0.8em;
+            color: #8b949e;
+            text-align: right;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🧠 JeebsAI Cognitive Stream</h2>
+        
+        <div class="thought-box">
+            <div class="label">Internal Monologue</div>
+            <div id="monologue" class="monologue">Waiting for input...</div>
+        </div>
+
+        <div class="meta-grid">
+            <div class="meta-item">
+                <div class="label">Sentiment Valence</div>
+                <div id="sentiment">0.0</div>
+            </div>
+            <div class="meta-item">
+                <div class="label">Cognitive Angle</div>
+                <div id="angle" class="highlight">-</div>
+            </div>
+            <div class="meta-item">
+                <div class="label">Curiosity Target</div>
+                <div id="curiosity">-</div>
+            </div>
+        </div>
+        <div class="refresh-status">Auto-refreshing every 1s</div>
+    </div>
+
+    <script>
+        // Default to a generic session ID or allow URL param ?user=xyz
+        const urlParams = new URLSearchParams(window.location.search);
+        const userId = urlParams.get('user') || 'session:default'; // Adjust based on your auth
+
+        async function fetchThought() {
+            try {
+                // Note: You might need to adjust the user ID logic depending on how your chat client identifies users
+                // For testing, you can hardcode the ID you see in the database
+                const response = await fetch(`/api/brain/thought/${encodeURIComponent(userId)}`);
+                const data = await response.json();
+
+                if (data.success && data.thought) {
+                    const t = data.thought;
+                    document.getElementById('monologue').innerText = t.internal_monologue;
+                    
+                    const sentEl = document.getElementById('sentiment');
+                    sentEl.innerText = t.detected_sentiment.toFixed(2);
+                    sentEl.className = t.detected_sentiment > 0.2 ? 'sentiment-pos' : (t.detected_sentiment < -0.2 ? 'sentiment-neg' : '');
+
+                    document.getElementById('angle').innerText = t.suggested_angle;
+                    document.getElementById('curiosity').innerText = t.curiosity_target || "None";
+                }
+            } catch (e) {
+                console.error("Failed to fetch thought:", e);
+            }
+        }
+
+        setInterval(fetchThought, 1000);
+        fetchThought();
+    </script>
+</body>
+</html>

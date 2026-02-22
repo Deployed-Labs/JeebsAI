@@ -3,7 +3,6 @@ use actix_files::Files;
 // Rate limiting removed: actix-governor disabled to avoid 429 responses
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
 use actix_web::cookie::Key;
-use actix_web::dev::ServiceRequest;
 use actix_web::{web, App, HttpServer};
 use base64;
 use jeebs::plugins::{
@@ -14,7 +13,7 @@ use jeebs::plugins::{
 use jeebs::{
     admin, auth, brain_parsing_api, chat, cortex, evolution, logging, user_chat, AppState,
 };
-use jeebs::brain::coded_holographic_data_storage_container::{CodedHolographicDataStorageContainer, create_holo_node};
+use jeebs::brain::coded_holographic_data_storage_container::CodedHolographicDataStorageContainer;
 use sqlx::{Row, SqlitePool};
 use std::collections::HashSet;
 use std::env;
@@ -22,26 +21,27 @@ use std::path::Path;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 use sysinfo::System;
+use serde::Deserialize;
 
 // Rate limiter key extractor removed — no per-IP throttling.
 
+#[derive(Deserialize)]
+struct ChatRequest {
+    pub message: String,
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    // Initialize JeebsAI's new brain
-    let mut chdsc = CodedHolographicDataStorageContainer::new();
-    // Migrate old brain data if available
-    let old_nodes = jeebs::brain::search_knowledge(&pool, "").await;
-    chdsc.migrate_from_brain_nodes(old_nodes);
-    println!("JeebsAI emergent mood: {}", chdsc.emergent_summary());
-        // Add endpoint to visualize JeebsAI's mood
-        use actix_web::{HttpResponse, Responder};
-        async fn jeebs_mood() -> impl Responder {
-            let mut chdsc = CodedHolographicDataStorageContainer::new();
-            let pool = sqlx::SqlitePool::connect(&std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:./jeebs.db".to_string())).await.unwrap();
-            let old_nodes = jeebs::brain::search_knowledge(&pool, "").await;
-            chdsc.migrate_from_brain_nodes(old_nodes);
-            HttpResponse::Ok().body(chdsc.emergent_summary())
-        }
+    // Add endpoint to visualize JeebsAI's mood
+    use actix_web::{HttpResponse, Responder};
+    async fn jeebs_mood() -> impl Responder {
+        let mut chdsc = CodedHolographicDataStorageContainer::new();
+        let pool = sqlx::SqlitePool::connect(&std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:./jeebs.db".to_string())).await.unwrap();
+        let old_nodes = jeebs::brain::search_knowledge(&pool, "").await;
+        chdsc.migrate_from_brain_nodes(old_nodes);
+        HttpResponse::Ok().body(chdsc.emergent_summary())
+    }
+
     let database_url = env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:./jeebs.db".to_string());
 
     // Ensure the SQLite directory exists if using a file path
@@ -66,6 +66,12 @@ async fn main() -> std::io::Result<()> {
 
     // Ensure logging storage exists
     logging::init(&pool).await;
+
+    // Initialize JeebsAI's CHDSC brain
+    let mut chdsc = CodedHolographicDataStorageContainer::new();
+    let old_nodes = jeebs::brain::search_knowledge(&pool, "").await;
+    chdsc.migrate_from_brain_nodes(old_nodes);
+    println!("JeebsAI emergent mood: {}", chdsc.emergent_summary());
 
     // Run log retention cleanup on startup and then every 24 hours
     let log_pool = pool.clone();
@@ -264,6 +270,7 @@ async fn main() -> std::io::Result<()> {
             .service(brain_parsing_api::analyze_relationships)
             .service(brain_parsing_api::get_entities_report)
             .service(cortex::logic_graph_endpoint)
+            .service(cortex::get_latest_thought_endpoint)
             .service(cortex::generate_template_proposals_endpoint)
             .service(cortex::get_template_proposals_endpoint)
             .service(cortex::update_proposal_status_endpoint)
