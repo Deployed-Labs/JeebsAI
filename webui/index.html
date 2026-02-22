@@ -1,63 +1,48 @@
 <!doctype html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>JeebsAI Console</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-        <link
-            href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600;700&display=swap"
-            rel="stylesheet"
-        />
-        <style>
-            :root {
-                --bg-0: #07121a;
-                --bg-1: #0e2532;
-                --bg-2: #123041;
-                --card: rgba(11, 29, 40, 0.88);
-                --card-strong: rgba(10, 25, 35, 0.96);
-                --text: #eaf7ff;
-                --muted: #a5c6d6;
-                --line: rgba(116, 175, 207, 0.35);
-                --accent: #53d8fb;
-                --accent-2: #fbbf24;
-                --good: #22c55e;
-                --bad: #f97373;
-            }
-
-            * {
-                box-sizing: border-box;
-            }
-
-            body {
-                margin: 0;
-                min-height: 100vh;
-                font-family: "Space Grotesk", "Segoe UI", sans-serif;
-                color: var(--text);
-                background:
-                    radial-gradient(
-                        1200px 900px at 120% -10%,
-                        rgba(83, 216, 251, 0.16),
-                        transparent 55%
-                    ),
-                    radial-gradient(
-                        900px 700px at -20% 110%,
-                        rgba(251, 191, 36, 0.1),
-                        transparent 50%
-                    ),
-                    linear-gradient(
-                        160deg,
-                        var(--bg-0),
-                        var(--bg-1) 45%,
-                        var(--bg-2)
-                    );
-                display: flex;
-                justify-content: center;
-                padding: 20px;
-            }
-
-            .shell {
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+    <title>JeebsAI Console</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="/webui/style.css"/>
+</head>
+<body>
+<nav id="topnav"></nav>
+<div class="shell" style="padding-top:60px">
+    <h1 style="margin-bottom:24px">JeebsAI Console</h1>
+    <div class="card card-glow" style="margin-bottom:24px;text-align:center">
+        <h2 style="margin-bottom:8px">Welcome to JeebsAI</h2>
+        <p class="text-muted">Use the navigation above or quick actions below.</p>
+    </div>
+    <div class="card" style="margin-bottom:24px">
+        <h3>Quick Actions</h3>
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+            <a href="/webui/search.html" class="btn btn-accent">Brain Search</a>
+            <a href="/webui/trainer_panel.html" class="btn btn-primary" id="trainerQuick" style="display:none">Trainer Panel</a>
+            <a href="/webui/admin_dashboard.html" class="btn btn-ghost" id="adminQuick" style="display:none">Admin Dashboard</a>
+        </div>
+    </div>
+    <div class="card">
+        <h3>Recent Activity</h3>
+        <div id="activityLog" class="log-box" style="min-height:120px;max-height:320px">Loading...</div>
+    </div>
+</div>
+<script src="/webui/auth.js"></script>
+<script src="/webui/nav.js"></script>
+<script>
+// Show/hide quick actions based on role
+async function updateQuickActions() {
+    const auth = await getAuthState();
+    document.getElementById('adminQuick').style.display = (auth.isAdmin && auth.username === JEEBS_ROOT_ADMIN) ? '' : 'none';
+    document.getElementById('trainerQuick').style.display = (auth.isTrainer || (auth.isAdmin && auth.username === JEEBS_ROOT_ADMIN)) ? '' : 'none';
+}
+updateQuickActions();
+JeebsNav.init('home');
+</script>
+</body>
+</html>
                 width: min(980px, 100%);
                 display: grid;
                 gap: 16px;
