@@ -461,21 +461,40 @@ impl BrainParser {
 
     fn extract_context(&self, text: &str, start: usize, end: usize) -> String {
         let context_range = 50;
-        let start_pos = start.saturating_sub(context_range);
-        let end_pos = (end + context_range).min(text.len());
+        let mut start_pos = start.saturating_sub(context_range);
+        let mut end_pos = (end + context_range).min(text.len());
+
+        // Adjust to char boundaries
+        while start_pos < text.len() && !text.is_char_boundary(start_pos) {
+            start_pos += 1;
+        }
+        while end_pos > 0 && !text.is_char_boundary(end_pos) {
+            end_pos -= 1;
+        }
+        if start_pos >= end_pos {
+            return String::new();
+        }
 
         text[start_pos..end_pos].to_string()
     }
 
     fn find_nearest_entity_before(&self, text: &str, position: usize) -> Option<String> {
-        text[..position.min(text.len())]
+        let mut pos = position.min(text.len());
+        while pos > 0 && !text.is_char_boundary(pos) {
+            pos -= 1;
+        }
+        text[..pos]
             .split_whitespace()
             .last()
             .map(|s| s.to_string())
     }
 
     fn find_nearest_entity_after(&self, text: &str, position: usize) -> Option<String> {
-        text[position.min(text.len())..]
+        let mut pos = position.min(text.len());
+        while pos < text.len() && !text.is_char_boundary(pos) {
+            pos += 1;
+        }
+        text[pos..]
             .split_whitespace()
             .next()
             .map(|s| s.to_string())
