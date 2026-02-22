@@ -6,14 +6,15 @@ use actix_web::cookie::Key;
 use actix_web::dev::ServiceRequest;
 use actix_web::{web, App, HttpServer};
 use jeebs::{
-    admin, auth, brain_parsing_api, chat, cortex, evolution, logging, user_chat, AppState,
+    admin, auth, brain_parsing_api, brain_shard, chat, cortex, evolution, logging, user_chat,
+    AppState,
 };
 use jeebs::plugins::{
     Base64Plugin, CalcPlugin, ContactPlugin, ErrorPlugin, HashPlugin, LogicPlugin, MemoryPlugin,
     NewsPlugin, PasswordPlugin, SummaryPlugin, SystemPlugin, TimePlugin, TodoPlugin,
     TranslatePlugin, WeatherPlugin, WebsiteStatusPlugin,
 };
-use sqlx::{Row, SqlitePool};
+use sqlx::{mysql::MySqlPoolOptions, Row, SqlitePool};
 use std::collections::HashSet;
 use std::env;
 use std::path::Path;
@@ -61,6 +62,26 @@ async fn main() -> std::io::Result<()> {
         .connect(&database_url)
         .await
         .expect("DB Fail");
+
+    // Optional MySQL brain shard
+    let mysql_url = env::var("MYSQL_BRAIN_URL")
+        .unwrap_or_else(|_| "mysql://admin:L1QbNDvv@mysql-208625-0.cloudclusters.net:10060/jeebs_brain".to_string());
+    let mysql_brain = match MySqlPoolOptions::new()
+        .max_connections(5)
+        .connect(&mysql_url)
+        .await
+    {
+        Ok(pool) => {
+            if let Err(err) = jeebs::brain_shard::ensure_schema(&pool).await {
+                eprintln!("Failed to ensure MySQL brain shard schema: {err}");
+            }
+            Some(pool)
+        }
+        Err(err) => {
+            eprintln!("MySQL brain shard unavailable: {err}");
+            None
+        }
+    };
 
     // Apply any pending migrations at startup
     if let Err(e) = sqlx::migrate!("./migrations").run(&pool).await {
@@ -132,6 +153,7 @@ async fn main() -> std::io::Result<()> {
 
     let state = web::Data::new(AppState {
         db: pool.clone(),
+        mysql_brain,
         plugins,
         ip_blacklist,
         ip_whitelist,
@@ -141,6 +163,15 @@ async fn main() -> std::io::Result<()> {
 
     // Start Jeebs autonomous evolution loop
     evolution::spawn_autonomous_thinker(state.db.clone());
+
+    // Initialize MySQL brain shard pool eagerly so cross-brain storage is ready
+    tokio::spawn(async move {
+        if let Some(_) = brain_shard::global_pool().await {
+            logging::log(&pool, "INFO", "BRAIN_SHARD", "Connected to MySQL brain shard").await;
+        } else {
+            logging::log(&pool, "WARN", "BRAIN_SHARD", "Brain shard connection not available").await;
+        }
+    });
 
     // Sync training state with persisted toggle and always run worker
     let _ = cortex::sync_training_state_with_toggle(&state.db, training_enabled, "startup").await;

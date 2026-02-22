@@ -81,6 +81,8 @@
                 border-radius: 8px;
                 padding: 12px;
                 min-height: 120px;
+                max-height: 320px;
+                overflow-y: auto;
                 white-space: pre-wrap;
                 font-family: "Consolas", "Monaco", monospace;
                 font-size: 0.9rem;
@@ -125,6 +127,26 @@
             </div>
 
             <div class="panel">
+                <h3>Custom Trainer Command</h3>
+                <div class="row">
+                    <input
+                        id="customCommandInput"
+                        type="text"
+                        placeholder="e.g., train help or train: focus area"
+                    />
+                    <button class="btn-primary" onclick="sendCustomCommand()">
+                        Send Command
+                    </button>
+                    <button class="btn-secondary" onclick="clearOutput()">
+                        Clear Output
+                    </button>
+                </div>
+                <div class="status muted">
+                    Sends exactly what you type to /api/chat as the trainer user.
+                </div>
+            </div>
+
+            <div class="panel">
                 <h3>Training Controls</h3>
                 <div class="row">
                     <button
@@ -156,6 +178,14 @@
                 <div class="output" id="trainerOutput">
                     No commands sent yet.
                 </div>
+                <div class="row" style="margin-top: 10px">
+                    <button class="btn-secondary" onclick="showAuthStatus()">
+                        Show Auth Status
+                    </button>
+                    <button class="btn-secondary" onclick="pingNow()">
+                        Ping Session
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -165,6 +195,24 @@
             const authStatus = document.getElementById("authStatus");
             const output = document.getElementById("trainerOutput");
             let sessionPingTimer = null;
+
+            function nowStamp() {
+                return new Date().toLocaleTimeString();
+            }
+
+            function logOutput(message, isError = false) {
+                const line = `[${nowStamp()}] ${message}`;
+                if (output.textContent.trim() === "No commands sent yet.") {
+                    output.textContent = line;
+                } else {
+                    output.textContent = `${output.textContent}\n${line}`;
+                }
+                if (isError) {
+                    output.scrollTop = output.scrollHeight;
+                } else {
+                    output.scrollTop = output.scrollHeight;
+                }
+            }
 
             function authHeaders() {
                 const token = localStorage.getItem(TOKEN_KEY);
@@ -228,7 +276,7 @@
                 const allowed = await checkAccess();
                 if (!allowed) return;
 
-                output.textContent = `Sending: ${command}...`;
+                logOutput(`Sending: ${command}...`);
                 try {
                     const res = await fetch("/api/chat", {
                         method: "POST",
@@ -241,13 +289,12 @@
                     });
                     const data = await res.json();
                     if (!res.ok) {
-                        output.textContent = `Error: ${data.error || res.statusText}`;
+                        logOutput(`Error: ${data.error || res.statusText}`, true);
                         return;
                     }
-                    output.textContent =
-                        data.response || "No response received.";
+                    logOutput(data.response || "No response received.");
                 } catch (err) {
-                    output.textContent = `Request failed: ${err}`;
+                    logOutput(`Request failed: ${err}`, true);
                 }
             }
 
@@ -260,6 +307,67 @@
                     return;
                 }
                 await sendTrainerCommand(`train: ${focus}`);
+            }
+
+            async function sendCustomCommand() {
+                const cmd = document
+                    .getElementById("customCommandInput")
+                    .value.trim();
+                if (!cmd) {
+                    logOutput("Enter a command before sending.", true);
+                    return;
+                }
+                await sendTrainerCommand(cmd);
+            }
+
+            function clearOutput() {
+                output.textContent = "No commands sent yet.";
+            }
+
+            async function showAuthStatus() {
+                try {
+                    const res = await fetch("/api/auth/status", {
+                        credentials: "same-origin",
+                        headers: authHeaders(),
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        logOutput(
+                            `Auth status error: ${data.error || res.statusText}`,
+                            true,
+                        );
+                        return;
+                    }
+                    logOutput(
+                        `Auth: user=${data.username || "?"} admin=${
+                            data.is_admin
+                        } trainer=${data.is_trainer}`,
+                    );
+                } catch (err) {
+                    logOutput(`Auth status failed: ${err}`, true);
+                }
+            }
+
+            async function pingNow() {
+                try {
+                    const res = await fetch("/api/session/ping", {
+                        method: "POST",
+                        credentials: "same-origin",
+                        headers: authHeaders(),
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        logOutput(`Ping error: ${data.error || res.statusText}`, true);
+                        return;
+                    }
+                    logOutput(
+                        `Ping ok for ${data.username || "?"}, last_seen=${
+                            data.last_seen || "n/a"
+                        }`,
+                    );
+                } catch (err) {
+                    logOutput(`Ping failed: ${err}`, true);
+                }
             }
 
             checkAccess();

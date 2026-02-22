@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqlitePool};
 use std::collections::{HashMap, HashSet};
 
+use crate::brain_shard;
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct KnowledgeItem {
     pub id: String,
@@ -65,6 +67,14 @@ pub async fn retrieve_knowledge(
         }
     }
 
+    // 5. Search MySQL brain shard for cross-node knowledge
+    let shard_items = search_brain_shard(&query_terms, max_results).await;
+    for item in shard_items {
+        if seen_ids.insert(item.id.clone()) {
+            all_items.push(item);
+        }
+    }
+
     // Calculate relevance scores
     for item in &mut all_items {
         item.relevance_score = calculate_relevance(query, &query_terms, item);
@@ -93,6 +103,27 @@ pub async fn retrieve_knowledge(
         query_terms: query_terms.iter().map(|s| s.to_string()).collect(),
         synthesized_answer: synthesized,
     })
+}
+
+/// Search external MySQL brain shard
+async fn search_brain_shard(terms: &[String], limit: usize) -> Vec<KnowledgeItem> {
+    let rows = brain_shard::search_entries_global(terms, limit).await;
+    rows.into_iter()
+        .map(|(topic, content, source, tags)| KnowledgeItem {
+            id: format!("shard:{}", topic),
+            label: topic.clone(),
+            summary: truncate(&content, 180),
+            content,
+            category: "brain_shard".to_string(),
+            tags: tags
+                .split(',')
+                .filter(|t| !t.is_empty())
+                .map(|t| t.trim().to_string())
+                .collect(),
+            relevance_score: 0.0,
+            created_at: Local::now().to_rfc3339(),
+        })
+        .collect()
 }
 
 /// Extract meaningful terms from query

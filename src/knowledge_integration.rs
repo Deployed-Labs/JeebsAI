@@ -1,7 +1,14 @@
 // Knowledge Integration Module - Uses learned information in chat responses
 
 use sqlx::SqlitePool;
-use crate::deep_learning;
+use crate::{brain_shard, deep_learning, knowledge_retrieval};
+
+#[derive(Debug, Clone)]
+struct LinkedInsight {
+    left: String,
+    right: String,
+    rationale: String,
+}
 
 #[derive(Debug, Clone)]
 pub struct EnhancedChatContext {
@@ -100,6 +107,92 @@ pub async fn build_enhanced_context(
     })
 }
 
+fn to_tags(s: &str) -> Vec<String> {
+    s.split(',')
+        .filter(|t| !t.is_empty())
+        .map(|t| t.trim().to_string())
+        .collect()
+}
+
+fn tokens_lower(s: &str) -> Vec<String> {
+    s.split(|c: char| !c.is_alphanumeric())
+        .filter(|t| !t.is_empty())
+        .map(|t| t.to_ascii_lowercase())
+        .collect()
+}
+
+fn connection_score(a: &knowledge_retrieval::KnowledgeItem, b: &knowledge_retrieval::KnowledgeItem) -> f32 {
+    let mut score = 0.0;
+    // Tag overlap
+    let a_tags: std::collections::HashSet<_> = a.tags.iter().map(|t| t.to_ascii_lowercase()).collect();
+    let b_tags: std::collections::HashSet<_> = b.tags.iter().map(|t| t.to_ascii_lowercase()).collect();
+    let overlap = a_tags.intersection(&b_tags).count() as f32;
+    if overlap > 0.0 {
+        score += overlap * 1.5;
+    }
+
+    // Label/content token overlap
+    let a_tokens: std::collections::HashSet<_> = tokens_lower(&format!("{} {}", a.label, a.summary)).into_iter().collect();
+    let b_tokens: std::collections::HashSet<_> = tokens_lower(&format!("{} {}", b.label, b.summary)).into_iter().collect();
+    let word_overlap = a_tokens.intersection(&b_tokens).count() as f32;
+    if word_overlap > 0.0 {
+        score += word_overlap * 0.8;
+    }
+
+    // Category affinity: connecting triples to brain nodes is valuable
+    if a.category != b.category {
+        score += 0.5;
+    }
+
+    score
+}
+
+fn build_linked_insights(items: &[knowledge_retrieval::KnowledgeItem]) -> Vec<LinkedInsight> {
+    let mut out = Vec::new();
+    let mut pairs = Vec::new();
+
+    for (i, a) in items.iter().enumerate() {
+        for b in items.iter().skip(i + 1) {
+            let score = connection_score(a, b);
+            if score >= 1.5 {
+                pairs.push((score, a, b));
+            }
+        }
+    }
+
+    pairs.sort_by(|x, y| y.0.partial_cmp(&x.0).unwrap_or(std::cmp::Ordering::Equal));
+    for (score, a, b) in pairs.into_iter().take(3) {
+        let rationale = format!(
+            "Linking '{}' ({}) with '{}' ({}) based on shared concepts/tags (score {:.2}).",
+            a.label,
+            a.category,
+            b.label,
+            b.category,
+            score
+        );
+        out.push(LinkedInsight {
+            left: a.label.clone(),
+            right: b.label.clone(),
+            rationale,
+        });
+    }
+
+    out
+}
+
+async fn persist_link_if_new(db: &SqlitePool, left: &str, right: &str, confidence: f32) {
+    // Store as a knowledge_triples row with predicate related_to; ignore failures quietly.
+    let _ = sqlx::query(
+        "INSERT INTO knowledge_triples (subject, predicate, object, confidence, created_at)
+         VALUES (?, 'related_to', ?, ?, datetime('now'))"
+    )
+    .bind(left)
+    .bind(right)
+    .bind(confidence as f64)
+    .execute(db)
+    .await;
+}
+
 /// Enhance a chat response with learned knowledge
 pub async fn enhance_response_with_knowledge(
     db: &SqlitePool,
@@ -107,9 +200,22 @@ pub async fn enhance_response_with_knowledge(
     user_message: &str,
 ) -> Result<String, String> {
     let context = build_enhanced_context(db, user_message).await?;
+    let retrieval = knowledge_retrieval::retrieve_knowledge(db, user_message, 10).await.unwrap_or_else(|_| knowledge_retrieval::RetrievalResult {
+        items: Vec::new(),
+        total_searched: 0,
+        query_terms: Vec::new(),
+        synthesized_answer: None,
+    });
+    let linked = build_linked_insights(&retrieval.items);
+
+    // Use brain shard link suggestions to enrich reasoning
+    let shard_links = brain_shard::suggest_links(50, 3).await;
 
     if context.relevant_learned_facts.is_empty() && context.expertise_areas.is_empty() {
-        return Ok(original_response.to_string());
+        // Even if no learned facts, we might surface a connected insight
+        if linked.is_empty() {
+            return Ok(original_response.to_string());
+        }
     }
 
     let mut enhanced = original_response.to_string();
@@ -160,6 +266,52 @@ pub async fn enhance_response_with_knowledge(
             context.learning_opportunities[0]
         );
         enhanced.push_str(&learning_section);
+    }
+
+    // Add connected insights between knowledge pieces
+    if !linked.is_empty() {
+        let bullet_points = linked
+            .iter()
+            .map(|l| format!("• {} ↔ {} — {}", l.left, l.right, l.rationale))
+            .take(2)
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        enhanced.push_str(&format!(
+            "\n\n**Connected insight:**\n{}",
+            bullet_points
+        ));
+
+        for link in linked.iter().take(3) {
+            persist_link_if_new(db, &link.left, &link.right, 0.55).await;
+        }
+    }
+
+    // Opportunistically store synthesized insight into the MySQL shard for cross-brain reuse
+    if !linked.is_empty() {
+        let summary = format!(
+            "Connected insights for '{}': {}",
+            user_message,
+            linked
+                .iter()
+                .map(|l| format!("{} ↔ {}", l.left, l.right))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        brain_shard::store_entry_global("connected_insight", &summary, "jeebs", &[]).await;
+    }
+
+    // Surface shard link hints in the response when available
+    if !shard_links.is_empty() {
+        let shard_points = shard_links
+            .iter()
+            .map(|(a, b, score)| format!("• {} ↔ {} (score {:.2})", a, b, score))
+            .collect::<Vec<_>>()
+            .join("\n");
+        enhanced.push_str(&format!(
+            "\n\n**Shard link suggestions:**\n{}",
+            shard_points
+        ));
     }
 
     Ok(enhanced)

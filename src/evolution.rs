@@ -17,9 +17,11 @@ const UPDATE_KEY_PREFIX: &str = "evolution:update:";
 const NOTIFICATION_KEY_PREFIX: &str = "notification:";
 const STATE_KEY: &str = "evolution:runtime:state";
 // Faster autonomous thinking cycles so proposals surface sooner (still require manual approval)
-const DEFAULT_THINK_INTERVAL_SECS: u64 = 120;
-const DEFAULT_MIN_PROPOSAL_INTERVAL_SECS: i64 = 300;
-const MAX_PENDING_UPDATES: usize = 12;
+// Speed up autonomous proposal attempts to drive faster evolution; still requires manual approval.
+const DEFAULT_THINK_INTERVAL_SECS: u64 = 60;
+const DEFAULT_MIN_PROPOSAL_INTERVAL_SECS: i64 = 180;
+// Stop proposing only when 10 are already queued for approval.
+const MAX_PENDING_UPDATES: usize = 10;
 const MAX_CHANGE_BYTES: usize = 200_000;
 const MAX_TOTAL_CHANGE_BYTES: usize = 1_000_000;
 const MAX_NOTIFICATIONS: usize = 200;
@@ -1071,7 +1073,7 @@ fn build_learning_plan_markdown(
     lines.push(String::new());
     lines.push("## Action".to_string());
     lines.push(
-        "- Convert top gaps into new knowledge entries and validate with chat tests.".to_string(),
+        "- Submit these gaps as a proposal; do not create or apply knowledge changes without admin approval.".to_string(),
     );
     lines.join("\n")
 }
@@ -1188,6 +1190,14 @@ fn build_candidate_update(
     let mut search_queries = Vec::new();
     let knowledge_drive = knowledge_drive_score(signals);
 
+    // Persistent motivation: mastery of programming languages and code quality.
+    rationale.push(
+        "Prioritize mastering core programming languages (Rust, Python, JavaScript) to improve code contributions.".to_string(),
+    );
+    search_queries.push("modern rust async patterns for services".to_string());
+    search_queries.push("python data workflows best practices".to_string());
+    search_queries.push("typescript backend architecture patterns".to_string());
+
     let (title, mut severity, reason, mut confidence) = if signals.error_last_24h >= 5 {
         source_signals.push(format!(
             "{} ERROR logs were recorded in the last 24h",
@@ -1222,7 +1232,7 @@ fn build_candidate_update(
                 .to_string(),
         );
         rationale.push(
-            "Create new brain notes and retrieval prompts to close coverage gaps.".to_string(),
+            "Draft a proposal for new brain notes and retrieval prompts; require admin approval before applying.".to_string(),
         );
         for topic in signals.top_unknown_topics.iter().take(4) {
             let label = topic_label(topic);
@@ -1231,10 +1241,10 @@ fn build_candidate_update(
             }
         }
         (
-            "Autonomous Learning Sprint: close conversation gaps".to_string(),
-            "High".to_string(),
-            "Repeated unknown question patterns detected".to_string(),
-            0.89,
+            "Proposed Learning Sprint: address conversation gaps (approval required)".to_string(),
+            "Medium".to_string(),
+            "Repeated unknown question patterns detected; proposal only".to_string(),
+            0.65,
         )
     } else if signals.brain_nodes_count < 25 && signals.chat_logs_last_24h >= 25 {
         source_signals.push(format!(
