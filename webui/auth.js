@@ -56,28 +56,6 @@ async function getAuthState() {
             headers: authHeaders(),
             credentials: "same-origin",
         });
-            // Harden login: sanitize username and signature
-            const username = document.getElementById('loginUsername').value.trim();
-            const signature = document.getElementById('signedMessage').value.trim();
-            if (!username.match(/^[a-zA-Z0-9_\-]{3,32}$/)) {
-                alert('Invalid username format.');
-                return;
-            }
-            if (!signature.startsWith('-----BEGIN PGP SIGNED MESSAGE-----')) {
-                alert('Invalid PGP signature format.');
-                return;
-            }
-            // Harden register: sanitize username and PGP key
-            const username = document.getElementById('regUsername').value.trim();
-            const pgpKey = document.getElementById('publicKey').value.trim();
-            if (!username.match(/^[a-zA-Z0-9_\-]{3,32}$/)) {
-                alert('Invalid username format.');
-                return;
-            }
-            if (!pgpKey.startsWith('-----BEGIN PGP PUBLIC KEY BLOCK-----')) {
-                alert('Invalid PGP public key format.');
-                return;
-            }
         if (!res.ok) return { loggedIn: false, username: "", isAdmin: false, isTrainer: false };
         const data = await res.json();
         if (data.token) jeebsSetToken(data.token);

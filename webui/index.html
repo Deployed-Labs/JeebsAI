@@ -58,7 +58,7 @@
                                 </button>
                             </div>
                             <div class="challenge-display">
-                                <p id="unsignedMessage"></p>
+                                <textarea id="unsignedMessage" readonly placeholder="Click 'Generate Challenge' to create a message to sign"></textarea>
                             </div>
                         </div>
                     </div>
@@ -169,74 +169,84 @@
         <script src="/webui/auth.js"></script>
         <script src="/webui/nav.js"></script>
         <script>
-            // Show/hide quick actions based on role
-            async function updateQuickActions() {
-                const auth = await getAuthState();
-                document.getElementById('adminQuick').style.display = (auth.isAdmin && auth.username === JEEBS_ROOT_ADMIN) ? '' : 'none';
-                document.getElementById('trainerQuick').style.display = (auth.isTrainer || (auth.isAdmin && auth.username === JEEBS_ROOT_ADMIN)) ? '' : 'none';
-            }
-            updateQuickActions();
-            JeebsNav.init('home');
+            /* ── State & Element References ────────────────────── */
+            const state = {
+                loggedIn: false,
+                username: "",
+                isAdmin: false,
+                isTrainer: false,
+                token: ""
+            };
 
+            const chatPanel   = document.getElementById("chatPanel");
+            const chatMeta    = document.getElementById("chatMeta");
+            const tokenBox    = document.getElementById("tokenBox");
+            const promptInput = document.getElementById("promptInput");
+            const chatFeed    = document.getElementById("chatFeed");
+
+            /* ── Helper functions ──────────────────────────────── */
+            function isRootAdminSession() {
+                return state.isAdmin && state.username === JEEBS_ROOT_ADMIN;
+            }
+
+            function canAccessTrainerPanel() {
+                return state.isTrainer || isRootAdminSession();
+            }
+
+            function setStatus(msg, type) {
+                // Show a brief toast-style status message
+                let toast = document.getElementById("statusToast");
+                if (!toast) {
+                    toast = document.createElement("div");
+                    toast.id = "statusToast";
+                    toast.style.cssText = "position:fixed;bottom:60px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:8px;font-size:0.9rem;z-index:10000;transition:opacity 0.3s;pointer-events:none;";
+                    document.body.appendChild(toast);
+                }
+                toast.textContent = msg;
+                toast.style.background = type === "good" ? "rgba(80,200,120,0.9)" : "rgba(220,80,80,0.9)";
+                toast.style.color = "#fff";
+                toast.style.opacity = "1";
+                clearTimeout(toast._timer);
+                toast._timer = setTimeout(() => { toast.style.opacity = "0"; }, 3000);
+            }
+
+            /* ── View Switching ────────────────────────────────── */
             function setView(view) {
                 document.querySelectorAll("#authViews .view").forEach((node) => {
                     node.classList.toggle("active", node.id === `${view}View`);
                 });
             }
 
+            /* ── Render Auth State ─────────────────────────────── */
             function renderAuthState() {
+                const authViews = document.getElementById("authViews");
+
                 if (!state.loggedIn) {
-                    document.getElementById('authViews').style.display = "flex";
-                    document.getElementById('chatPanel').style.display = "none";
-                    statusChip.textContent = "Not logged in";
-                    adminControlsLink.style.display = "none";
-                    trainerPanelLink.style.display = "none";
-                    document.getElementById('menuAdmin').style.display = 'none';
-                    document.getElementById('menuTrainer').style.display = 'none';
+                    authViews.style.display = "flex";
+                    chatPanel.style.display = "none";
                     stopSessionPing();
                     return;
                 }
 
-                document.getElementById('authViews').style.display = "none";
-                document.getElementById('chatPanel').style.display = "flex";
-                statusChip.textContent = `Logged in as ${state.username}`;
+                authViews.style.display = "none";
+                chatPanel.style.display = "flex";
                 chatMeta.textContent = `${state.username}${state.isAdmin ? " (admin)" : ""}`;
                 tokenBox.textContent = state.token
                     ? `Token: ${state.token}`
                     : "Token missing from session response.";
-                adminControlsLink.style.display = isRootAdminSession()
-                    ? "inline-flex"
-                    : "none";
-                trainerPanelLink.style.display = canAccessTrainerPanel()
-                    ? "inline-flex"
-                    : "none";
-                document.getElementById('menuAdmin').style.display = (state.isAdmin && state.username === JEEBS_ROOT_ADMIN) ? 'block' : 'none';
-                document.getElementById('menuTrainer').style.display = (state.isTrainer || (state.isAdmin && state.username === JEEBS_ROOT_ADMIN)) ? 'block' : 'none';
                 promptInput.focus();
                 startSessionPing();
             }
 
-            function setView(view) {
-                document.querySelectorAll(".tabs button").forEach((button) => {
-                    button.classList.toggle(
-                        "active",
-                        button.dataset.view === view,
-                    );
-                });
-                document.querySelectorAll(".view").forEach((node) => {
-                    node.classList.toggle("active", node.id === `${view}View`);
-                });
-            }
-
+            /* ── Challenge Generation ──────────────────────────── */
             function updateUnsignedMessage() {
-                const username = document
-                    .getElementById("loginUsername")
-                    .value.trim();
+                const username = document.getElementById("loginUsername").value.trim();
                 const ts = Math.floor(Date.now() / 1000);
                 const value = `LOGIN:${username || "username"}:${ts}`;
                 document.getElementById("unsignedMessage").value = value;
             }
 
+            /* ── Chat Helpers ──────────────────────────────────── */
             function appendMessage(who, text) {
                 const bubble = document.createElement("div");
                 bubble.className = `bubble ${who}`;
@@ -250,53 +260,20 @@
             }
 
             function showTyping() {
-                const indicator = document.createElement('div');
-                indicator.className = 'typing-indicator';
-                indicator.id = 'typingIndicator';
+                const indicator = document.createElement("div");
+                indicator.className = "typing-indicator";
+                indicator.id = "typingIndicator";
                 indicator.innerHTML = '<span>JeebsAI is typing</span><div class="dot"></div><div class="dot"></div><div class="dot"></div>';
                 chatFeed.appendChild(indicator);
                 chatFeed.scrollTop = chatFeed.scrollHeight;
             }
 
             function hideTyping() {
-                const indicator = document.getElementById('typingIndicator');
+                const indicator = document.getElementById("typingIndicator");
                 if (indicator) indicator.remove();
             }
 
-            function renderAuthState() {
-                if (!state.loggedIn) {
-                    authPanel.style.display = "block";
-                    chatPanel.classList.remove("show");
-                    statusChip.textContent = "Not logged in";
-                    adminControlsLink.style.display = "none";
-                    trainerPanelLink.style.display = "none";
-                    document.getElementById('menuAdmin').style.display = 'none';
-                    document.getElementById('menuTrainer').style.display = 'none';
-                    stopSessionPing();
-                    return;
-                }
-
-                authPanel.style.display = "none";
-                chatPanel.classList.add("show");
-                statusChip.textContent = `Logged in as ${state.username}`;
-                chatMeta.textContent = `${state.username}${state.isAdmin ? " (admin)" : ""}`;
-                tokenBox.textContent = state.token
-                    ? `Token: ${state.token}`
-                    : "Token missing from session response.";
-                adminControlsLink.style.display = isRootAdminSession()
-                    ? "inline-flex"
-                    : "none";
-                trainerPanelLink.style.display = canAccessTrainerPanel()
-                    ? "inline-flex"
-                    : "none";
-                document.getElementById('menuAdmin').style.display = (state.isAdmin && state.username === JEEBS_ROOT_ADMIN) ? 'block' : 'none';
-                document.getElementById('menuTrainer').style.display = (state.isTrainer || (state.isAdmin && state.username === JEEBS_ROOT_ADMIN)) ? 'block' : 'none';
-                promptInput.focus();
-                startSessionPing();
-            }
-
-            /* Session ping via auth.js startSessionPing / stopSessionPing */
-
+            /* ── Request Helper ────────────────────────────────── */
             async function requestJson(url, options = {}) {
                 const headers = new Headers(options.headers || {});
                 if (options.body && !headers.has("Content-Type")) {
@@ -320,14 +297,13 @@
                 }
 
                 if (!response.ok) {
-                    throw new Error(
-                        payload.error || `Request failed (${response.status})`,
-                    );
+                    throw new Error(payload.error || `Request failed (${response.status})`);
                 }
 
                 return payload;
             }
 
+            /* ── Bootstrap Auth ────────────────────────────────── */
             async function bootstrapAuth() {
                 try {
                     const data = await requestJson("/api/auth/status");
@@ -339,12 +315,11 @@
                         state.token = data.token;
                         jeebsSetToken(state.token);
                     }
+                    // Store admin flag for nav.js
+                    localStorage.setItem("jeebs_is_admin", state.isAdmin ? "true" : "false");
                     renderAuthState();
                     if (state.loggedIn) {
-                        appendMessage(
-                            "jeebs",
-                            "You are authenticated. Ask me anything.",
-                        );
+                        appendMessage("jeebs", "You are authenticated. Ask me anything.");
                     }
                 } catch (error) {
                     state.loggedIn = false;
@@ -353,200 +328,165 @@
                 }
             }
 
-            document.querySelectorAll(".tabs button").forEach((button) => {
-                button.addEventListener("click", () =>
-                    setView(button.dataset.view),
-                );
-            });
-
+            /* ── Event Listeners ───────────────────────────────── */
             document.getElementById("switchToRegister").addEventListener("click", () => setView("register"));
             document.getElementById("switchToLogin").addEventListener("click", () => setView("login"));
 
-            document
-                .getElementById("loginUsername")
-                .addEventListener("input", updateUnsignedMessage);
-            document
-                .getElementById("generateChallengeBtn")
-                .addEventListener("click", () => {
+            document.getElementById("loginUsername").addEventListener("input", updateUnsignedMessage);
+            document.getElementById("generateChallengeBtn").addEventListener("click", () => {
+                updateUnsignedMessage();
+                setStatus("Challenge refreshed.", "good");
+            });
+            document.getElementById("copyChallengeBtn").addEventListener("click", async () => {
+                try {
+                    await navigator.clipboard.writeText(document.getElementById("unsignedMessage").value);
+                    setStatus("Challenge copied.", "good");
+                } catch {
+                    setStatus("Clipboard access failed. Copy manually.", "bad");
+                }
+            });
+
+            /* ── Register Form ─────────────────────────────────── */
+            document.getElementById("registerForm").addEventListener("submit", async (event) => {
+                event.preventDefault();
+                const username = document.getElementById("regUsername").value.trim();
+                const email = document.getElementById("regEmail").value.trim();
+                const pgpPublicKey = document.getElementById("publicKey").value.trim();
+
+                // Validate inputs
+                if (!username.match(/^[a-zA-Z0-9_\-]{3,32}$/)) {
+                    setStatus("Username must be 3-32 characters (letters, numbers, -, _).", "bad");
+                    return;
+                }
+                if (!pgpPublicKey.startsWith("-----BEGIN PGP PUBLIC KEY BLOCK-----")) {
+                    setStatus("Invalid PGP public key format.", "bad");
+                    return;
+                }
+
+                try {
+                    await requestJson("/api/register", {
+                        method: "POST",
+                        body: JSON.stringify({ username, email, pgp_public_key: pgpPublicKey }),
+                    });
+                    document.getElementById("loginUsername").value = username;
                     updateUnsignedMessage();
-                    setStatus("Challenge refreshed.", "good");
-                });
-            document
-                .getElementById("copyChallengeBtn")
-                .addEventListener("click", async () => {
-                    try {
-                        await navigator.clipboard.writeText(
-                            document.getElementById("unsignedMessage").value,
-                        );
-                        setStatus("Challenge copied.", "good");
-                    } catch {
-                        setStatus(
-                            "Clipboard access failed. Copy manually.",
-                            "bad",
-                        );
-                    }
-                });
-
-            document
-                .getElementById("registerForm")
-                .addEventListener("submit", async (event) => {
-                    event.preventDefault();
-                    const username = document
-                        .getElementById("regUsername")
-                        .value.trim();
-                    const email = document
-                        .getElementById("regEmail")
-                        .value.trim();
-                    const pgpPublicKey = document
-                        .getElementById("publicKey")
-                        .value.trim();
-
-                    try {
-                        await requestJson("/api/register", {
-                            method: "POST",
-                            body: JSON.stringify({
-                                username,
-                                email,
-                                pgp_public_key: pgpPublicKey,
-                            }),
-                        });
-
-                        document.getElementById("loginUsername").value =
-                            username;
-                        updateUnsignedMessage();
-                        setView("login");
-                        setStatus(
-                            "Registration complete. Sign the challenge and log in.",
-                            "good",
-                        );
-                    } catch (error) {
-                        setStatus(
-                            `Registration failed: ${error.message}`,
-                            "bad",
-                        );
-                    }
-                });
-
-            document
-                .getElementById("loginForm")
-                .addEventListener("submit", async (event) => {
-                    event.preventDefault();
-
-                    const username = document
-                        .getElementById("loginUsername")
-                        .value.trim();
-                    const signedMessage = document
-                        .getElementById("signedMessage")
-                        .value.trim();
-                    const rememberMe =
-                        document.getElementById("rememberMe").checked;
-
-                    try {
-                        const data = await requestJson("/api/login_pgp", {
-                            method: "POST",
-                            body: JSON.stringify({
-                                username,
-                                signed_message: signedMessage,
-                                remember_me: rememberMe,
-                            }),
-                        });
-
-                        state.loggedIn = true;
-                        state.username = data.username || username;
-                        state.isAdmin = Boolean(data.is_admin);
-                        state.isTrainer = Boolean(data.is_trainer);
-                        state.token = data.token || "";
-
-                        if (state.token) {
-                            jeebsSetToken(state.token);
-                        }
-
-                        renderAuthState();
-                        appendMessage(
-                            "jeebs",
-                            "PGP login successful. Session token is active.",
-                        );
-                        setStatus("Logged in successfully.", "good");
-                    } catch (error) {
-                        setStatus(`Login failed: ${error.message}`, "bad");
-                    }
-                });
-
-            document
-                .getElementById("chatForm")
-                .addEventListener("submit", async (event) => {
-                    event.preventDefault();
-                    if (!state.loggedIn) {
-                        setStatus("Log in before sending messages.", "bad");
-                        return;
-                    }
-
-                    const prompt = promptInput.value.trim();
-                    if (!prompt) return;
-
-                    appendMessage("user", prompt);
-                    promptInput.value = "";
-                    showTyping();
-
-                    try {
-                        const data = await requestJson("/api/chat", {
-                            method: "POST",
-                            body: JSON.stringify({ message: prompt }),
-                        });
-                        hideTyping();
-                        appendMessage(
-                            "jeebs",
-                            data.response || "(No response body)",
-                        );
-                    } catch (error) {
-                        hideTyping();
-                        appendMessage("jeebs", `Error: ${error.message}`);
-                        setStatus(
-                            `Chat request failed: ${error.message}`,
-                            "bad",
-                        );
-                    }
-                });
-
-            document
-                .getElementById("copyTokenBtn")
-                .addEventListener("click", async () => {
-                    if (!state.token) {
-                        setStatus("No token available.", "bad");
-                        return;
-                    }
-                    try {
-                        await navigator.clipboard.writeText(state.token);
-                        setStatus("Token copied.", "good");
-                    } catch {
-                        setStatus(
-                            "Clipboard access failed. Copy manually.",
-                            "bad",
-                        );
-                    }
-                });
-
-            document
-                .getElementById("logoutBtn")
-                .addEventListener("click", async () => {
-                    try {
-                        await requestJson("/api/logout", { method: "POST" });
-                    } catch {
-                        // No-op; continue local cleanup.
-                    }
-
-                    state.loggedIn = false;
-                    state.username = "";
-                    state.isAdmin = false;
-                    state.isTrainer = false;
-                    state.token = "";
-                    jeebsClearToken();
-                    chatFeed.innerHTML = "";
                     setView("login");
-                    renderAuthState();
-                    setStatus("Logged out.", "good");
-                });
+                    setStatus("Registration complete. Sign the challenge and log in.", "good");
+                } catch (error) {
+                    setStatus(`Registration failed: ${error.message}`, "bad");
+                }
+            });
 
+            /* ── Login Form ────────────────────────────────────── */
+            document.getElementById("loginForm").addEventListener("submit", async (event) => {
+                event.preventDefault();
+                const username = document.getElementById("loginUsername").value.trim();
+                const signedMessage = document.getElementById("signedMessage").value.trim();
+                const rememberMe = document.getElementById("rememberMe").checked;
+
+                // Validate inputs
+                if (!username.match(/^[a-zA-Z0-9_\-]{3,32}$/)) {
+                    setStatus("Invalid username format.", "bad");
+                    return;
+                }
+                if (!signedMessage.startsWith("-----BEGIN PGP SIGNED MESSAGE-----")) {
+                    setStatus("Invalid PGP signature format. Paste the full signed message.", "bad");
+                    return;
+                }
+
+                try {
+                    const data = await requestJson("/api/login_pgp", {
+                        method: "POST",
+                        body: JSON.stringify({ username, signed_message: signedMessage, remember_me: rememberMe }),
+                    });
+
+                    state.loggedIn = true;
+                    state.username = data.username || username;
+                    state.isAdmin = Boolean(data.is_admin);
+                    state.isTrainer = Boolean(data.is_trainer);
+                    state.token = data.token || "";
+
+                    if (state.token) {
+                        jeebsSetToken(state.token);
+                    }
+                    localStorage.setItem("jeebs_is_admin", state.isAdmin ? "true" : "false");
+
+                    renderAuthState();
+                    appendMessage("jeebs", "PGP login successful. Session token is active.");
+                    setStatus("Logged in successfully.", "good");
+                } catch (error) {
+                    setStatus(`Login failed: ${error.message}`, "bad");
+                }
+            });
+
+            /* ── Chat Form ─────────────────────────────────────── */
+            document.getElementById("chatForm").addEventListener("submit", async (event) => {
+                event.preventDefault();
+                if (!state.loggedIn) {
+                    setStatus("Log in before sending messages.", "bad");
+                    return;
+                }
+
+                const prompt = promptInput.value.trim();
+                if (!prompt) return;
+
+                appendMessage("user", prompt);
+                promptInput.value = "";
+                showTyping();
+
+                try {
+                    const data = await requestJson("/api/jeebs", {
+                        method: "POST",
+                        body: JSON.stringify({ prompt: prompt }),
+                    });
+                    hideTyping();
+                    appendMessage("jeebs", data.response || "(No response body)");
+                } catch (error) {
+                    hideTyping();
+                    appendMessage("jeebs", `Error: ${error.message}`);
+                    setStatus(`Chat request failed: ${error.message}`, "bad");
+                }
+            });
+
+            /* ── Token Copy & Logout Buttons ───────────────────── */
+            document.getElementById("copyTokenBtn").addEventListener("click", async () => {
+                if (!state.token) {
+                    setStatus("No token available.", "bad");
+                    return;
+                }
+                try {
+                    await navigator.clipboard.writeText(state.token);
+                    setStatus("Token copied.", "good");
+                } catch {
+                    setStatus("Clipboard access failed. Copy manually.", "bad");
+                }
+            });
+
+            document.getElementById("logoutBtn").addEventListener("click", async () => {
+                try {
+                    await requestJson("/api/logout", { method: "POST" });
+                } catch { /* ignore */ }
+
+                state.loggedIn = false;
+                state.username = "";
+                state.isAdmin = false;
+                state.isTrainer = false;
+                state.token = "";
+                jeebsClearToken();
+                localStorage.removeItem("jeebs_is_admin");
+                chatFeed.innerHTML = "";
+                setView("login");
+                renderAuthState();
+                setStatus("Logged out.", "good");
+            });
+
+            /* ── Hash-based view switching ─────────────────────── */
+            if (window.location.hash === "#register") {
+                setView("register");
+            }
+
+            /* ── Init ──────────────────────────────────────────── */
+            JeebsNav.init("home");
             updateUnsignedMessage();
             renderAuthState();
             bootstrapAuth();
