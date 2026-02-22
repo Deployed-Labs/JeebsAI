@@ -1,9 +1,9 @@
 use once_cell::sync::OnceCell;
 use sqlx::mysql::{MySqlConnectOptions, MySqlPoolOptions, MySqlSslMode};
-use sqlx::MySqlPool;
+use sqlx::{MySqlPool, Row};
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::collections::HashSet;
 
 // Default points to the provided shard DB `brain_shard_1` on the Databases instance.
 const DEFAULT_MYSQL_URL: &str = "mysql://admin:L1QbNDvv@mysql-208625-0.cloudclusters.net:10060/brain_shard_1?ssl-mode=REQUIRED";
@@ -11,6 +11,7 @@ static MYSQL_POOL: OnceCell<MySqlPool> = OnceCell::new();
 
 pub async fn init_pool_from_env() -> Option<MySqlPool> {
     let url = std::env::var("MYSQL_BRAIN_URL").unwrap_or_else(|_| DEFAULT_MYSQL_URL.to_string());
+    let ssl_mode = std::env::var("MYSQL_SSL_MODE").unwrap_or_else(|_| "required".to_string());
 
     let mut opts = match MySqlConnectOptions::from_str(&url) {
         Ok(v) => v,
@@ -21,15 +22,22 @@ pub async fn init_pool_from_env() -> Option<MySqlPool> {
     };
 
     let ca_path = std::env::var("MYSQL_SSL_CA").ok();
+    let mode = match ssl_mode.to_ascii_lowercase().as_str() {
+        "disable" | "disabled" => MySqlSslMode::Disabled,
+        "preferred" => MySqlSslMode::Preferred,
+        _ => MySqlSslMode::Required,
+    };
+
     if let Some(path) = ca_path {
-        opts = opts.ssl_mode(MySqlSslMode::Required).ssl_ca(PathBuf::from(path));
+        opts = opts.ssl_mode(mode).ssl_ca(PathBuf::from(path));
     } else {
-        opts = opts.ssl_mode(MySqlSslMode::Preferred);
+        opts = opts.ssl_mode(mode);
     }
 
     match MySqlPoolOptions::new()
         .max_connections(12)
         .min_connections(1)
+        .acquire_timeout(std::time::Duration::from_secs(8))
         .connect_with(opts)
         .await
     {
@@ -73,14 +81,18 @@ pub async fn ensure_schema(pool: &MySqlPool) -> Result<(), sqlx::Error> {
     .await?;
 
     // Lightweight indexes for fast lookup
-    sqlx::query("CREATE INDEX IF NOT EXISTS idx_shard_topic ON brain_shard_entries (topic(191));")
+    if let Err(err) = sqlx::query("CREATE INDEX IF NOT EXISTS idx_shard_topic ON brain_shard_entries (topic(191));")
         .execute(pool)
         .await
-        .ok();
-    sqlx::query("CREATE FULLTEXT INDEX IF NOT EXISTS idx_shard_content ON brain_shard_entries (content);")
+    {
+        eprintln!("[brain_shard] index idx_shard_topic warning: {err}");
+    }
+    if let Err(err) = sqlx::query("CREATE FULLTEXT INDEX IF NOT EXISTS idx_shard_content ON brain_shard_entries (content);")
         .execute(pool)
         .await
-        .ok();
+    {
+        eprintln!("[brain_shard] index idx_shard_content warning: {err}");
+    }
 
     Ok(())
 }
