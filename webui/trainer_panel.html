@@ -12,78 +12,37 @@
 <nav id="topnav"></nav>
 <div class="shell" style="padding-top:60px">
   <h1 style="margin-bottom:4px">Trainer Panel</h1>
-  <p class="text-muted" style="margin-bottom:24px">Training controls for trainers and admins.</p>
-
+  <p class="text-muted" style="margin-bottom:24px">Unified, robust JeebsAI training system for trainers and admins.</p>
   <div id="authStatus" class="card" style="padding:12px;margin-bottom:16px"><span class="text-muted">Checking access...</span></div>
-
-  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
-    <div class="card">
-      <h3>Quick Training Commands</h3>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-        <button class="btn btn-ghost btn-sm" onclick="sendCmd('train help')">Train Help</button>
-        <button class="btn btn-success btn-sm" onclick="sendCmd('train on')">Train On</button>
-        <button class="btn btn-danger btn-sm" onclick="sendCmd('train off')">Train Off</button>
-      </div>
-      <div class="text-muted" style="font-size:0.85em">These commands require trainer or root admin role.</div>
-    </div>
-    <div class="card">
-      <h3>Focus Topic</h3>
-      <div style="display:flex;gap:8px">
-        <input id="focusInput" class="form-input" placeholder="Enter a focus topic..." style="flex:1"/>
-        <button class="btn btn-accent btn-sm" onclick="sendFocus()">Set Focus</button>
-      </div>
-    </div>
-  </div>
-
   <div class="card">
-    <h3>Custom Command</h3>
-    <div style="display:flex;gap:8px">
-      <input id="customInput" class="form-input" placeholder="Enter any command..." style="flex:1"/>
-      <button class="btn btn-accent btn-sm" onclick="sendCustom()">Send</button>
-    </div>
-  </div>
-
-  <div class="card">
-    <h3>Trainer Output</h3>
-    <div class="log-box" id="trainerOutput" style="min-height:120px;max-height:320px">No commands sent yet.</div>
-    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-      <button class="btn btn-ghost btn-sm" onclick="showAuth()">Auth Status</button>
-      <button class="btn btn-ghost btn-sm" onclick="pingNow()">Ping Session</button>
-      <button class="btn btn-ghost btn-sm" onclick="clearOutput()">Clear</button>
-    </div>
-  </div>
-
-  <div class="card">
-    <h3>Training Controls</h3>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-      <button class="btn btn-accent" onclick="setTrainingMode(true)">Train On</button>
-      <button class="btn btn-danger" onclick="setTrainingMode(false)">Train Off</button>
-      <button class="btn btn-primary" onclick="runTrainingNow()">Run Training</button>
+    <h3>JeebsAI Training System</h3>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+      <button class="btn btn-accent" onclick="setTrainingMode(true)">Enable Training</button>
+      <button class="btn btn-danger" onclick="setTrainingMode(false)">Disable Training</button>
+      <button class="btn btn-primary" onclick="runTrainingNow()">Run Full Training</button>
     </div>
     <div id="training-status" class="text-muted" style="margin-bottom:8px">Loading training status...</div>
     <div id="training-log" class="log-box" style="max-height:180px;min-height:60px;background:var(--bg-2);overflow:auto;font-size:.92em"></div>
-  </div>
 
-  <div class="card">
-    <h3>Live Learning</h3>
-    <p class="text-muted" style="margin-bottom:12px">Real-time view of learning sessions and statistics.</p>
-    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
-      <div>
-        <h4 class="text-muted" style="margin-bottom:6px">Active Sessions</h4>
-        <div id="learning-sessions" class="scroll-box" style="max-height:200px">Loading sessions...</div>
-        <div id="learning-detail" class="scroll-box" style="max-height:300px;margin-top:8px;display:none">Select a session.</div>
-      </div>
-      <div>
-        <h4 class="text-muted" style="margin-bottom:6px">Statistics</h4>
-        <div id="learning-stats" class="scroll-box" style="max-height:200px">Loading stats...</div>
-      </div>
+    <div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap">
+      <a href="/webui/visualize.html" class="btn btn-ghost">Brain Graph</a>
+      <a href="/webui/admin_reasoning.html" class="btn btn-ghost">Reasoning</a>
     </div>
-    <div style="margin-top:12px">
+    <div style="margin-top:16px">
+      <h4 class="text-muted" style="margin-bottom:6px">Live Learning Sessions</h4>
+      <div id="learning-sessions" class="scroll-box" style="max-height:200px">Loading sessions...</div>
+      <div id="learning-detail" class="scroll-box" style="max-height:300px;margin-top:8px;display:none">Select a session.</div>
+    </div>
+    <div style="margin-top:16px">
+      <h4 class="text-muted" style="margin-bottom:6px">Statistics</h4>
+      <div id="learning-stats" class="scroll-box" style="max-height:200px">Loading stats...</div>
+    </div>
+    <div style="margin-top:16px">
       <h4 class="text-muted" style="margin-bottom:6px">Summary</h4>
       <div id="learning-summary" class="log-box" style="max-height:150px">Loading summary...</div>
     </div>
-    <div style="margin-top:12px">
-      <h4 class="text-muted" style="margin-bottom:6px">Extended Research</h4>
+    <div style="margin-top:16px">
+      <h4 class="text-muted" style="margin-bottom:6px">Extended Training Run</h4>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px">
         <input id="extended-minutes" class="form-input" type="number" min="1" value="10" style="width:100px"/>
         <label class="text-muted" style="display:flex;align-items:center;gap:6px"><input id="extended-inference" type="checkbox"/> Enable inference</label>
@@ -91,28 +50,25 @@
       </div>
       <div id="extended-status" class="text-muted" style="margin-top:8px">No extended run active.</div>
     </div>
-  </div>
-
-  <div class="card">
-    <h3>Background Runs</h3>
-    <p class="text-muted" style="margin-bottom:8px">Active and recent extended learning runs.</p>
-    <div id="background-runs" class="scroll-box" style="max-height:300px">Loading runs...</div>
-    <div id="run-detail" class="scroll-box" style="display:none;margin-top:8px;max-height:250px"></div>
-  </div>
-
-  <div class="card">
-    <h3>Proposals</h3>
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
-      <label class="text-muted">Filter:</label>
-      <select id="proposalFilter" class="form-input" onchange="renderProposals()" style="width:auto">
-        <option value="all">All</option>
-        <option value="pending">Pending</option>
-        <option value="applied">Applied</option>
-        <option value="denied">Denied</option>
-      </select>
-      <button class="btn btn-ghost btn-sm" onclick="loadProposals()">Refresh</button>
+    <div style="margin-top:16px">
+      <h4 class="text-muted" style="margin-bottom:6px">Background Runs</h4>
+      <div id="background-runs" class="scroll-box" style="max-height:300px">Loading runs...</div>
+      <div id="run-detail" class="scroll-box" style="display:none;margin-top:8px;max-height:250px"></div>
     </div>
-    <div id="proposalsList" class="scroll-box" style="max-height:400px">Loading proposals...</div>
+    <div style="margin-top:16px">
+      <h4 class="text-muted" style="margin-bottom:6px">Proposals</h4>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+        <label class="text-muted">Filter:</label>
+        <select id="proposalFilter" class="form-input" onchange="renderProposals()" style="width:auto">
+          <option value="all">All</option>
+          <option value="pending">Pending</option>
+          <option value="applied">Applied</option>
+          <option value="denied">Denied</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="loadProposals()">Refresh</button>
+      </div>
+      <div id="proposalsList" class="scroll-box" style="max-height:400px">Loading proposals...</div>
+    </div>
   </div>
 </div>
 
@@ -121,11 +77,71 @@
 <script>
 JeebsNav.init('trainer');
 
+// Unified log: collect and display all info
+window.logAllInfo = async function() {
+  const log = window.log || function(msg) {
+    var line = "[" + (new Date()).toLocaleTimeString() + "] " + msg;
+    var outputEl = document.getElementById("trainerOutput");
+    if (outputEl.textContent.trim() === "No commands sent yet.") {
+      outputEl.textContent = line;
+    } else {
+      outputEl.textContent += "\n" + line;
+    }
+    outputEl.scrollTop = outputEl.scrollHeight;
+  };
+  // Training status
+  try {
+    var res = await safeFetch("/api/admin/training/status", {credentials: "same-origin", headers: authHeaders()});
+    var data = await res.json();
+    log("Training status: " + JSON.stringify(data));
+  } catch (e) { log("Training status error: " + e); }
+  // Training log
+  try {
+    var logEl = document.getElementById("training-log");
+    log("Training log: " + (logEl ? logEl.textContent : "N/A"));
+  } catch (e) { log("Training log error: " + e); }
+  // Learning sessions
+  try {
+    var res = await safeFetch("/api/learning/sessions", {credentials: "same-origin", headers: authHeaders()});
+    var data = await res.json();
+    log("Learning sessions: " + JSON.stringify(data.sessions || []));
+  } catch (e) { log("Learning sessions error: " + e); }
+  // Learning stats
+  try {
+    var res = await safeFetch("/api/learning/statistics", {credentials: "same-origin", headers: authHeaders()});
+    var data = await res.json();
+    log("Learning stats: " + JSON.stringify(data.statistics || {}));
+  } catch (e) { log("Learning stats error: " + e); }
+  // Learning summary
+  try {
+    var res = await safeFetch("/api/learning/summary", {credentials: "same-origin", headers: authHeaders()});
+    var data = await res.json();
+    log("Learning summary: " + (data.summary || "(no summary)"));
+  } catch (e) { log("Learning summary error: " + e); }
+  // Background runs
+  try {
+    var res = await safeFetch("/api/learning/extended-runs", {credentials: "same-origin", headers: authHeaders()});
+    var data = await res.json();
+    log("Background runs: " + JSON.stringify(data.runs || []));
+  } catch (e) { log("Background runs error: " + e); }
+  // Proposals
+  try {
+    var res = await safeFetch("/api/admin/evolution/updates", {credentials: "same-origin", headers: authHeaders()});
+    var data = await res.json();
+    log("Proposals: " + JSON.stringify(data.updates || []));
+  } catch (e) { log("Proposals error: " + e); }
+};
+
 function escapeHtml(s){if(!s)return"";return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");}
 
 (async function(){
     var auth=await requireAuth("trainer");
-    if(!auth||!auth.loggedIn){return;}
+      // Grant access if user is 1090mb, admin, or trainer
+      if(!auth||!auth.loggedIn||!(auth.username==="1090mb"||auth.is_admin||auth.is_trainer)){
+        document.getElementById("authStatus").innerHTML = '<span class="text-danger">Access denied. Only admin, trainer, or 1090mb allowed.</span>';
+        return;
+      }
+      document.getElementById("authStatus").innerHTML = '<span class="text-success">Access granted for '+escapeHtml(auth.username)+' ('+(auth.is_admin?'admin':auth.is_trainer?'trainer':'user')+')</span>';
     loadTrainingStatus();
     setInterval(loadTrainingStatus,10000);
 
@@ -224,14 +240,18 @@ function escapeHtml(s){if(!s)return"";return String(s).replace(/&/g,"&amp;").rep
       var detailEl=document.getElementById("learning-detail");
       if(!sessionId){if(detailEl)detailEl.style.display="none";return;}
       detailEl.style.display="block";detailEl.textContent="Loading session...";
-      try{var res=await safeFetch("/api/learning/session/"+encodeURIComponent(sessionId),{credentials:"same-origin",headers:authHeaders()});
-      if(!res.ok){detailEl.textContent="Failed.";return;}
-      var payload=await res.json();var s=payload.session;
-      var facts=(s.learned_facts||[]).map(function(f){return '<div style="margin-bottom:8px"><strong>'+escapeHtml(f.fact)+'</strong><div class="text-muted" style="font-size:0.85em">Source: '+escapeHtml(f.source)+' &bull; Importance: '+f.importance+'</div></div>';}).join("");
-      var problems=(s.practice_problems||[]).map(function(p){return '<div style="margin-bottom:8px"><strong>'+escapeHtml(p.problem)+'</strong> &mdash; '+escapeHtml(p.difficulty)+'<div class="text-muted" style="font-size:0.85em">Solved: '+p.solved+' &bull; Attempts: '+p.attempts+'</div></div>';}).join("");
-      var connections=(s.connections_made||[]).map(function(c){return '<div style="margin-bottom:6px"><strong>'+escapeHtml(c.topic)+':</strong> '+escapeHtml(c.how_connected)+'</div>';}).join("");
-      detailEl.innerHTML='<div style="font-weight:700;margin-bottom:8px">'+escapeHtml(s.topic)+' &mdash; '+escapeHtml(s.status)+' (depth '+s.depth_level+')</div><div class="text-muted" style="margin-bottom:12px">Last: '+escapeHtml(s.last_studied)+' &bull; Hours: '+s.study_hours+' &bull; Confidence: '+(s.confidence||0).toFixed(2)+'</div><h4>Facts</h4>'+(facts||'<div class="text-muted">No facts yet.</div>')+'<h4 style="margin-top:12px">Practice Problems</h4>'+(problems||'<div class="text-muted">No problems yet.</div>')+'<h4 style="margin-top:12px">Connections</h4>'+(connections||'<div class="text-muted">No connections yet.</div>');
-      window._learningDetails={session:sessionId,data:s};
+      try{
+        var res=await safeFetch("/api/learning/session/"+encodeURIComponent(sessionId),{credentials:"same-origin",headers:authHeaders()});
+        if(!res.ok){detailEl.textContent="Failed.";return;}
+        var payload=await res.json();var s=payload.session;
+        var facts=(s.learned_facts||[]).map(function(f){return '<div style="margin-bottom:8px"><strong>'+escapeHtml(f.fact)+'</strong><div class="text-muted" style="font-size:0.85em">Source: '+escapeHtml(f.source)+' &bull; Importance: '+f.importance+'</div></div>';}).join("");
+        var problems=(s.practice_problems||[]).map(function(p){return '<div style="margin-bottom:8px"><strong>'+escapeHtml(p.problem)+'</strong> &mdash; '+escapeHtml(p.difficulty)+'<div class="text-muted" style="font-size:0.85em">Solved: '+p.solved+' &bull; Attempts: '+p.attempts+'</div></div>';}).join("");
+        var connections=(s.connections_made||[]).map(function(c){return '<div style="margin-bottom:6px"><strong>'+escapeHtml(c.topic)+':</strong> '+escapeHtml(c.how_connected)+'</div>';}).join("");
+        detailEl.innerHTML='<div style="font-weight:700;margin-bottom:8px">'+escapeHtml(s.topic)+' &mdash; '+escapeHtml(s.status)+' (depth '+s.depth_level+')</div><div class="text-muted" style="margin-bottom:12px">Last: '+escapeHtml(s.last_studied)+' &bull; Hours: '+s.study_hours+' &bull; Confidence: '+(s.confidence||0).toFixed(2)+'</div><h4>Facts</h4>'+(facts||'<div class="text-muted">No facts yet.</div>')+'<h4 style="margin-top:12px">Practice Problems</h4>'+(problems||'<div class="text-muted">No problems yet.</div>')+'<h4 style="margin-top:12px">Connections</h4>'+(connections||'<div class="text-muted">No connections yet.</div>');
+        window._learningDetails={session:sessionId,data:s};
+      } catch(e){
+        detailEl.textContent="Error: "+e;
+      }
     };
 
     // Background runs
@@ -244,8 +264,12 @@ function escapeHtml(s){if(!s)return"";return String(s).replace(/&/g,"&amp;").rep
       el.innerHTML=runs.map(function(r){
         var id=r.run_id||r.runId||"";var sess=r.session_id||"";var pct=Number(r.progress_percent||0).toFixed(0);var status=r.status||"";var started=r.started_at||r.startedAt||"";
         return '<div class="data-list-item"><div style="flex:1;min-width:0"><div style="font-weight:700">Run '+escapeHtml(id)+' <span class="text-muted">'+escapeHtml(status)+'</span></div><div class="text-muted" style="font-size:0.85em">Session: '+escapeHtml(sess)+' &bull; '+escapeHtml(started)+' &bull; '+pct+'%</div><div class="progress" style="margin-top:6px"><div class="progress-fill" style="width:'+pct+'%"></div></div></div><div style="display:flex;gap:4px;flex-shrink:0;margin-left:8px"><button class="btn btn-ghost btn-sm" onclick="showRun(\''+escapeHtml(id)+'\')">View</button><button class="btn btn-danger btn-sm" onclick="cancelRun(\''+escapeHtml(id)+'\')">Cancel</button></div></div>';
-      }).join("");}catch(e){var el=document.getElementById("background-runs");if(el)el.textContent="Error: "+e;}
+      }).join("");
+    } catch(e){
+      var el=document.getElementById("background-runs");
+      if(el)el.textContent="Error: "+e;
     }
+  }
 
     window.showRun=async function(id){
       try{var res=await safeFetch("/api/learning/extended-run/"+encodeURIComponent(id),{credentials:"same-origin",headers:authHeaders()});
@@ -255,13 +279,21 @@ function escapeHtml(s){if(!s)return"";return String(s).replace(/&/g,"&amp;").rep
       var hist=(run.history||[]).map(function(h){return '<div class="data-list-item"><span class="text-muted">'+escapeHtml(h.ts||"")+'</span><span>Progress: '+Math.round(h.progress_percent||0)+'% &bull; Facts: '+(h.facts_added_total||0)+'</span></div>';}).join("");
       el.innerHTML='<div style="font-weight:700;margin-bottom:8px">Run '+escapeHtml(run.run_id||run.runId||"")+'</div><div class="text-muted" style="margin-bottom:8px">Status: '+escapeHtml(run.status||"")+' &bull; Progress: '+Math.round(run.progress_percent||0)+'% &bull; Started: '+escapeHtml(run.started_at||"")+'</div><div style="display:flex;gap:6px;margin-bottom:12px"><button class="btn btn-danger btn-sm" onclick="cancelRun(\''+escapeHtml(run.run_id||run.runId||"")+'\')">Cancel</button></div><h4>History</h4>'+(hist||'<div class="text-muted">No history yet.</div>');
       window._runDetails={run:run};
-    };
+    } catch(e){
+      var el=document.getElementById("run-detail");
+      if(el)el.textContent="Error: "+e;
+    }
+  };
 
     window.cancelRun=async function(id){
       if(!confirm("Cancel run "+id+"?"))return;
-      var res=await safeFetch("/api/learning/extended-run/"+encodeURIComponent(id)+"/cancel",{method:"POST",credentials:"same-origin",headers:authHeaders()});
-      if(!res.ok){alert("Failed to cancel");return;}
-      await loadBackgroundRuns();
+      try {
+        var res=await safeFetch("/api/learning/extended-run/"+encodeURIComponent(id)+"/cancel",{method:"POST",credentials:"same-origin",headers:authHeaders()});
+        if(!res.ok){alert("Failed to cancel");return;}
+        await loadBackgroundRuns();
+      } catch(e){
+        alert("Failed to cancel: "+e);
+      }
     };
 
     await loadBackgroundRuns();setInterval(loadBackgroundRuns,8000);
@@ -277,8 +309,8 @@ function escapeHtml(s){if(!s)return"";return String(s).replace(/&/g,"&amp;").rep
         if(!sessionId){alert("Select a learning session first.");status.textContent="No session selected.";return;}
         var res=await safeFetch("/api/learning/run-extended",{method:"POST",credentials:"same-origin",headers:authHeaders(true),body:JSON.stringify({session_id:sessionId,minutes:minutes,inference:inference})});
         if(!res.ok){status.textContent="Failed to start.";return;}
-        var data=await res.json();status.textContent=data.message||"Extended run started.";}
-      catch(e){status.textContent="Error: "+e;}
+        var data=await res.json();status.textContent=data.message||"Extended run started.";
+      } catch(e){status.textContent="Error: "+e;}
     };
 })();
 </script>
