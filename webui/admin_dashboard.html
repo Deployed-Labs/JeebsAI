@@ -195,6 +195,73 @@
             </div>
 
             <div
+                id="trainerRolePanel"
+                style="
+                    background: #23283a;
+                    padding: 16px;
+                    border-radius: 12px;
+                    margin-bottom: 20px;
+                    border: 1px solid #7fffd4;
+                "
+            >
+                <h3 style="margin-top: 0; color: #7fffd4; text-align: center">
+                    🧑‍🏫 Trainer Role Management
+                </h3>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap">
+                    <input
+                        id="trainerUsername"
+                        type="text"
+                        placeholder="Username (e.g., alice)"
+                        style="
+                            flex: 1;
+                            min-width: 200px;
+                            padding: 10px;
+                            border-radius: 4px;
+                            border: 1px solid #444;
+                            background: #181c24;
+                            color: #f3f3f3;
+                        "
+                    />
+                    <button
+                        onclick="setTrainerRole('trainer')"
+                        style="
+                            padding: 10px 14px;
+                            background: #7fffd4;
+                            border: none;
+                            border-radius: 4px;
+                            cursor: pointer;
+                            font-weight: bold;
+                            color: #181c24;
+                        "
+                    >
+                        Make Trainer
+                    </button>
+                    <button
+                        onclick="setTrainerRole('user')"
+                        style="
+                            padding: 10px 14px;
+                            background: #fbbf24;
+                            border: none;
+                            border-radius: 4px;
+                            cursor: pointer;
+                            font-weight: bold;
+                            color: #181c24;
+                        "
+                    >
+                        Remove Trainer
+                    </button>
+                </div>
+                <div
+                    id="trainerRoleStatus"
+                    style="margin-top: 10px; color: #aaa; font-size: 0.9em"
+                ></div>
+                <div
+                    id="trainerList"
+                    style="margin-top: 10px; color: #ccc; font-size: 0.9em"
+                ></div>
+            </div>
+
+            <div
                 id="serverLogs"
                 style="
                     background: #23283a;
@@ -581,7 +648,8 @@
                         const logs = await res.json();
                         const container =
                             document.getElementById("logsContent");
-                        container.innerHTML = logs
+                        const ordered = logs.slice().reverse();
+                        container.innerHTML = ordered
                             .map((l) => {
                                 if (typeof l === "string") {
                                     return `<div>${l}</div>`;
@@ -644,6 +712,63 @@
                 } catch {
                     document.getElementById("sessionsContent").innerText =
                         "Error loading sessions.";
+                }
+            }
+
+            async function loadTrainerList() {
+                if (!rootAdminAuthorized) return;
+                try {
+                    const res = await fetch("/api/admin/users", {
+                        headers: authHeaders(),
+                    });
+                    if (!res.ok) {
+                        document.getElementById("trainerList").innerText =
+                            "Unable to load trainer list.";
+                        return;
+                    }
+                    const users = await res.json();
+                    const trainers = users.filter((u) => u.role === "trainer");
+                    const list = trainers.length
+                        ? trainers.map((u) => `${u.username}`).join(", ")
+                        : "No trainers assigned.";
+                    document.getElementById("trainerList").innerText =
+                        `Trainers: ${list}`;
+                } catch {
+                    document.getElementById("trainerList").innerText =
+                        "Error loading trainer list.";
+                }
+            }
+
+            async function setTrainerRole(role) {
+                if (!rootAdminAuthorized) return;
+                const username = document
+                    .getElementById("trainerUsername")
+                    .value.trim();
+                const statusEl = document.getElementById("trainerRoleStatus");
+                if (!username) {
+                    statusEl.innerText = "Enter a username first.";
+                    return;
+                }
+
+                statusEl.innerText = `Updating ${username}...`;
+                try {
+                    const res = await fetch("/api/admin/user/role", {
+                        method: "POST",
+                        headers: authHeaders(true),
+                        body: JSON.stringify({ username, role }),
+                    });
+                    if (!res.ok) {
+                        const message = await parseErrorMessage(
+                            res,
+                            "Failed to update role",
+                        );
+                        statusEl.innerText = message;
+                        return;
+                    }
+                    statusEl.innerText = `Role updated: ${username} → ${role}`;
+                    await loadTrainerList();
+                } catch (err) {
+                    statusEl.innerText = `Error: ${err}`;
                 }
             }
 
@@ -1078,6 +1203,7 @@
                 loadSessions();
                 loadInternetStatus();
                 loadTrainingStatus();
+                loadTrainerList();
 
                 setInterval(() => {
                     loadStatus();
@@ -1085,6 +1211,7 @@
                     loadSessions();
                     loadInternetStatus();
                     loadTrainingStatus();
+                    loadTrainerList();
                 }, 5000);
             }
 

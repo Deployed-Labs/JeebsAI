@@ -132,6 +132,16 @@ pub async fn admin_update_user_role(
         return HttpResponse::BadRequest().json(json!({"error": "Cannot change root admin role"}));
     }
 
+    if req.role == "admin" {
+        return HttpResponse::BadRequest()
+            .json(json!({"error": "Only root admin can be admin"}));
+    }
+
+    if req.role != "user" && req.role != "trainer" {
+        return HttpResponse::BadRequest()
+            .json(json!({"error": "Role must be 'user' or 'trainer'"}));
+    }
+
     let user_key = format!("user:{}", req.username);
     if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
         .bind(&user_key)

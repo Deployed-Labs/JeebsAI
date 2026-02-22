@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>JeebsAI Trainer Panel</title>
+        <style>
+            :root {
+                --bg-main: #181c24;
+                --bg-card: #23283a;
+                --text-main: #f3f3f3;
+                --text-muted: #888;
+                --accent: #7fffd4;
+                --accent-2: #fbbf24;
+                --danger: #ff6b6b;
+            }
+            body {
+                font-family: "Segoe UI", Arial, sans-serif;
+                background: var(--bg-main);
+                color: var(--text-main);
+                margin: 0;
+                padding: 20px;
+            }
+            .container {
+                max-width: 900px;
+                margin: 40px auto;
+            }
+            h1 {
+                color: var(--accent);
+                text-align: center;
+                margin-bottom: 30px;
+            }
+            .panel {
+                background: var(--bg-card);
+                border-radius: 12px;
+                padding: 18px;
+                margin-bottom: 16px;
+                border: 1px solid #2a3044;
+            }
+            .row {
+                display: flex;
+                gap: 10px;
+                align-items: center;
+                flex-wrap: wrap;
+            }
+            input {
+                flex: 1;
+                min-width: 240px;
+                padding: 10px;
+                border-radius: 6px;
+                border: 1px solid #444;
+                background: #181c24;
+                color: var(--text-main);
+            }
+            button {
+                padding: 10px 14px;
+                border-radius: 6px;
+                border: none;
+                cursor: pointer;
+                font-weight: bold;
+                color: #181c24;
+            }
+            .btn-primary {
+                background: var(--accent);
+            }
+            .btn-secondary {
+                background: var(--accent-2);
+            }
+            .btn-danger {
+                background: var(--danger);
+                color: #fff;
+            }
+            .status {
+                margin-top: 10px;
+                color: var(--text-muted);
+                min-height: 20px;
+            }
+            .output {
+                background: #0d1117;
+                border: 1px solid #333;
+                border-radius: 8px;
+                padding: 12px;
+                min-height: 120px;
+                white-space: pre-wrap;
+                font-family: "Consolas", "Monaco", monospace;
+                font-size: 0.9rem;
+            }
+            a {
+                color: var(--accent);
+                text-decoration: none;
+            }
+            .muted {
+                color: var(--text-muted);
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Trainer Panel</h1>
+
+            <div class="panel">
+                <div class="row">
+                    <a href="/webui/index.html">← Back to Home</a>
+                </div>
+                <div class="status" id="authStatus">Checking trainer access...</div>
+            </div>
+
+            <div class="panel">
+                <h3>Training Focus</h3>
+                <div class="row">
+                    <input
+                        id="focusInput"
+                        type="text"
+                        placeholder="train: improve rust error handling"
+                    />
+                    <button class="btn-primary" onclick="setFocus()">
+                        Set Focus
+                    </button>
+                </div>
+                <div class="status muted">
+                    Uses trainer command: <code>train: &lt;topic&gt;</code>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>Training Controls</h3>
+                <div class="row">
+                    <button class="btn-secondary" onclick="sendTrainerCommand('train help')">
+                        Train Help
+                    </button>
+                    <button class="btn-primary" onclick="sendTrainerCommand('train on')">
+                        Train On
+                    </button>
+                    <button class="btn-danger" onclick="sendTrainerCommand('train off')">
+                        Train Off
+                    </button>
+                </div>
+                <div class="status muted">
+                    These commands require trainer or root admin role.
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>Trainer Output</h3>
+                <div class="output" id="trainerOutput">No commands sent yet.</div>
+            </div>
+        </div>
+
+        <script>
+            const TOKEN_KEY = "jeebs_auth_token";
+            const ROOT_ADMIN_USERNAME = "1090mb";
+            const authStatus = document.getElementById("authStatus");
+            const output = document.getElementById("trainerOutput");
+
+            function authHeaders() {
+                const token = localStorage.getItem(TOKEN_KEY);
+                return token ? { Authorization: `Bearer ${token}` } : {};
+            }
+
+            async function checkAccess() {
+                try {
+                    const res = await fetch("/api/auth/status", {
+                        credentials: "same-origin",
+                        headers: authHeaders(),
+                    });
+                    if (!res.ok) {
+                        authStatus.textContent = "Not authenticated. Please log in first.";
+                        return false;
+                    }
+                    const data = await res.json();
+                    const isRootAdmin =
+                        data.is_admin === true && data.username === ROOT_ADMIN_USERNAME;
+                    const isTrainer = data.is_trainer === true || isRootAdmin;
+
+                    if (!data.logged_in) {
+                        authStatus.textContent = "Not logged in. Please log in first.";
+                        return false;
+                    }
+                    if (!isTrainer) {
+                        authStatus.textContent =
+                            "You are logged in but not a trainer. Ask an admin to assign the trainer role.";
+                        return false;
+                    }
+
+                    authStatus.textContent = `Trainer access granted for ${data.username}.`;
+                    return true;
+                } catch (err) {
+                    authStatus.textContent = `Access check failed: ${err}`;
+                    return false;
+                }
+            }
+
+            async function sendTrainerCommand(command) {
+                const allowed = await checkAccess();
+                if (!allowed) return;
+
+                output.textContent = `Sending: ${command}...`;
+                try {
+                    const res = await fetch("/api/chat", {
+                        method: "POST",
+                        credentials: "same-origin",
+                        headers: {
+                            "Content-Type": "application/json",
+                            ...authHeaders(),
+                        },
+                        body: JSON.stringify({ message: command }),
+                    });
+                    const data = await res.json();
+                    if (!res.ok) {
+                        output.textContent = `Error: ${data.error || res.statusText}`;
+                        return;
+                    }
+                    output.textContent = data.response || "No response received.";
+                } catch (err) {
+                    output.textContent = `Request failed: ${err}`;
+                }
+            }
+
+            async function setFocus() {
+                const focus = document.getElementById("focusInput").value.trim();
+                if (!focus) {
+                    output.textContent = "Enter a focus topic before sending.";
+                    return;
+                }
+                await sendTrainerCommand(`train: ${focus}`);
+            }
+
+            checkAccess();
+        </script>
+    </body>
+</html>

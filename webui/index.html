@@ -460,6 +460,14 @@
                         >
                             Admin Controls
                         </a>
+                        <a
+                            id="trainerPanelLink"
+                            class="ghost-link"
+                            href="/webui/trainer_panel.html"
+                            style="display: none"
+                        >
+                            Trainer Panel
+                        </a>
                         <button id="copyTokenBtn" class="ghost" type="button">
                             Copy Token
                         </button>
@@ -494,6 +502,7 @@
                 loggedIn: false,
                 username: "",
                 isAdmin: false,
+                isTrainer: false,
                 token: localStorage.getItem(TOKEN_KEY) || "",
             };
 
@@ -507,12 +516,18 @@
             const promptInput = document.getElementById("promptInput");
             const adminControlsLink =
                 document.getElementById("adminControlsLink");
+            const trainerPanelLink =
+                document.getElementById("trainerPanelLink");
 
             function isRootAdminSession() {
                 return (
                     Boolean(state.isAdmin) &&
                     String(state.username) === ROOT_ADMIN_USERNAME
                 );
+            }
+
+            function canAccessTrainerPanel() {
+                return state.isTrainer || isRootAdminSession();
             }
 
             function setStatus(message, level = "info") {
@@ -561,6 +576,7 @@
                     chatPanel.classList.remove("show");
                     statusChip.textContent = "Not logged in";
                     adminControlsLink.style.display = "none";
+                    trainerPanelLink.style.display = "none";
                     return;
                 }
 
@@ -572,6 +588,9 @@
                     ? `Token: ${state.token}`
                     : "Token missing from session response.";
                 adminControlsLink.style.display = isRootAdminSession()
+                    ? "inline-flex"
+                    : "none";
+                trainerPanelLink.style.display = canAccessTrainerPanel()
                     ? "inline-flex"
                     : "none";
                 promptInput.focus();
@@ -614,6 +633,7 @@
                     state.loggedIn = Boolean(data.logged_in);
                     state.username = data.username || "";
                     state.isAdmin = Boolean(data.is_admin);
+                    state.isTrainer = Boolean(data.is_trainer);
                     if (data.token) {
                         state.token = data.token;
                         localStorage.setItem(TOKEN_KEY, state.token);
@@ -730,6 +750,7 @@
                         state.loggedIn = true;
                         state.username = data.username || username;
                         state.isAdmin = Boolean(data.is_admin);
+                        state.isTrainer = Boolean(data.is_trainer);
                         state.token = data.token || "";
 
                         if (state.token) {
@@ -810,6 +831,7 @@
                     state.loggedIn = false;
                     state.username = "";
                     state.isAdmin = false;
+                    state.isTrainer = false;
                     state.token = "";
                     localStorage.removeItem(TOKEN_KEY);
                     chatFeed.innerHTML = "";

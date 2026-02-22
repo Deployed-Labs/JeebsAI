@@ -433,6 +433,87 @@ struct TrainingStatusResponse {
     interval_seconds: u64,
 }
 
+pub async fn set_training_focus_for_trainer(
+    db: &SqlitePool,
+    topic: &str,
+    actor: &str,
+) -> Result<(), String> {
+    let mut training = load_training_state(db).await;
+    training.enabled = true;
+    training.focus_topic = Some(topic.trim().to_string());
+    training.updated_at = Local::now().to_rfc3339();
+    training.updated_by = actor.to_string();
+    training.active_phase = "trainer focus set".to_string();
+    training.active_target = Some(topic.trim().to_string());
+    training.active_updated_at = Some(Local::now().to_rfc3339());
+
+    if let Err(err) = save_training_state(db, &training).await {
+        return Err(format!("failed to save training focus: {err}"));
+    }
+
+    let _ = crate::toggle_manager::save_training_toggle_state(db, true).await;
+
+    Ok(())
+}
+
+pub async fn set_training_enabled_for_trainer(
+    db: &SqlitePool,
+    enabled: bool,
+    actor: &str,
+) -> Result<(), String> {
+    let mut training = load_training_state(db).await;
+    training.enabled = enabled;
+    training.updated_at = Local::now().to_rfc3339();
+    training.updated_by = actor.to_string();
+
+    if !enabled {
+        training.is_cycle_running = false;
+        training.active_cycle_started_at = None;
+        training.active_phase = "stopped by trainer".to_string();
+        training.active_target = None;
+        training.active_nodes_written = 0;
+        training.active_websites_completed = 0;
+        training.active_topics_completed = 0;
+        training.active_updated_at = Some(Local::now().to_rfc3339());
+    }
+
+    if let Err(err) = save_training_state(db, &training).await {
+        return Err(format!("failed to save training mode: {err}"));
+    }
+
+    let _ = crate::toggle_manager::save_training_toggle_state(db, enabled).await;
+
+    Ok(())
+}
+
+pub async fn sync_training_state_with_toggle(
+    db: &SqlitePool,
+    enabled: bool,
+    actor: &str,
+) -> Result<(), String> {
+    let mut training = load_training_state(db).await;
+    if training.enabled == enabled {
+        return Ok(());
+    }
+    training.enabled = enabled;
+    training.updated_at = Local::now().to_rfc3339();
+    training.updated_by = actor.to_string();
+    if !enabled {
+        training.is_cycle_running = false;
+        training.active_cycle_started_at = None;
+        training.active_phase = "stopped by startup sync".to_string();
+        training.active_target = None;
+        training.active_nodes_written = 0;
+        training.active_websites_completed = 0;
+        training.active_topics_completed = 0;
+        training.active_updated_at = Some(Local::now().to_rfc3339());
+    }
+    if let Err(err) = save_training_state(db, &training).await {
+        return Err(format!("failed to sync training state: {err}"));
+    }
+    Ok(())
+}
+
 #[derive(Debug, Serialize)]
 struct TrainingCycleReport {
     cycle_started_at: String,

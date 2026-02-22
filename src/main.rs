@@ -140,10 +140,9 @@ async fn main() -> std::io::Result<()> {
     // Start Jeebs autonomous evolution loop
     evolution::spawn_autonomous_thinker(state.db.clone());
 
-    // Start Jeebs autonomous internet training worker (respects saved training state)
-    if training_enabled {
-        cortex::spawn_autonomous_training(state.clone());
-    }
+    // Sync training state with persisted toggle and always run worker
+    let _ = cortex::sync_training_state_with_toggle(&state.db, training_enabled, "startup").await;
+    cortex::spawn_autonomous_training(state.clone());
 
     let port: u16 = env::var("PORT")
         .ok()

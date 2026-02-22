@@ -48,6 +48,7 @@ pub struct AuthStatusResponse {
     pub logged_in: bool,
     pub username: Option<String>,
     pub is_admin: bool,
+    pub is_trainer: bool,
     pub token: Option<String>,
 }
 
@@ -261,6 +262,7 @@ async fn handle_pgp_login(
         .and_then(|v| v.as_str())
         .unwrap_or("user");
     let is_admin = role == "admin";
+    let is_trainer = role == "trainer";
 
     let token = match issue_token(username, is_admin) {
         Ok(v) => v,
@@ -269,7 +271,9 @@ async fn handle_pgp_login(
 
     if session.insert("logged_in", true).is_err()
         || session.insert("username", username).is_err()
+        || session.insert("role", role).is_err()
         || session.insert("is_admin", is_admin).is_err()
+        || session.insert("is_trainer", is_trainer).is_err()
         || session.insert("auth_token", &token).is_err()
     {
         return HttpResponse::InternalServerError().json(json!({"error": "Session error"}));
@@ -303,9 +307,9 @@ async fn handle_pgp_login(
         "INFO",
         "AUTH",
         &format!(
-            "Successful login username={} is_admin={} ip={}",
+            "Successful login username={} role={} ip={}",
             username,
-            is_admin,
+            role,
             ip
         ),
     )
@@ -315,6 +319,7 @@ async fn handle_pgp_login(
         "status": "success",
         "username": username,
         "is_admin": is_admin,
+        "is_trainer": is_trainer,
         "token": token
     }))
 }
@@ -448,7 +453,11 @@ pub async fn login(
 }
 
 #[get("/api/auth/status")]
-pub async fn auth_status(session: Session, http_req: HttpRequest) -> impl Responder {
+pub async fn auth_status(
+    data: web::Data<AppState>,
+    session: Session,
+    http_req: HttpRequest,
+) -> impl Responder {
     let logged_in = session
         .get::<bool>("logged_in")
         .ok()
@@ -464,9 +473,22 @@ pub async fn auth_status(session: Session, http_req: HttpRequest) -> impl Respon
                 .and_then(|s| s.strip_prefix("Bearer "))
                 .map(|s| s.to_string());
 
+            let role = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
+                .bind(format!("user:{}", claims.username))
+                .fetch_optional(&data.db)
+                .await
+                .ok()
+                .and_then(|row| row.map(|r| r.get::<Vec<u8>, _>(0)))
+                .and_then(|raw| serde_json::from_slice::<serde_json::Value>(&raw).ok())
+                .and_then(|json| json.get("role").and_then(|v| v.as_str()).map(|s| s.to_string()))
+                .unwrap_or_else(|| "user".to_string());
+            let is_trainer = role == "trainer";
+
             let _ = session.insert("logged_in", true);
             let _ = session.insert("username", &claims.username);
+            let _ = session.insert("role", &role);
             let _ = session.insert("is_admin", claims.is_admin);
+            let _ = session.insert("is_trainer", is_trainer);
             if let Some(token) = &bearer_token {
                 let _ = session.insert("auth_token", token);
             }
@@ -475,6 +497,7 @@ pub async fn auth_status(session: Session, http_req: HttpRequest) -> impl Respon
                 logged_in: true,
                 username: Some(claims.username),
                 is_admin: claims.is_admin,
+                is_trainer,
                 token: bearer_token,
             });
         }
@@ -483,6 +506,7 @@ pub async fn auth_status(session: Session, http_req: HttpRequest) -> impl Respon
             logged_in: false,
             username: None,
             is_admin: false,
+            is_trainer: false,
             token: None,
         });
     }
@@ -493,12 +517,18 @@ pub async fn auth_status(session: Session, http_req: HttpRequest) -> impl Respon
         .ok()
         .flatten()
         .unwrap_or(false);
+    let is_trainer = session
+        .get::<bool>("is_trainer")
+        .ok()
+        .flatten()
+        .unwrap_or(false);
     let token = session.get::<String>("auth_token").ok().flatten();
 
     HttpResponse::Ok().json(AuthStatusResponse {
         logged_in: true,
         username,
         is_admin,
+        is_trainer,
         token,
     })
 }
