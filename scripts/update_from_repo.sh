@@ -7,7 +7,8 @@ set -euo pipefail
 # - Restarts the jeebs service.
 # - Syncs webui assets.
 
-REPO_DIR=${REPO_DIR:-"/root/JeebsAI"}
+APP_DIR=${APP_DIR:-"/root/JeebsAI"}
+REPO_DIR=${REPO_DIR:-"$APP_DIR"}
 SERVICE_NAME=${SERVICE_NAME:-"jeebs"}
 APP_DIR=${APP_DIR:-"/root/JeebsAI"}
 
