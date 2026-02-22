@@ -164,11 +164,11 @@ async fn main() -> std::io::Result<()> {
     // Session cookie secret
     let secret_key = Key::generate();
 
-    // Governor configuration
+    // Governor configuration — generous enough for admin dashboards
     let governor_conf = GovernorConfigBuilder::default()
         .key_extractor(WhitelistedKeyExtractor)
-        .per_second(2)
-        .burst_size(5)
+        .per_second(10)
+        .burst_size(30)
         .finish()
         .unwrap();
 

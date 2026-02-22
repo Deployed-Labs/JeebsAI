@@ -74,7 +74,7 @@
 
         <div id="results"></div>
 
-        <script>
+        <script src="/webui/auth.js"></script><script>
             async function doSearch() {
                 const query = document.getElementById("query").value;
                 const container = document.getElementById("results");
@@ -82,7 +82,7 @@
 
                 let data;
                 try {
-                    const res = await fetch("/api/brain/search", {
+                    const res = await safeFetch("/api/brain/search", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ query }),

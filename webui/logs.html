@@ -321,46 +321,14 @@
             </div>
         </div>
 
+        <script src="/webui/auth.js"></script>
         <script>
-            const ROOT_ADMIN_USERNAME = "1090mb";
-            const TOKEN_KEY = "jeebs_auth_token";
             const container = document.getElementById("log-container");
             let currentPage = 1;
             const limit = 50;
             let currentLogs = [];
             let ws = null;
             let isPaused = false;
-
-            function authHeaders() {
-                const token = localStorage.getItem(TOKEN_KEY);
-                return token ? { Authorization: `Bearer ${token}` } : {};
-            }
-
-            async function ensureRootAdminAccess() {
-                try {
-                    const res = await fetch("/api/auth/status", {
-                        credentials: "same-origin",
-                        headers: authHeaders(),
-                    });
-                    if (!res.ok) {
-                        window.location.replace("/webui/index.html");
-                        return false;
-                    }
-                    const auth = await res.json();
-                    const allowed =
-                        auth.logged_in === true &&
-                        auth.is_admin === true &&
-                        auth.username === ROOT_ADMIN_USERNAME;
-                    if (!allowed) {
-                        window.location.replace("/webui/index.html");
-                        return false;
-                    }
-                    return true;
-                } catch {
-                    window.location.replace("/webui/index.html");
-                    return false;
-                }
-            }
 
             // Theme Init
             if (localStorage.getItem("theme") === "light")
@@ -377,7 +345,7 @@
 
             async function fetchCategories() {
                 try {
-                    const res = await fetch("/api/admin/log_categories", {
+                    const res = await safeFetch("/api/admin/log_categories", {
                         credentials: "same-origin",
                         headers: authHeaders(),
                     });
@@ -417,7 +385,7 @@
                     if (start) params.set("start_date", start);
                     if (end) params.set("end_date", end);
 
-                    const res = await fetch(
+                    const res = await safeFetch(
                         `/api/admin/logs?${params.toString()}`,
                         {
                             credentials: "same-origin",
@@ -533,7 +501,7 @@
                     )
                 )
                     return;
-                await fetch("/api/admin/logs", {
+                await safeFetch("/api/admin/logs", {
                     method: "DELETE",
                     credentials: "same-origin",
                     headers: authHeaders(),
@@ -650,8 +618,9 @@
             };
 
             (async () => {
-                const allowed = await ensureRootAdminAccess();
-                if (!allowed) return;
+                const auth = await requireAuth("admin");
+                if (!auth) return;
+                startAuthGuard("admin");
                 fetchCategories();
                 fetchLogs();
             })();

@@ -35,10 +35,11 @@
         <div id="loading">Loading Brain Graph...</div>
         <div id="mynetwork"></div>
 
+        <script src="/webui/auth.js"></script>
         <script type="text/javascript">
             async function loadGraph() {
                 try {
-                    const res = await fetch("/api/brain/visualize");
+                    const res = await safeFetch("/api/brain/visualize");
                     if (!res.ok) {
                         const body = await res.text();
                         throw new Error(

@@ -188,14 +188,14 @@
             </div>
         </div>
 
-        <script>
+        <script src="/webui/auth.js"></script><script>
             // Theme Init
             if (localStorage.getItem("theme") === "light")
                 document.body.classList.add("light-mode");
 
             async function loadProfile() {
                 try {
-                    const res = await fetch("/api/profile");
+                    const res = await safeFetch("/api/profile", { credentials: "same-origin", headers: authHeaders() });
                     if (res.ok) {
                         const data = await res.json();
                         document.getElementById("profileInfo").innerHTML = `
@@ -217,7 +217,7 @@
 
             async function loadActivity() {
                 try {
-                    const res = await fetch("/api/my_logs");
+                    const res = await safeFetch("/api/my_logs", { credentials: "same-origin", headers: authHeaders() });
                     if (res.ok) {
                         const logs = await res.json();
                         if (logs.length === 0) {
@@ -254,9 +254,10 @@
                 status.textContent = "Updating...";
                 status.style.color = "var(--text-main)";
 
-                const res = await fetch("/api/change_password", {
+                const res = await safeFetch("/api/change_password", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    credentials: "same-origin",
+                    headers: authHeaders(true),
                     body: JSON.stringify({
                         old_password: oldPass,
                         new_password: newPass,
@@ -280,9 +281,10 @@
                 status.textContent = "Updating...";
                 status.style.color = "var(--text-main)";
 
-                const res = await fetch("/api/update_email", {
+                const res = await safeFetch("/api/update_email", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    credentials: "same-origin",
+                    headers: authHeaders(true),
                     body: JSON.stringify({
                         new_email: newEmail,
                         password: pass,
@@ -312,8 +314,10 @@
                 const originalText = btn.textContent;
                 btn.textContent = "Uploading...";
 
-                const res = await fetch("/api/upload_avatar", {
+                const res = await safeFetch("/api/upload_avatar", {
                     method: "POST",
+                    credentials: "same-origin",
+                    headers: { Authorization: "Bearer " + jeebsGetToken() },
                     body: formData,
                 });
                 if (res.ok) loadProfile(); // Reloads avatar image
@@ -337,9 +341,10 @@
 
                 status.textContent = "Deleting...";
 
-                const res = await fetch("/api/delete_account", {
+                const res = await safeFetch("/api/delete_account", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    credentials: "same-origin",
+                    headers: authHeaders(true),
                     body: JSON.stringify({ password: pass }),
                 });
 

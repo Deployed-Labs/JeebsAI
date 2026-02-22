@@ -1,200 +1,143 @@
 <!doctype html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Jeebs Admin - IP Blacklist</title>
-        <style>
-            body {
-                font-family: sans-serif;
-                max-width: 800px;
-                margin: 2rem auto;
-                padding: 0 1rem;
-                background: #f4f4f4;
-            }
-            h1 {
-                color: #333;
-            }
-            .input-group {
-                margin-bottom: 2rem;
-                display: flex;
-                gap: 10px;
-            }
-            input {
-                flex-grow: 1;
-                padding: 10px;
-                font-size: 16px;
-                border: 1px solid #ccc;
-                border-radius: 4px;
-            }
-            button {
-                padding: 10px 20px;
-                font-size: 16px;
-                background: #d9534f;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-            }
-            button.add {
-                background: #0275d8;
-            }
-            button:hover {
-                opacity: 0.9;
-            }
-            ul {
-                list-style: none;
-                padding: 0;
-            }
-            li {
-                background: white;
-                padding: 1rem;
-                margin-bottom: 0.5rem;
-                border-radius: 4px;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            }
-            .error {
-                color: red;
-                margin-bottom: 1rem;
-            }
-        </style>
-    </head>
-    <body>
-        <h1>IP Blacklist Management</h1>
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Jeebs — IP Blacklist</title>
+    <style>
+        :root{--bg:#0d1117;--card:#161b22;--text:#e6edf3;--muted:#8b949e;--accent:#7ee787;--border:#30363d;--danger:#f85149;--danger-bg:rgba(248,81,73,.12)}
+        *{box-sizing:border-box;margin:0}
+        body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);padding:24px;min-height:100vh}
+        h1{color:var(--accent);text-align:center;margin-bottom:6px;font-size:1.6rem}
+        .sub{text-align:center;color:var(--muted);margin-bottom:20px;font-size:.9rem}
+        .nav{text-align:center;margin-bottom:20px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+        .nav a{color:var(--accent);text-decoration:none;font-size:.9rem}
+        .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;max-width:640px;margin:0 auto 20px}
+        .add-row{display:flex;gap:8px;margin-bottom:16px}
+        .add-row input{flex:1;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem}
+        .add-row input::placeholder{color:var(--muted)}
+        button{padding:10px 18px;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:.9rem;transition:opacity .15s}
+        button:hover{opacity:.85}
+        .btn-add{background:var(--accent);color:#0d1117}
+        .btn-remove{background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger);padding:6px 12px;font-size:.8rem}
+        .ip-list{list-style:none;padding:0}
+        .ip-list li{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);font-family:"JetBrains Mono",monospace;font-size:.9rem}
+        .ip-list li:last-child{border-bottom:none}
+        .empty{text-align:center;color:var(--muted);padding:30px;font-style:italic}
+        .status{text-align:center;padding:8px;border-radius:6px;margin-bottom:12px;font-size:.85rem;display:none}
+        .status.ok{display:block;background:rgba(126,231,135,.1);color:var(--accent)}
+        .status.err{display:block;background:var(--danger-bg);color:var(--danger)}
+        .count{color:var(--muted);font-size:.85rem;margin-bottom:12px}
+    </style>
+</head>
+<body>
+    <h1>IP Blacklist</h1>
+    <p class="sub">Block IP addresses from accessing the system</p>
+    <div class="nav">
+        <a href="/webui/admin_dashboard.html">Dashboard</a>
+        <a href="/webui/admin_whitelist.html">Whitelist</a>
+        <a href="/webui/logs.html">Logs</a>
+        <a href="/webui/index.html">Home</a>
+    </div>
 
-        <div class="input-group">
-            <input
-                type="text"
-                id="ipInput"
-                placeholder="Enter IP address (e.g., 192.168.1.1)"
-            />
-            <button class="add" onclick="addIp()">Block IP</button>
+    <div class="card">
+        <div id="status" class="status"></div>
+        <div class="add-row">
+            <input id="ipInput" type="text" placeholder="Enter IP address (e.g. 192.168.1.100)" />
+            <button class="btn-add" onclick="addIP()">Block IP</button>
         </div>
-        <div id="error" class="error"></div>
+        <div id="count" class="count"></div>
+        <ul id="ipList" class="ip-list">
+            <li class="empty">Loading…</li>
+        </ul>
+    </div>
 
-        <ul id="ipList"></ul>
+    <script src="/webui/auth.js"></script>
+    <script>
+        const listEl = document.getElementById("ipList");
+        const countEl = document.getElementById("count");
+        const statusEl = document.getElementById("status");
+        const ipInput = document.getElementById("ipInput");
 
-        <script>
-            const ROOT_ADMIN_USERNAME = "1090mb";
+        function showStatus(msg, ok) {
+            statusEl.textContent = msg;
+            statusEl.className = "status " + (ok ? "ok" : "err");
+            setTimeout(function () { statusEl.className = "status"; }, 3000);
+        }
 
-            async function ensureRootAdminAccess() {
-                try {
-                    const token = localStorage.getItem("jeebs_auth_token");
-                    const headers = token
-                        ? { Authorization: `Bearer ${token}` }
-                        : {};
-                    const res = await fetch("/api/auth/status", {
-                        credentials: "same-origin",
-                        headers,
-                    });
-                    if (!res.ok) {
-                        window.location.replace("/webui/index.html");
-                        return false;
-                    }
-                    const auth = await res.json();
-                    const allowed =
-                        auth.logged_in === true &&
-                        auth.is_admin === true &&
-                        auth.username === ROOT_ADMIN_USERNAME;
-                    if (!allowed) {
-                        window.location.replace("/webui/index.html");
-                        return false;
-                    }
-                    return true;
-                } catch {
-                    window.location.replace("/webui/index.html");
-                    return false;
-                }
-            }
-
-            async function parseErrorMessage(res, fallback) {
-                try {
-                    const data = await res.json();
-                    if (data && data.error) return data.error;
-                } catch {}
-                try {
-                    const text = await res.text();
-                    if (text) return text;
-                } catch {}
-                return fallback;
-            }
-
-            async function loadBlacklist() {
-                const res = await fetch("/api/admin/blacklist");
-                if (!res.ok) {
-                    const message = await parseErrorMessage(
-                        res,
-                        "Failed to load blacklist",
-                    );
-                    document.getElementById("error").innerText = message;
+        async function loadList() {
+            try {
+                const res = await safeFetch("/api/admin/blacklist", {
+                    credentials: "same-origin",
+                    headers: authHeaders()
+                });
+                if (!res.ok) { listEl.innerHTML = '<li class="empty">Failed to load</li>'; return; }
+                const ips = await res.json();
+                countEl.textContent = ips.length + " blocked IP" + (ips.length !== 1 ? "s" : "");
+                if (ips.length === 0) {
+                    listEl.innerHTML = '<li class="empty">No blocked IPs</li>';
                     return;
                 }
-                const ips = await res.json();
-                const list = document.getElementById("ipList");
-                list.innerHTML = "";
-                ips.forEach((ip) => {
-                    const li = document.createElement("li");
-                    li.innerHTML = `
-                    <span>${ip}</span>
-                    <button onclick="removeIp('${ip}')">Unblock</button>
-                `;
-                    list.appendChild(li);
-                });
+                listEl.innerHTML = ips.map(function (ip) {
+                    return '<li><span>' + escapeHtml(ip) + '</span><button class="btn-remove" onclick="removeIP(\'' + escapeHtml(ip) + '\')">Remove</button></li>';
+                }).join("");
+            } catch (e) {
+                listEl.innerHTML = '<li class="empty">Connection error</li>';
             }
+        }
 
-            async function addIp() {
-                const input = document.getElementById("ipInput");
-                const ip = input.value.trim();
-                if (!ip) return;
-
-                const res = await fetch("/api/admin/blacklist", {
+        async function addIP() {
+            var ip = ipInput.value.trim();
+            if (!ip) return;
+            try {
+                var res = await safeFetch("/api/admin/blacklist", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ ip }),
+                    credentials: "same-origin",
+                    headers: authHeaders(true),
+                    body: JSON.stringify({ ip: ip })
                 });
-
-                if (res.ok) {
-                    input.value = "";
-                    document.getElementById("error").innerText = "";
-                    loadBlacklist();
-                } else {
-                    const message = await parseErrorMessage(
-                        res,
-                        "Failed to add IP",
-                    );
-                    document.getElementById("error").innerText = message;
-                }
+                if (!res.ok) { showStatus("Failed to add IP", false); return; }
+                ipInput.value = "";
+                showStatus("Blocked " + ip, true);
+                loadList();
+            } catch (e) {
+                showStatus("Connection error", false);
             }
+        }
 
-            async function removeIp(ip) {
-                if (!confirm(`Are you sure you want to unblock ${ip}?`)) return;
-
-                const res = await fetch("/api/admin/blacklist", {
+        async function removeIP(ip) {
+            if (!confirm("Remove " + ip + " from blacklist?")) return;
+            try {
+                var res = await safeFetch("/api/admin/blacklist", {
                     method: "DELETE",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ ip }),
+                    credentials: "same-origin",
+                    headers: authHeaders(true),
+                    body: JSON.stringify({ ip: ip })
                 });
-
-                if (res.ok) {
-                    document.getElementById("error").innerText = "";
-                    loadBlacklist();
-                } else {
-                    const message = await parseErrorMessage(
-                        res,
-                        "Failed to remove IP",
-                    );
-                    alert(message);
-                }
+                if (!res.ok) { showStatus("Failed to remove IP", false); return; }
+                showStatus("Removed " + ip, true);
+                loadList();
+            } catch (e) {
+                showStatus("Connection error", false);
             }
+        }
 
-            (async () => {
-                const allowed = await ensureRootAdminAccess();
-                if (!allowed) return;
-                loadBlacklist();
-            })();
-        </script>
-    </body>
+        function escapeHtml(s) {
+            var d = document.createElement("div");
+            d.textContent = s;
+            return d.innerHTML;
+        }
+
+        ipInput.addEventListener("keydown", function (e) {
+            if (e.key === "Enter") addIP();
+        });
+
+        (async function () {
+            var auth = await requireAuth("admin");
+            if (!auth) return;
+            startAuthGuard("admin");
+            loadList();
+        })();
+    </script>
+</body>
 </html>

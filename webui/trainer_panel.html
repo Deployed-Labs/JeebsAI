@@ -1,376 +1,189 @@
 <!doctype html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>JeebsAI Trainer Panel</title>
-        <style>
-            :root {
-                --bg-main: #181c24;
-                --bg-card: #23283a;
-                --text-main: #f3f3f3;
-                --text-muted: #888;
-                --accent: #7fffd4;
-                --accent-2: #fbbf24;
-                --danger: #ff6b6b;
-            }
-            body {
-                font-family: "Segoe UI", Arial, sans-serif;
-                background: var(--bg-main);
-                color: var(--text-main);
-                margin: 0;
-                padding: 20px;
-            }
-            .container {
-                max-width: 900px;
-                margin: 40px auto;
-            }
-            h1 {
-                color: var(--accent);
-                text-align: center;
-                margin-bottom: 30px;
-            }
-            .panel {
-                background: var(--bg-card);
-                border-radius: 12px;
-                padding: 18px;
-                margin-bottom: 16px;
-                border: 1px solid #2a3044;
-            }
-            .row {
-                display: flex;
-                gap: 10px;
-                align-items: center;
-                flex-wrap: wrap;
-            }
-            input {
-                flex: 1;
-                min-width: 240px;
-                padding: 10px;
-                border-radius: 6px;
-                border: 1px solid #444;
-                background: #181c24;
-                color: var(--text-main);
-            }
-            button {
-                padding: 10px 14px;
-                border-radius: 6px;
-                border: none;
-                cursor: pointer;
-                font-weight: bold;
-                color: #181c24;
-            }
-            .btn-primary {
-                background: var(--accent);
-            }
-            .btn-secondary {
-                background: var(--accent-2);
-            }
-            .btn-danger {
-                background: var(--danger);
-                color: #fff;
-            }
-            .status {
-                margin-top: 10px;
-                color: var(--text-muted);
-                min-height: 20px;
-            }
-            .output {
-                background: #0d1117;
-                border: 1px solid #333;
-                border-radius: 8px;
-                padding: 12px;
-                min-height: 120px;
-                max-height: 320px;
-                overflow-y: auto;
-                white-space: pre-wrap;
-                font-family: "Consolas", "Monaco", monospace;
-                font-size: 0.9rem;
-            }
-            a {
-                color: var(--accent);
-                text-decoration: none;
-            }
-            .muted {
-                color: var(--text-muted);
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Jeebs Trainer Panel</title>
+    <style>
+        :root {
+            --bg: #0f1117; --panel: #181c24; --panel-2: #1f2533;
+            --text: #f6f8fb; --muted: #9da7bd; --accent: #7fffd4;
+            --danger: #ff6b6b; --success: #8bc34a; --border: #2b3245;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: radial-gradient(circle at 10% 20%, #1c2234, #0f1117 45%),
+                radial-gradient(circle at 80% 0%, #162036, #0f1117 40%), var(--bg);
+            color: var(--text);
+            font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+            min-height: 100vh; padding: 24px 16px 64px;
+        }
+        .shell { max-width: 900px; margin: 0 auto; }
+        header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+        h1 { margin: 0; font-size: 24px; color: var(--accent); }
+        .nav-links { display: flex; gap: 10px; flex-wrap: wrap; }
+        .nav-link {
+            color: var(--text); text-decoration: none; padding: 8px 12px;
+            background: var(--panel-2); border: 1px solid var(--border);
+            border-radius: 8px; font-size: 14px; transition: all .15s ease;
+        }
+        .nav-link:hover { border-color: var(--accent); }
+        .card {
+            background: var(--panel); border: 1px solid var(--border);
+            border-radius: 12px; padding: 18px; margin-bottom: 16px;
+            box-shadow: 0 8px 24px rgba(0,0,0,.25);
+        }
+        .card h3 { margin: 0 0 12px; font-size: 16px; color: var(--text); }
+        .muted { color: var(--muted); font-size: 13px; }
+        .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .input {
+            background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
+            padding: 10px; border-radius: 8px; flex: 1; min-width: 200px;
+        }
+        .btn {
+            border: 1px solid var(--border); background: var(--panel-2); color: var(--text);
+            padding: 10px 14px; border-radius: 8px; font-weight: 600; cursor: pointer;
+            transition: all .15s ease;
+        }
+        .btn.accent { background: var(--accent); color: #0e1a1f; border-color: #9fffe3; }
+        .btn.danger { background: var(--danger); color: #1a0f0f; border-color: #f8a3a3; }
+        .btn.success { background: var(--success); color: #0f1a0f; border-color: #9ddf7f; }
+        .btn:hover { transform: translateY(-1px); }
+        .output {
+            background: var(--panel-2); border: 1px solid var(--border);
+            border-radius: 10px; padding: 12px; min-height: 120px; max-height: 320px;
+            overflow: auto; font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+            font-size: 13px; white-space: pre-wrap; line-height: 1.5;
+        }
+        #authStatus {
+            padding: 10px 14px; border-radius: 8px; margin-bottom: 16px;
+            font-size: 14px; font-weight: 600;
+            background: var(--panel-2); border: 1px solid var(--border);
+        }
+    </style>
+</head>
+<body>
+<div class="shell">
+    <header>
+        <div>
             <h1>Trainer Panel</h1>
-
-            <div class="panel">
-                <div class="row">
-                    <a href="/webui/index.html">← Back to Home</a>
-                </div>
-                <div class="status" id="authStatus">
-                    Checking trainer access...
-                </div>
-            </div>
-
-            <div class="panel">
-                <h3>Training Focus</h3>
-                <div class="row">
-                    <input
-                        id="focusInput"
-                        type="text"
-                        placeholder="train: improve rust error handling"
-                    />
-                    <button class="btn-primary" onclick="setFocus()">
-                        Set Focus
-                    </button>
-                </div>
-                <div class="status muted">
-                    Uses trainer command: <code>train: &lt;topic&gt;</code>
-                </div>
-            </div>
-
-            <div class="panel">
-                <h3>Custom Trainer Command</h3>
-                <div class="row">
-                    <input
-                        id="customCommandInput"
-                        type="text"
-                        placeholder="e.g., train help or train: focus area"
-                    />
-                    <button class="btn-primary" onclick="sendCustomCommand()">
-                        Send Command
-                    </button>
-                    <button class="btn-secondary" onclick="clearOutput()">
-                        Clear Output
-                    </button>
-                </div>
-                <div class="status muted">
-                    Sends exactly what you type to /api/chat as the trainer user.
-                </div>
-            </div>
-
-            <div class="panel">
-                <h3>Training Controls</h3>
-                <div class="row">
-                    <button
-                        class="btn-secondary"
-                        onclick="sendTrainerCommand('train help')"
-                    >
-                        Train Help
-                    </button>
-                    <button
-                        class="btn-primary"
-                        onclick="sendTrainerCommand('train on')"
-                    >
-                        Train On
-                    </button>
-                    <button
-                        class="btn-danger"
-                        onclick="sendTrainerCommand('train off')"
-                    >
-                        Train Off
-                    </button>
-                </div>
-                <div class="status muted">
-                    These commands require trainer or root admin role.
-                </div>
-            </div>
-
-            <div class="panel">
-                <h3>Trainer Output</h3>
-                <div class="output" id="trainerOutput">
-                    No commands sent yet.
-                </div>
-                <div class="row" style="margin-top: 10px">
-                    <button class="btn-secondary" onclick="showAuthStatus()">
-                        Show Auth Status
-                    </button>
-                    <button class="btn-secondary" onclick="pingNow()">
-                        Ping Session
-                    </button>
-                </div>
-            </div>
+            <div class="muted">Training controls for trainers and admins.</div>
         </div>
+        <div class="nav-links">
+            <a class="nav-link" href="/webui/index.html">Home</a>
+            <a class="nav-link" href="/webui/admin_dashboard.html">Admin Dashboard</a>
+        </div>
+    </header>
 
-        <script>
-            const TOKEN_KEY = "jeebs_auth_token";
-            const ROOT_ADMIN_USERNAME = "1090mb";
-            const authStatus = document.getElementById("authStatus");
-            const output = document.getElementById("trainerOutput");
-            let sessionPingTimer = null;
+    <div id="authStatus">Checking access...</div>
 
-            function nowStamp() {
-                return new Date().toLocaleTimeString();
-            }
+    <div class="card">
+        <h3>Quick Training Commands</h3>
+        <div class="row" style="margin-bottom:12px">
+            <button class="btn" onclick="sendCmd('train help')">Train Help</button>
+            <button class="btn success" onclick="sendCmd('train on')">Train On</button>
+            <button class="btn danger" onclick="sendCmd('train off')">Train Off</button>
+        </div>
+        <div class="muted">These commands require trainer or root admin role.</div>
+    </div>
 
-            function logOutput(message, isError = false) {
-                const line = `[${nowStamp()}] ${message}`;
-                if (output.textContent.trim() === "No commands sent yet.") {
-                    output.textContent = line;
-                } else {
-                    output.textContent = `${output.textContent}\n${line}`;
-                }
-                if (isError) {
-                    output.scrollTop = output.scrollHeight;
-                } else {
-                    output.scrollTop = output.scrollHeight;
-                }
-            }
+    <div class="card">
+        <h3>Focus Topic</h3>
+        <div class="row">
+            <input id="focusInput" class="input" type="text" placeholder="Enter a focus topic..." />
+            <button class="btn accent" onclick="sendFocus()">Set Focus</button>
+        </div>
+    </div>
 
-            function authHeaders() {
-                const token = localStorage.getItem(TOKEN_KEY);
-                return token ? { Authorization: `Bearer ${token}` } : {};
-            }
+    <div class="card">
+        <h3>Custom Command</h3>
+        <div class="row">
+            <input id="customInput" class="input" type="text" placeholder="Enter any command..." />
+            <button class="btn accent" onclick="sendCustom()">Send</button>
+        </div>
+    </div>
 
-            async function checkAccess() {
-                try {
-                    const res = await fetch("/api/auth/status", {
-                        credentials: "same-origin",
-                        headers: authHeaders(),
-                    });
-                    if (!res.ok) {
-                        authStatus.textContent =
-                            "Not authenticated. Please log in first.";
-                        return false;
-                    }
-                    const data = await res.json();
-                    const isAdmin = data.is_admin === true;
-                    const isTrainer = data.is_trainer === true || isAdmin;
+    <div class="card">
+        <h3>Trainer Output</h3>
+        <div class="output" id="trainerOutput">No commands sent yet.</div>
+        <div class="row" style="margin-top:10px">
+            <button class="btn" onclick="showAuth()">Show Auth Status</button>
+            <button class="btn" onclick="pingNow()">Ping Session</button>
+            <button class="btn" onclick="clearOutput()">Clear</button>
+        </div>
+    </div>
+</div>
 
-                    if (!data.logged_in) {
-                        authStatus.textContent =
-                            "Not logged in. Please log in first.";
-                        return false;
-                    }
-                    if (!isTrainer) {
-                        authStatus.textContent =
-                            "You are logged in but not a trainer. Ask an admin to assign the trainer role.";
-                        return false;
-                    }
+<script src="/webui/auth.js"></script>
+<script>
+(async () => {
+    var authStatusEl = document.getElementById("authStatus");
+    var outputEl = document.getElementById("trainerOutput");
+    var auth = await requireAuth("trainer");
+    if (!auth) return;
+    authStatusEl.textContent = "Trainer access granted for " + auth.username + ".";
+    startSessionPing(30000);
+    startAuthGuard("trainer", 60000);
 
-                    authStatus.textContent = `Trainer access granted for ${data.username}.`;
-                    startSessionPing();
-                    return true;
-                } catch (err) {
-                    authStatus.textContent = `Access check failed: ${err}`;
-                    return false;
-                }
-            }
+    function stamp() { return new Date().toLocaleTimeString(); }
 
-            async function pingSession() {
-                try {
-                    await fetch("/api/session/ping", {
-                        method: "POST",
-                        credentials: "same-origin",
-                        headers: authHeaders(),
-                    });
-                } catch {
-                    // ignore ping failures
-                }
-            }
+    function log(msg, isErr) {
+        var line = "[" + stamp() + "] " + msg;
+        if (outputEl.textContent.trim() === "No commands sent yet.") {
+            outputEl.textContent = line;
+        } else {
+            outputEl.textContent += "\n" + line;
+        }
+        outputEl.scrollTop = outputEl.scrollHeight;
+    }
 
-            function startSessionPing() {
-                if (sessionPingTimer) return;
-                sessionPingTimer = setInterval(pingSession, 30000);
-                pingSession();
-            }
+    window.sendCmd = async function(cmd) {
+        log("Sending: " + cmd + "...");
+        try {
+            var res = await safeFetch("/api/chat", {
+                method: "POST", credentials: "same-origin",
+                headers: { "Content-Type": "application/json", ...authHeaders() },
+                body: JSON.stringify({ message: cmd }),
+            });
+            var data = await res.json();
+            if (!res.ok) { log("Error: " + (data.error || res.statusText), true); return; }
+            log(data.response || "No response received.");
+        } catch (e) { log("Request failed: " + e, true); }
+    };
 
-            async function sendTrainerCommand(command) {
-                const allowed = await checkAccess();
-                if (!allowed) return;
+    window.sendFocus = function() {
+        var focus = document.getElementById("focusInput").value.trim();
+        if (!focus) { log("Enter a focus topic before sending.", true); return; }
+        sendCmd("train: " + focus);
+    };
 
-                logOutput(`Sending: ${command}...`);
-                try {
-                    const res = await fetch("/api/chat", {
-                        method: "POST",
-                        credentials: "same-origin",
-                        headers: {
-                            "Content-Type": "application/json",
-                            ...authHeaders(),
-                        },
-                        body: JSON.stringify({ message: command }),
-                    });
-                    const data = await res.json();
-                    if (!res.ok) {
-                        logOutput(`Error: ${data.error || res.statusText}`, true);
-                        return;
-                    }
-                    logOutput(data.response || "No response received.");
-                } catch (err) {
-                    logOutput(`Request failed: ${err}`, true);
-                }
-            }
+    window.sendCustom = function() {
+        var cmd = document.getElementById("customInput").value.trim();
+        if (!cmd) { log("Enter a command before sending.", true); return; }
+        sendCmd(cmd);
+    };
 
-            async function setFocus() {
-                const focus = document
-                    .getElementById("focusInput")
-                    .value.trim();
-                if (!focus) {
-                    output.textContent = "Enter a focus topic before sending.";
-                    return;
-                }
-                await sendTrainerCommand(`train: ${focus}`);
-            }
+    window.clearOutput = function() { outputEl.textContent = "No commands sent yet."; };
 
-            async function sendCustomCommand() {
-                const cmd = document
-                    .getElementById("customCommandInput")
-                    .value.trim();
-                if (!cmd) {
-                    logOutput("Enter a command before sending.", true);
-                    return;
-                }
-                await sendTrainerCommand(cmd);
-            }
+    window.showAuth = async function() {
+        try {
+            var res = await safeFetch("/api/auth/status", { credentials: "same-origin", headers: authHeaders() });
+            var data = await res.json();
+            if (!res.ok) { log("Auth status error: " + (data.error || res.statusText), true); return; }
+            log("Auth: user=" + (data.username||"?") + " admin=" + data.is_admin + " trainer=" + data.is_trainer);
+        } catch (e) { log("Auth status failed: " + e, true); }
+    };
 
-            function clearOutput() {
-                output.textContent = "No commands sent yet.";
-            }
-
-            async function showAuthStatus() {
-                try {
-                    const res = await fetch("/api/auth/status", {
-                        credentials: "same-origin",
-                        headers: authHeaders(),
-                    });
-                    const data = await res.json().catch(() => ({}));
-                    if (!res.ok) {
-                        logOutput(
-                            `Auth status error: ${data.error || res.statusText}`,
-                            true,
-                        );
-                        return;
-                    }
-                    logOutput(
-                        `Auth: user=${data.username || "?"} admin=${
-                            data.is_admin
-                        } trainer=${data.is_trainer}`,
-                    );
-                } catch (err) {
-                    logOutput(`Auth status failed: ${err}`, true);
-                }
-            }
-
-            async function pingNow() {
-                try {
-                    const res = await fetch("/api/session/ping", {
-                        method: "POST",
-                        credentials: "same-origin",
-                        headers: authHeaders(),
-                    });
-                    const data = await res.json().catch(() => ({}));
-                    if (!res.ok) {
-                        logOutput(`Ping error: ${data.error || res.statusText}`, true);
-                        return;
-                    }
-                    logOutput(
-                        `Ping ok for ${data.username || "?"}, last_seen=${
-                            data.last_seen || "n/a"
-                        }`,
-                    );
-                } catch (err) {
-                    logOutput(`Ping failed: ${err}`, true);
-                }
-            }
-
-            checkAccess();
-        </script>
-    </body>
+    window.pingNow = async function() {
+        try {
+            var res = await safeFetch("/api/session/ping", { method: "POST", credentials: "same-origin", headers: authHeaders() });
+            var data = await res.json();
+            if (!res.ok) { log("Ping error: " + (data.error || res.statusText), true); return; }
+            log("Ping ok for " + (data.username||"?") + ", last_seen=" + (data.last_seen||"n/a"));
+        } catch (e) { log("Ping failed: " + e, true); }
+    };
+})();
+</script>
+</body>
 </html>

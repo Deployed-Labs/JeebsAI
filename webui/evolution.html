@@ -386,9 +386,9 @@
         ></div>
         <div id="updates-list">Loading...</div>
 
+        <script src="/webui/auth.js"></script>
         <script>
-            const ROOT_ADMIN_USERNAME = "1090mb";
-            const TOKEN_KEY = "jeebs_auth_token";
+            const ROOT_ADMIN_USERNAME = JEEBS_ROOT_ADMIN;
             let allUpdates = [];
             let userRole = "";
             let rootAdminAuthorized = false;
@@ -406,15 +406,6 @@
                         ? "light"
                         : "dark",
                 );
-            }
-
-            function authHeaders(contentTypeJson = false) {
-                const headers = contentTypeJson
-                    ? { "Content-Type": "application/json" }
-                    : {};
-                const token = localStorage.getItem(TOKEN_KEY);
-                if (token) headers["Authorization"] = `Bearer ${token}`;
-                return headers;
             }
 
             function setStatus(message, isError = false) {
@@ -438,26 +429,10 @@
 
             async function ensureRootAdminAccess() {
                 try {
-                    const res = await fetch("/api/auth/status", {
-                        credentials: "same-origin",
-                        headers: authHeaders(),
-                    });
-                    if (!res.ok) {
-                        window.location.replace("/webui/index.html");
-                        return false;
-                    }
-
-                    const auth = await res.json();
-                    const allowed =
-                        auth.logged_in === true &&
-                        auth.is_admin === true &&
-                        auth.username === ROOT_ADMIN_USERNAME;
-                    if (!allowed) {
-                        window.location.replace("/webui/index.html");
-                        return false;
-                    }
-
+                    const auth = await requireAuth("admin");
+                    if (!auth) return false;
                     rootAdminAuthorized = true;
+                    startAuthGuard("admin", 60000);
                     return true;
                 } catch {
                     window.location.replace("/webui/index.html");
@@ -468,7 +443,7 @@
             async function loadUpdates() {
                 if (!rootAdminAuthorized) return;
 
-                const res = await fetch("/api/admin/evolution/updates", {
+                const res = await safeFetch("/api/admin/evolution/updates", {
                     credentials: "same-origin",
                     headers: authHeaders(),
                 });
@@ -540,7 +515,7 @@
 
             async function loadEvolutionStatus() {
                 if (!rootAdminAuthorized) return;
-                const res = await fetch("/api/admin/evolution/status", {
+                const res = await safeFetch("/api/admin/evolution/status", {
                     credentials: "same-origin",
                     headers: authHeaders(),
                 });
@@ -728,7 +703,7 @@
 
             async function loadTrainingStatus() {
                 if (!rootAdminAuthorized) return;
-                const res = await fetch("/api/admin/training/status", {
+                const res = await safeFetch("/api/admin/training/status", {
                     credentials: "same-origin",
                     headers: authHeaders(),
                 });
@@ -742,7 +717,7 @@
             }
 
             async function setTrainingMode(enabled) {
-                const res = await fetch("/api/admin/training/mode", {
+                const res = await safeFetch("/api/admin/training/mode", {
                     method: "POST",
                     credentials: "same-origin",
                     headers: authHeaders(true),
@@ -775,7 +750,7 @@
             }
 
             async function runTrainingNow() {
-                const res = await fetch("/api/admin/training/run", {
+                const res = await safeFetch("/api/admin/training/run", {
                     method: "POST",
                     credentials: "same-origin",
                     headers: authHeaders(),
@@ -888,7 +863,7 @@
 
             async function loadNotifications() {
                 if (userRole !== "admin") return;
-                const res = await fetch("/api/admin/notifications", {
+                const res = await safeFetch("/api/admin/notifications", {
                     credentials: "same-origin",
                     headers: authHeaders(),
                 });
@@ -909,7 +884,7 @@
             }
 
             async function dismissNotification(id) {
-                const res = await fetch(`/api/admin/notification/${id}`, {
+                const res = await safeFetch(`/api/admin/notification/${id}`, {
                     method: "DELETE",
                     credentials: "same-origin",
                     headers: authHeaders(),
@@ -929,7 +904,7 @@
 
             async function applyUpdate(id) {
                 if (!confirm("Apply this update?")) return;
-                const res = await fetch(`/api/admin/evolution/apply/${id}`, {
+                const res = await safeFetch(`/api/admin/evolution/apply/${id}`, {
                     method: "POST",
                     credentials: "same-origin",
                     headers: authHeaders(),
@@ -947,7 +922,7 @@
 
             async function denyUpdate(id) {
                 if (!confirm("Deny this update?")) return;
-                const res = await fetch(`/api/admin/evolution/deny/${id}`, {
+                const res = await safeFetch(`/api/admin/evolution/deny/${id}`, {
                     method: "POST",
                     credentials: "same-origin",
                     headers: authHeaders(),
@@ -970,7 +945,7 @@
                     )
                 )
                     return;
-                const res = await fetch(`/api/admin/evolution/resolve/${id}`, {
+                const res = await safeFetch(`/api/admin/evolution/resolve/${id}`, {
                     method: "POST",
                     credentials: "same-origin",
                     headers: authHeaders(),
@@ -991,7 +966,7 @@
 
             async function rollbackUpdate(id) {
                 if (!confirm("Rollback this update?")) return;
-                const res = await fetch(`/api/admin/evolution/rollback/${id}`, {
+                const res = await safeFetch(`/api/admin/evolution/rollback/${id}`, {
                     method: "POST",
                     credentials: "same-origin",
                     headers: authHeaders(),
@@ -1015,7 +990,7 @@
                 const content = input.value.trim();
                 if (!content) return;
 
-                const res = await fetch(`/api/admin/evolution/comment/${id}`, {
+                const res = await safeFetch(`/api/admin/evolution/comment/${id}`, {
                     method: "POST",
                     credentials: "same-origin",
                     headers: authHeaders(true),
@@ -1033,7 +1008,7 @@
             }
 
             async function brainstormUpdate() {
-                const res = await fetch("/api/admin/evolution/think", {
+                const res = await safeFetch("/api/admin/evolution/think", {
                     method: "POST",
                     credentials: "same-origin",
                     headers: authHeaders(),

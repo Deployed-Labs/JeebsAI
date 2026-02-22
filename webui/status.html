@@ -77,7 +77,7 @@
             <a href="/webui/index.html">Back to Home</a>
         </div>
 
-        <script>
+        <script src="/webui/auth.js"></script><script>
             // Theme Init
             if (localStorage.getItem("theme") === "light")
                 document.body.classList.add("light-mode");
@@ -87,7 +87,7 @@
                 const timeEl = document.getElementById("timestamp");
                 const depsEl = document.getElementById("dependencies-status");
                 try {
-                    const res = await fetch("/health");
+                    const res = await safeFetch("/health");
                     const data = await res.json();
 
                     if (res.ok || res.status === 503) {

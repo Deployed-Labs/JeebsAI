@@ -59,10 +59,11 @@
         >
         <div id="mynetwork"></div>
 
+        <script src="/webui/auth.js"></script>
         <script type="text/javascript">
             async function loadGraph() {
                 try {
-                    const res = await fetch("/api/brain/logic_graph");
+                    const res = await safeFetch("/api/brain/logic_graph");
                     if (!res.ok) {
                         const body = await res.text();
                         throw new Error(

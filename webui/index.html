@@ -494,16 +494,14 @@
             <div id="statusBar" class="status-bar"></div>
         </main>
 
+        <script src="/webui/auth.js"></script>
         <script>
-            const TOKEN_KEY = "jeebs_auth_token";
-            const ROOT_ADMIN_USERNAME = "1090mb";
-
             const state = {
                 loggedIn: false,
                 username: "",
                 isAdmin: false,
                 isTrainer: false,
-                token: localStorage.getItem(TOKEN_KEY) || "",
+                token: jeebsGetToken(),
             };
 
             const authPanel = document.getElementById("authPanel");
@@ -514,16 +512,13 @@
             const chatMeta = document.getElementById("chatMeta");
             const tokenBox = document.getElementById("tokenBox");
             const promptInput = document.getElementById("promptInput");
-            const adminControlsLink =
-                document.getElementById("adminControlsLink");
-            const trainerPanelLink =
-                document.getElementById("trainerPanelLink");
-            let sessionPingTimer = null;
+            const adminControlsLink = document.getElementById("adminControlsLink");
+            const trainerPanelLink = document.getElementById("trainerPanelLink");
 
             function isRootAdminSession() {
                 return (
                     Boolean(state.isAdmin) &&
-                    String(state.username) === ROOT_ADMIN_USERNAME
+                    String(state.username) === JEEBS_ROOT_ADMIN
                 );
             }
 
@@ -599,26 +594,7 @@
                 startSessionPing();
             }
 
-            async function pingSession() {
-                if (!state.loggedIn) return;
-                try {
-                    await requestJson("/api/session/ping", { method: "POST" });
-                } catch {
-                    // Ignore ping failures; user may be logged out elsewhere.
-                }
-            }
-
-            function startSessionPing() {
-                if (sessionPingTimer) return;
-                sessionPingTimer = setInterval(pingSession, 30000);
-                pingSession();
-            }
-
-            function stopSessionPing() {
-                if (!sessionPingTimer) return;
-                clearInterval(sessionPingTimer);
-                sessionPingTimer = null;
-            }
+            /* Session ping via auth.js startSessionPing / stopSessionPing */
 
             async function requestJson(url, options = {}) {
                 const headers = new Headers(options.headers || {});
@@ -629,7 +605,7 @@
                     headers.set("Authorization", `Bearer ${state.token}`);
                 }
 
-                const response = await fetch(url, {
+                const response = await safeFetch(url, {
                     ...options,
                     headers,
                     credentials: "same-origin",
@@ -660,7 +636,7 @@
                     state.isTrainer = Boolean(data.is_trainer);
                     if (data.token) {
                         state.token = data.token;
-                        localStorage.setItem(TOKEN_KEY, state.token);
+                        jeebsSetToken(state.token);
                     }
                     renderAuthState();
                     if (state.loggedIn) {
@@ -778,7 +754,7 @@
                         state.token = data.token || "";
 
                         if (state.token) {
-                            localStorage.setItem(TOKEN_KEY, state.token);
+                            jeebsSetToken(state.token);
                         }
 
                         renderAuthState();
@@ -857,7 +833,7 @@
                     state.isAdmin = false;
                     state.isTrainer = false;
                     state.token = "";
-                    localStorage.removeItem(TOKEN_KEY);
+                    jeebsClearToken();
                     chatFeed.innerHTML = "";
                     setView("login");
                     renderAuthState();
