@@ -176,8 +176,8 @@ JeebsNav.init('status');
 // Access control for 1090mb, admin, trainer
 async function checkAccess() {
   const auth = await requireAuth('status');
-  if (!auth || !auth.loggedIn || !(auth.username === '1090mb' || auth.is_admin || auth.is_trainer)) {
-    document.body.innerHTML = '<div class="shell" style="padding-top:60px"><h1>Server Status</h1><div class="card" style="margin-top:32px"><span class="text-danger">Access denied. Only admin, trainer, or 1090mb allowed.</span></div></div>';
+  if (!auth || !auth.loggedIn || !auth.is_admin) {
+    document.body.innerHTML = '<div class="shell" style="padding-top:60px"><h1>Server Status</h1><div class="card" style="margin-top:32px"><span class="text-danger">Access denied. Only admin allowed.</span></div></div>';
     throw new Error('Access denied');
   }
 }

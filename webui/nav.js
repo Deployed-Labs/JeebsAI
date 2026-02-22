@@ -38,7 +38,14 @@ const JeebsNav = (function () {
             jeebsGetToken() &&
             localStorage.getItem('jeebs_is_admin') === 'true';
 
-        let linksHtml = PAGES.map(function (p) {
+
+        // Only show 'Status' tab to admin users
+        let linksHtml = PAGES.filter(function (p) {
+            if (p.id === 'status') {
+                return localStorage.getItem('jeebs_is_admin') === 'true';
+            }
+            return true;
+        }).map(function (p) {
             return `<a class="topnav-link${p.id === activeId ? ' active' : ''}" href="${p.href}">${p.label}</a>`;
         }).join('');
 

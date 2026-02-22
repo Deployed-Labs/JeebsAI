@@ -10,163 +10,161 @@
 </head>
 <body>
     <nav id="topnav"></nav>
-    <div class="container">
-        <aside class="sidebar">
-            <div class="card card-glow" style="margin-bottom:24px;text-align:center">
-                <h2 style="margin-bottom:8px">JeebsAI Console</h2>
-                <p class="text-muted">Welcome to JeebsAI. Use the navigation above or quick actions below.</p>
-            </div>
-            <div class="card" style="margin-bottom:24px">
-                <h3>Quick Actions</h3>
-                <div class="grid" style="grid-template-columns:1fr;gap:12px">
-                    <a href="/webui/search.html" class="btn btn-accent">Brain Search</a>
-                    <a href="/webui/trainer_panel.html" class="btn btn-primary" id="trainerQuick" style="display:none">Trainer Panel</a>
-                    <a href="/webui/admin_dashboard.html" class="btn btn-ghost" id="adminQuick" style="display:none">Admin Dashboard</a>
-                </div>
-            </div>
-            <div class="card">
-                <h3>Recent Activity</h3>
-                <div id="activityLog" class="log-box" style="min-height:120px;max-height:320px">Loading...</div>
-            </div>
-        </aside>
-        <main class="main">
-            <div class="chatbox">
+    <div class="chat-container">
+        <div class="chat-wrapper">
                 <div id="authViews">
                     <div id="loginView" class="view active">
-                        <form id="loginForm">
-                            <h2>Login to JeebsAI</h2>
-                            <div>
-                                <label for="loginUsername">Username</label>
-                                <input
-                                    id="loginUsername"
-                                    name="username"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label for="signedMessage">Signed Message</label>
-                                <textarea
-                                    id="signedMessage"
-                                    name="signed_message"
-                                    required
-                                ></textarea>
-                            </div>
-                            <div class="row">
-                                <button type="button" id="generateChallengeBtn" class="secondary">
-                                    Generate Challenge
+                        <div class="auth-card">
+                            <h2>Welcome to JeebsAI</h2>
+                            <p class="subtitle">Sign in to start chatting</p>
+                            <form id="loginForm">
+                                <div class="form-group">
+                                    <label for="loginUsername">Username</label>
+                                    <input
+                                        id="loginUsername"
+                                        name="username"
+                                        required
+                                        placeholder="Enter your username"
+                                    />
+                                </div>
+                                <div class="form-group">
+                                    <label for="signedMessage">Signed Message</label>
+                                    <textarea
+                                        id="signedMessage"
+                                        name="signed_message"
+                                        required
+                                        placeholder="Paste your PGP signature here"
+                                    ></textarea>
+                                </div>
+                                <div class="form-actions">
+                                    <button type="button" id="generateChallengeBtn" class="btn-secondary">
+                                        Generate Challenge
+                                    </button>
+                                    <button type="button" id="copyChallengeBtn" class="btn-secondary">
+                                        Copy Challenge
+                                    </button>
+                                    <button type="submit" class="btn-primary">
+                                        Sign In
+                                    </button>
+                                </div>
+                                <div class="form-options">
+                                    <input type="checkbox" id="rememberMe" />
+                                    <label for="rememberMe">Remember me</label>
+                                </div>
+                            </form>
+                            <div class="auth-links">
+                                <button id="switchToRegister" class="link-btn">
+                                    Need an account? Register
                                 </button>
-                                <button type="button" id="copyChallengeBtn" class="secondary">
-                                    Copy Challenge
-                                </button>
-                                <button type="submit" class="primary">
-                                    Login
-                                </button>
                             </div>
-                            <div>
-                                <input type="checkbox" id="rememberMe" />
-                                <label for="rememberMe">Remember me</label>
+                            <div class="challenge-display">
+                                <p id="unsignedMessage"></p>
                             </div>
-                        </form>
-                        <div class="muted">
-                            <p id="unsignedMessage"></p>
-                        </div>
-                        <div class="row">
-                            <button id="switchToRegister" class="ghost">
-                                Need an account? Register
-                            </button>
                         </div>
                     </div>
                     <div id="registerView" class="view">
-                        <form id="registerForm">
-                            <h2>Register for JeebsAI</h2>
-                            <div class="grid-2">
-                                <div>
-                                    <label for="regUsername">Username</label>
-                                    <input
-                                        id="regUsername"
-                                        name="username"
+                        <div class="auth-card">
+                            <h2>Create Account</h2>
+                            <p class="subtitle">Join JeebsAI with PGP authentication</p>
+                            <form id="registerForm">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="regUsername">Username</label>
+                                        <input
+                                            id="regUsername"
+                                            name="username"
+                                            required
+                                            placeholder="Choose a username"
+                                        />
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="regEmail">Email (optional)</label>
+                                        <input
+                                            id="regEmail"
+                                            name="email"
+                                            type="email"
+                                            placeholder="your@email.com"
+                                        />
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="publicKey">PGP Public Key</label>
+                                    <textarea
+                                        id="publicKey"
+                                        name="pgp_public_key"
                                         required
-                                    />
+                                        placeholder="Paste your ASCII-armored PGP public key"
+                                    ></textarea>
                                 </div>
-                                <div>
-                                    <label for="regEmail">Email (optional)</label>
-                                    <input
-                                        id="regEmail"
-                                        name="email"
-                                        type="email"
-                                    />
+                                <div class="form-actions">
+                                    <button type="submit" class="btn-primary">
+                                        Create Account
+                                    </button>
                                 </div>
-                            </div>
-                            <div>
-                                <label for="publicKey">PGP public key (ASCII armored)</label>
-                                <textarea
-                                    id="publicKey"
-                                    name="pgp_public_key"
-                                    required
-                                ></textarea>
-                            </div>
-                            <div class="row">
-                                <button type="submit" class="secondary">
-                                    Create PGP Account
+                            </form>
+                            <div class="auth-links">
+                                <button id="switchToLogin" class="link-btn">
+                                    Already have an account? Sign in
                                 </button>
                             </div>
-                        </form>
-                        <p class="muted">
-                            Registration stores your public key. Login verifies your signature against this key.
-                        </p>
-                        <div class="row">
-                            <button id="switchToLogin" class="ghost">
-                                Already have an account? Login
-                            </button>
                         </div>
                     </div>
                 </div>
-                <section class="chat" id="chatPanel">
+                <section class="chat-panel" id="chatPanel">
                     <div class="chat-header">
-                        <div class="chat-meta" id="chatMeta"></div>
-                        <div class="row">
-                            <a
-                                id="adminControlsLink"
-                                class="ghost-link"
-                                href="/webui/admin_dashboard.html"
-                                style="display: none"
-                            >
-                                Admin Controls
-                            </a>
-                            <a
-                                id="trainerPanelLink"
-                                class="ghost-link"
-                                href="/webui/trainer_panel.html"
-                                style="display: none"
-                            >
-                                Trainer Panel
-                            </a>
-                            <button id="copyTokenBtn" class="ghost" type="button">
-                                Copy Token
+                        <div class="chat-info">
+                            <div class="chat-avatar">
+                                <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2"/>
+                                    <circle cx="16" cy="16" r="6" fill="currentColor" opacity=".6"/>
+                                    <path d="M16 2v8M16 22v8M2 16h8M22 16h8" stroke="currentColor" stroke-width="1.5" opacity=".4"/>
+                                </svg>
+                            </div>
+                            <div class="chat-details">
+                                <h3>JeebsAI</h3>
+                                <div class="chat-meta" id="chatMeta">AI Assistant</div>
+                            </div>
+                        </div>
+                        <div class="chat-actions">
+                            <button id="copyTokenBtn" class="action-btn" title="Copy Token">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
                             </button>
-                            <button id="logoutBtn" class="ghost" type="button">
-                                Logout
+                            <button id="logoutBtn" class="action-btn" title="Logout">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                                    <polyline points="16,17 21,12 16,7"></polyline>
+                                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                                </svg>
                             </button>
                         </div>
                     </div>
-                    <div class="token-box" id="tokenBox"></div>
-                    <div class="chat-feed" id="chatFeed"></div>
-                    <form id="chatForm" class="prompt-form">
-                        <input
-                            id="promptInput"
-                            autocomplete="off"
-                            placeholder="Talk to JeebsAI..."
-                            required
-                        />
-                        <button class="primary" type="submit">Send</button>
-                    </form>
+                    <div class="token-display" id="tokenBox"></div>
+                    <div class="chat-messages" id="chatFeed"></div>
+                    <div class="chat-input">
+                        <form id="chatForm" class="message-form">
+                            <div class="input-wrapper">
+                                <input
+                                    id="promptInput"
+                                    autocomplete="off"
+                                    placeholder="Type your message to JeebsAI..."
+                                    required
+                                />
+                                <button class="send-btn" type="submit">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                                        <polygon points="22,2 15,22 11,13 2,9"></polygon>
+                                    </svg>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </section>
             </div>
-        </main>
+        </div>
     </div>
-
-            <div id="statusBar" class="status-bar"></div>
-        </main>
 
         <script src="/webui/auth.js"></script>
         <script src="/webui/nav.js"></script>
