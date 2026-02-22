@@ -348,7 +348,7 @@ fn matches_focus_topic(focus_topic: &str, item: &TrainingLearnedItem) -> bool {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-struct TrainingModeState {
+pub struct TrainingModeState {
     enabled: bool,
     updated_at: String,
     updated_by: String,
@@ -422,11 +422,24 @@ struct TrainingFocusTopicRequest {
     topic: String,
 }
 
-#[derive(Debug, Serialize)]
-struct TrainingStatusResponse {
-    training: TrainingModeState,
+#[derive(Debug, Serialize, Clone)]
+pub struct TrainingStatusResponse {
+    pub training: TrainingModeState,
+    pub internet_enabled: bool,
+    pub interval_seconds: u64,
+}
+
+/// Snapshot of training state for admin/status endpoints.
+pub async fn get_training_status(
+    db: &SqlitePool,
     internet_enabled: bool,
-    interval_seconds: u64,
+) -> TrainingStatusResponse {
+    let training = load_training_state(db).await;
+    TrainingStatusResponse {
+        training,
+        internet_enabled,
+        interval_seconds: training_interval_seconds(),
+    }
 }
 
 pub async fn set_training_focus_for_trainer(

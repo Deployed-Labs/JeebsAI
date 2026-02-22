@@ -4,6 +4,7 @@ pub mod import;
 pub mod internet;
 pub mod sessions;
 pub mod status;
+pub mod training;
 pub mod user;
 pub mod whitelist;
 

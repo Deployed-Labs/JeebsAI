@@ -240,6 +240,8 @@ async fn main() -> std::io::Result<()> {
             .service(admin::user::admin_update_user_role)
             .service(admin::internet::get_internet_status)
             .service(admin::internet::set_internet_status)
+            .service(admin::training::get_training_status)
+            .service(admin::training::set_training_mode)
             .service(logging::get_logs)
             .service(logging::clear_logs)
             .service(logging::export_logs)

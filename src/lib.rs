@@ -16,7 +16,6 @@ pub mod knowledge_retrieval;
 pub mod language_learning;
 pub mod logging;
 pub mod plugins;
-pub mod brain_shard;
 pub mod proposals;
 pub mod question_learning;
 pub mod security;
