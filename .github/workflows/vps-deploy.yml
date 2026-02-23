@@ -20,8 +20,40 @@ jobs:
         run: |
           cargo build --release
 
-      - name: Create VERSION file from release tag
-        run: echo "${{ github.event.release.tag_name }}" > VERSION
+      - name: Bump semantic VERSION (patch) and commit to main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Ensure we're on main and have latest
+          git fetch origin main
+          git checkout main
+          git pull origin main
+
+          # Read current version or default
+          if [ -f VERSION ]; then
+            cur=$(cat VERSION)
+          else
+            cur="v0.0.0"
+          fi
+
+          if [[ "$cur" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            major=${BASH_REMATCH[1]}
+            minor=${BASH_REMATCH[2]}
+            patch=${BASH_REMATCH[3]}
+            patch=$((patch+1))
+            new_version="v${major}.${minor}.${patch}"
+          else
+            new_version="v0.0.1"
+          fi
+
+          echo "$new_version" > VERSION
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add VERSION || true
+          git commit -m "chore: bump version to $new_version [ci skip]" || true
+          git push origin main || true
+          echo "Bumped VERSION -> $new_version"
 
       - name: Copy files to VPS (v0.0.1 behavior)
         run: |
