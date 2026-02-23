@@ -55,10 +55,20 @@ jobs:
           git push origin main || true
           echo "Bumped VERSION -> $new_version"
 
+      - name: Start ssh-agent and add deploy key
+        uses: webfactory/ssh-agent@v0.5.3
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Ensure VPS host is known
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H 192.227.193.148 >> ~/.ssh/known_hosts || true
+
       - name: Copy files to VPS (v0.0.1 behavior)
         run: |
-          scp -o StrictHostKeyChecking=no target/release/jeebs root@192.227.193.148:/root/JeebsAI/target/release/jeebs
-          scp -o StrictHostKeyChecking=no -r webui/ root@192.227.193.148:/root/JeebsAI/webui/
-          scp -o StrictHostKeyChecking=no VERSION root@192.227.193.148:/root/JeebsAI/VERSION
-          ssh -o StrictHostKeyChecking=no root@192.227.193.148 'chmod +x /root/JeebsAI/target/release/jeebs && systemctl daemon-reload && systemctl restart jeebs && systemctl status --no-pager --full jeebs'
+          scp -o StrictHostKeyChecking=yes -i ~/.ssh/id_rsa target/release/jeebs root@192.227.193.148:/root/JeebsAI/target/release/jeebs
+          scp -o StrictHostKeyChecking=yes -i ~/.ssh/id_rsa -r webui/ root@192.227.193.148:/root/JeebsAI/webui/
+          scp -o StrictHostKeyChecking=yes -i ~/.ssh/id_rsa VERSION root@192.227.193.148:/root/JeebsAI/VERSION
+          ssh -o StrictHostKeyChecking=yes -i ~/.ssh/id_rsa root@192.227.193.148 'chmod +x /root/JeebsAI/target/release/jeebs && systemctl daemon-reload && systemctl restart jeebs && systemctl status --no-pager --full jeebs'
 
