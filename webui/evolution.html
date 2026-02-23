@@ -23,6 +23,16 @@
 .update-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .session-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)}
 .session-row:last-child{border-bottom:none}
+
+/* Proposal Cards */
+.proposal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-top: 16px; }
+.proposal-card { background: var(--bg-1); border: 1px solid var(--border); border-radius: 8px; padding: 16px; transition: transform 0.2s, border-color 0.2s; display: flex; flex-direction: column; }
+.proposal-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+.proposal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+.proposal-title { font-weight: 700; font-size: 1.05em; color: var(--text); line-height: 1.3; }
+.proposal-desc { font-size: 0.9em; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.5; flex: 1; }
+.proposal-meta { display: flex; justify-content: space-between; align-items: center; font-size: 0.85em; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 10px; margin-top: auto; }
+.status-badge { padding: 2px 8px; border-radius: 10px; font-weight: 600; font-size: 0.8em; text-transform: uppercase; }
 </style>
 </head>
 <body>
@@ -69,8 +79,8 @@
 
   <!-- Proposals -->
   <div style="margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-    <h2 style="margin:0">Evolution Proposals</h2>
-    <select id="statusFilter" class="form-input" onchange="renderUpdates()" style="width:auto">
+    <h2 style="margin:0">Proposed Changes</h2>
+    <select id="statusFilter" class="form-input" onchange="renderUpdates()" style="width:auto;padding:6px 12px">
       <option value="all">All</option>
       <option value="pending">Pending</option>
       <option value="applied">Applied</option>
@@ -89,14 +99,106 @@
 
 <script src="/webui/auth.js"></script>
 <script src="/webui/nav.js"></script>
-<script src="/webui/js/evolution.js"></script>
 <script>
 JeebsNav.init("evolution");
-requireAuth("admin").then(function(state) {
-  if (state && state.role === "admin") {
-    document.getElementById("admin-controls-card").style.display = "";
+
+let allUpdates = [];
+
+async function init() {
+  await requireAuth("admin");
+  fullRefresh();
+}
+
+async function fullRefresh() {
+  loadUpdates();
+  // Load other metrics if endpoints exist
+}
+
+async function loadUpdates() {
+  const container = document.getElementById("updates-list");
+  container.innerHTML = '<div class="text-muted" style="padding:30px;text-align:center">Loading proposals...</div>';
+  try {
+    const res = await safeFetch("/api/admin/evolution/updates", {credentials: "same-origin", headers: authHeaders()});
+    if (!res.ok) throw new Error("Failed to load");
+    const data = await res.json();
+    allUpdates = data.updates || [];
+    renderUpdates();
+  } catch (e) {
+    container.innerHTML = `<div class="text-danger" style="padding:20px;text-align:center">Error loading proposals: ${e.message}</div>`;
   }
-});
+}
+
+function renderUpdates() {
+  const filter = document.getElementById("statusFilter").value;
+  const container = document.getElementById("updates-list");
+  
+  const filtered = allUpdates.filter(u => filter === 'all' || u.status === filter);
+  
+  if (filtered.length === 0) {
+    container.innerHTML = '<div class="text-muted" style="text-align:center;padding:40px;background:var(--bg-1);border-radius:8px;border:1px solid var(--border)">No proposals found matching this filter.</div>';
+    return;
+  }
+
+  container.className = "proposal-grid";
+  container.innerHTML = filtered.map(u => {
+    const statusClass = u.status === 'applied' ? 'status-applied' : (u.status === 'denied' ? 'status-denied' : 'status-pending');
+    const icon = u.feeling === 'like' ? '👍' : (u.feeling === 'dislike' ? '👎' : '💡');
+    
+    let actions = '';
+    if(u.status === 'pending') {
+        actions = `
+        <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--border);padding-top:12px">
+            <button class="btn btn-danger btn-sm" onclick="denyUpdate('${u.id}')">Deny</button>
+            <button class="btn btn-primary btn-sm" onclick="applyUpdate('${u.id}')">Approve</button>
+        </div>`;
+    }
+    
+    return `
+    <div class="proposal-card">
+        <div class="proposal-header">
+            <div class="proposal-title">${escapeHtml(u.title || 'Untitled')}</div>
+            <div style="font-size:1.2em" title="Jeebs Feeling">${icon}</div>
+        </div>
+        <div class="proposal-desc">${escapeHtml(u.description || 'No description provided.')}</div>
+        <div class="proposal-meta">
+            <span>${new Date(u.created_at).toLocaleDateString()}</span>
+            <span class="status-badge ${statusClass}">${u.status || 'UNKNOWN'}</span>
+        </div>
+        ${actions}
+    </div>
+    `;
+  }).join('');
+}
+
+async function applyUpdate(id) {
+    if(!confirm("Approve this proposal?")) return;
+    try {
+        const res = await safeFetch(`/api/admin/evolution/update/${id}/apply`, { method: 'POST', credentials: 'same-origin', headers: authHeaders() });
+        if(res.ok) {
+            fullRefresh();
+        } else {
+            const txt = await res.text();
+            alert("Failed to approve: " + txt);
+        }
+    } catch(e) { alert(e); }
+}
+
+async function denyUpdate(id) {
+    if(!confirm("Deny this proposal?")) return;
+    try {
+        const res = await safeFetch(`/api/admin/evolution/update/${id}/deny`, { method: 'POST', credentials: 'same-origin', headers: authHeaders() });
+        if(res.ok) {
+            fullRefresh();
+        } else {
+            const txt = await res.text();
+            alert("Failed to deny: " + txt);
+        }
+    } catch(e) { alert(e); }
+}
+
+function escapeHtml(s){if(!s)return"";return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+
+init();
 </script>
 </body>
 </html>

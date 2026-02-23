@@ -7,6 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="/webui/style.css"/>
+<style>
+@keyframes slide-down{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+.feed-item{border-bottom:1px solid var(--border);padding:10px 0}
+</style>
 </head>
 <body>
 <nav id="topnav"></nav>
@@ -46,6 +50,23 @@
       </div>
       <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
         <!-- Training toggle replaced by switch above -->
+      </div>
+    </div>
+
+    <!-- Live Learning Feed -->
+    <div class="card">
+      <h3 style="margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+        <span>🧠 Live Learning Feed</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button id="pauseFeedBtn" class="btn btn-ghost btn-sm" style="padding:2px 6px;font-size:0.7em" onclick="toggleFeedPause()">Pause</button>
+          <button class="btn btn-ghost btn-sm" style="padding:2px 6px;font-size:0.7em" onclick="clearLiveFeed()">Clear</button>
+          <label style="font-size:0.8em;display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none"><input type="checkbox" checked onchange="toggleFeedFilter('source', this.checked)"> Sources</label>
+          <label style="font-size:0.8em;display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none"><input type="checkbox" checked onchange="toggleFeedFilter('fact', this.checked)"> Facts</label>
+          <span class="badge badge-accent" style="font-size:0.7em">REAL-TIME</span>
+        </div>
+      </h3>
+      <div id="live-feed" class="scroll-box" style="max-height:200px; overflow-y:auto; padding-right:5px;">
+        <div class="text-muted" style="text-align:center; padding:20px;">Waiting for activity...</div>
       </div>
     </div>
 
@@ -130,6 +151,78 @@ input:checked + .slider:before { transform: translateX(20px); }
 document.head.appendChild(style);
 
 JeebsNav.init('admin');
+
+let lastSeenSource = "";
+let lastSeenFact = "";
+let isFeedPaused = false;
+
+window.toggleFeedFilter = function(type, show) {
+    const feed = document.getElementById('live-feed');
+    if(!feed) return;
+    const items = feed.querySelectorAll(`.feed-item[data-type="${type}"]`);
+    items.forEach(item => item.style.display = show ? '' : 'none');
+};
+
+window.toggleFeedPause = function() {
+    isFeedPaused = !isFeedPaused;
+    const btn = document.getElementById('pauseFeedBtn');
+    if(btn) {
+        btn.textContent = isFeedPaused ? "Resume" : "Pause";
+        if(isFeedPaused) { btn.classList.remove('btn-ghost'); btn.classList.add('btn-accent'); }
+        else { btn.classList.add('btn-ghost'); btn.classList.remove('btn-accent'); }
+    }
+};
+
+window.clearLiveFeed = function() {
+    const feed = document.getElementById('live-feed');
+    if(feed) feed.innerHTML = '<div class="text-muted" style="text-align:center; padding:20px;">Waiting for activity...</div>';
+    lastSeenSource = "";
+    lastSeenFact = "";
+};
+
+function addToLiveFeed(type, data) {
+    if(isFeedPaused) return;
+    const feed = document.getElementById('live-feed');
+    if (!feed) return;
+    
+    // Deduplication check
+    const dataStr = JSON.stringify(data);
+    if (type === 'source' && dataStr === lastSeenSource) return;
+    if (type === 'fact' && dataStr === lastSeenFact) return;
+    
+    if (type === 'source') lastSeenSource = dataStr;
+    if (type === 'fact') lastSeenFact = dataStr;
+
+    // Remove empty state
+    if (feed.querySelector('.text-muted') && feed.children.length === 1) {
+        feed.innerHTML = '';
+    }
+    
+    const row = document.createElement('div');
+    row.className = 'feed-item';
+    row.setAttribute('data-type', type);
+    row.style.animation = 'slide-down 0.3s ease';
+    
+    const time = new Date().toLocaleTimeString();
+    
+    if (type === 'source') {
+        row.innerHTML = `<div style="display:flex;gap:10px;align-items:flex-start;width:100%"><span class="text-muted" style="font-size:0.8em;min-width:65px;padding-top:2px">${time}</span><div style="flex:1"><span class="badge" style="background:rgba(83,216,251,0.1);color:#53d8fb;margin-right:6px;font-size:0.7em">SOURCE</span><a href="${escapeHtml(data)}" target="_blank" style="color:var(--text);text-decoration:none;word-break:break-all;font-size:0.9em">${escapeHtml(data)}</a></div></div>`;
+    } else if (type === 'fact') {
+        const fact = data.fact || data.title || (typeof data === 'string' ? data : JSON.stringify(data));
+        const source = data.source ? `<div class="text-muted" style="font-size:0.8em;margin-top:2px;margin-left:2px">From: ${escapeHtml(data.source)}</div>` : '';
+        row.innerHTML = `<div style="display:flex;gap:10px;align-items:flex-start;width:100%"><span class="text-muted" style="font-size:0.8em;min-width:65px;padding-top:2px">${time}</span><div style="flex:1"><span class="badge" style="background:rgba(46,204,64,0.1);color:#2ecc40;margin-right:6px;font-size:0.7em">LEARNED</span><span style="font-weight:500;font-size:0.95em;color:var(--text-1)">${escapeHtml(fact)}</span>${source}</div></div>`;
+    }
+    
+    // Check current filter state
+    const filterCheckbox = document.querySelector(`input[onchange*="'${type}'"]`);
+    if (filterCheckbox && !filterCheckbox.checked) {
+        row.style.display = 'none';
+    }
+    
+    feed.insertBefore(row, feed.firstChild);
+    if (feed.children.length > 100) feed.removeChild(feed.lastChild);
+    feed.scrollTop = 0;
+}
 
 function escapeHtml(s){if(!s)return"";return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 
@@ -311,11 +404,23 @@ async function importData(input){
 async function loadTrainingStatus(){
   try{
     const res=await safeFetch('/api/admin/training/status');
-    if(!res.ok){document.getElementById('training-status').textContent='Training status unavailable';return;}
+    if(!res.ok){
+      const el = document.getElementById('training-status');
+      if(el) el.textContent='Training status unavailable';
+      return;
+    }
     const d=await res.json();
     const t=d.training||{};
-    document.getElementById('training-status').textContent='Training: '+(t.enabled?'ON':'OFF')+(t.status?(' | '+t.status):'');
-  }catch(e){document.getElementById('training-status').textContent='Training status error';}
+    const el = document.getElementById('training-status');
+    if(el) el.textContent='Training: '+(t.enabled?'ON':'OFF')+(t.status?(' | '+t.status):'');
+    
+    // Populate live feed
+    if(t.last_websites && t.last_websites.length) t.last_websites.forEach(w => addToLiveFeed('source', w));
+    if(t.last_learned_items && t.last_learned_items.length) t.last_learned_items.forEach(i => addToLiveFeed('fact', i));
+  }catch(e){
+    const el = document.getElementById('training-status');
+    if(el) el.textContent='Training status error';
+  }
 }
 
 async function setTrainingMode(on){

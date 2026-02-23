@@ -297,6 +297,194 @@ pub async fn start_deep_learning_session(
     Ok(session)
 }
 
+<<<<<<< Updated upstream
+=======
+/// Start a controlled internet research session.
+/// This function performs a conservative crawl of an allowlisted set of seeds,
+/// respects a simple robots.txt check (skips domains whose /robots.txt disallows '/'),
+/// rate-limits requests, and stores learned facts into a learning session.
+pub async fn start_full_internet_research_session(
+    db: &SqlitePool,
+    minutes: u32,
+    run_id: &str,
+) -> Result<(), String> {
+    // Create a learning session to store facts
+    let session = start_deep_learning_session(db, "internet research").await?;
+    let session_id = session.id.clone();
+
+    // Allowlist for seed URLs: prefer non-empty env var, then repository file, then fallback defaults
+    let allowlist = match env::var("JEEBS_RESEARCH_ALLOWLIST").ok().map(|s| s.trim().to_string()) {
+        Some(v) if !v.is_empty() => v,
+        _ => {
+            if let Ok(s) = fs::read_to_string("./research_allowlist.txt") {
+                s.lines()
+                    .map(|l| l.trim())
+                    .filter(|l| !l.is_empty())
+                    .collect::<Vec<_>>()
+                    .join(",")
+            } else {
+                "https://en.wikipedia.org/wiki/Special:Random,https://arxiv.org".to_string()
+            }
+        }
+    };
+    let seeds: Vec<String> = allowlist
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    if seeds.is_empty() {
+        return Err("No allowlist seeds configured for internet research".to_string());
+    }
+
+    let client = Client::builder().user_agent("JeebsAI-research-bot/1.0 (+https://example.com)").build().map_err(|e| e.to_string())?;
+
+    // configurable delay between top-level fetches (seconds)
+    let delay_secs: u64 = env::var("JEEBS_RESEARCH_DELAY_SECS").ok().and_then(|s| s.parse().ok()).unwrap_or(5);
+    // how many intra-page links to follow per fetched page
+    let follow_links: usize = env::var("JEEBS_RESEARCH_FOLLOW_LINKS").ok().and_then(|s| s.parse().ok()).unwrap_or(2);
+
+    let iterations = ((minutes as u64) * 60) / delay_secs; // one top-level page per delay_secs
+
+    for i in 0..iterations {
+        // Track recent sites and learned snippets so UI can poll them in near-real time
+        let mut recent_sites: Vec<String> = Vec::new();
+        let mut recent_facts: Vec<String> = Vec::new();
+        // pick a random seed
+        let mut rng = rand::thread_rng();
+        let seed = seeds[rng.gen_range(0..seeds.len())].clone();
+
+        // Build list of pages to process this iteration (seed + a few links)
+        let mut pages_to_process: Vec<String> = vec![seed.clone()];
+
+        // Process up to 1 + follow_links pages per iteration
+        for page_url in pages_to_process.clone().into_iter().take(1 + follow_links) {
+            // Basic robots.txt check: skip domain if robots disallows '/'
+            if let Ok(parsed) = reqwest::Url::parse(&page_url) {
+                if let Some(host) = parsed.host_str() {
+                    let robots_url = format!("{}://{}/robots.txt", parsed.scheme(), host);
+                    if let Ok(resp) = client.get(&robots_url).send().await {
+                        if let Ok(txt) = resp.text().await {
+                            for line in txt.lines() {
+                                let l = line.trim();
+                                if l.starts_with("Disallow:") {
+                                    let path = l[9..].trim();
+                                    if path == "/" {
+                                        // skip this domain entirely
+                                        let _ = crate::logging::log(&db, "WARN", "research", &format!("Skipping domain {} due to robots.txt", host)).await;
+                                        continue;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Fetch the page
+            if let Ok(resp) = client.get(&page_url).timeout(Duration::from_secs(15)).send().await {
+                if resp.status().is_success() {
+                    if let Ok(body) = resp.text().await {
+                        // Extract visible text via scraper
+                        let document = Html::parse_document(&body);
+                        let selector = Selector::parse("body").unwrap_or_else(|_| Selector::parse("html").unwrap());
+                        let mut text = String::new();
+                        for element in document.select(&selector) {
+                            text.push_str(&element.text().collect::<Vec<_>>().join(" "));
+                        }
+
+                        let snippet = text.chars().take(800).collect::<String>().replace('\n', " ");
+                        let source = match reqwest::Url::parse(&page_url) {
+                            Ok(u) => u.host_str().map(|s| s.to_string()).unwrap_or_else(|| page_url.clone()),
+                            Err(_) => page_url.clone(),
+                        };
+
+                        let fact = format!("[auto-research:{}] {}", source, snippet);
+                        let _ = add_learned_fact(db, &session_id, &fact, &format!("web:{}", source), 0.4).await;
+
+                        // record what we just fetched for UI polling
+                        recent_sites.push(source.clone());
+                        recent_facts.push(snippet.chars().take(300).collect::<String>());
+
+                        // If this is the seed (first page), extract a few internal links to follow
+                        if page_url == seed {
+                            let link_selector = Selector::parse("a[href]").unwrap();
+                            let mut links: Vec<String> = document.select(&link_selector).filter_map(|e| e.value().attr("href")).map(|s| s.to_string()).collect();
+                            links.retain(|l| l.starts_with("http") || l.starts_with("/"));
+                            let base = reqwest::Url::parse(&page_url).ok();
+                            let mut abs_links: Vec<String> = Vec::new();
+                            for l in links {
+                                if let Ok(u) = reqwest::Url::parse(&l) {
+                                    abs_links.push(u.into_string());
+                                } else if let Some(b) = &base {
+                                    if let Ok(u2) = b.join(&l) { abs_links.push(u2.into_string()); }
+                                }
+                                if abs_links.len() >= follow_links { break; }
+                            }
+                            for al in abs_links { pages_to_process.push(al); }
+                        }
+                    }
+                }
+            }
+
+            // small pause between page fetches within the same iteration
+            sleep(Duration::from_secs(1)).await;
+        }
+
+        // update run metadata (progress) in jeebs_store if present, include recent sites/facts
+        let run_key = format!("deeplearn_run:{}", run_id);
+        if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
+            .bind(&run_key)
+            .fetch_optional(db)
+            .await
+        {
+            let mut meta: serde_json::Value = serde_json::from_slice::<serde_json::Value>(&row.get::<Vec<u8>, _>(0)).unwrap_or(serde_json::json!({}));
+            let pct = (((i + 1) as f64) / (iterations as f64) * 100.0).min(100.0);
+            meta["progress_percent"] = serde_json::Value::Number(serde_json::Number::from_f64(pct).unwrap());
+            meta["last_update"] = serde_json::Value::String(chrono::Local::now().to_rfc3339());
+            let entry = json!({"ts": chrono::Local::now().to_rfc3339(), "seed": seed, "progress_percent": pct});
+            if meta.get("history").is_none() { meta["history"] = json!([entry]); } else if let Some(arr) = meta.get_mut("history") { if arr.is_array() { arr.as_array_mut().unwrap().push(entry); } }
+
+            // Attach most-recently seen sites and facts for the UI
+            if !recent_sites.is_empty() {
+                meta["last_websites"] = serde_json::Value::Array(recent_sites.iter().map(|s| serde_json::Value::String(s.clone())).collect());
+            }
+            if !recent_facts.is_empty() {
+                meta["last_learned_items"] = serde_json::Value::Array(recent_facts.iter().map(|s| serde_json::Value::String(s.clone())).collect());
+            }
+            let _ = sqlx::query("UPDATE jeebs_store SET value = ? WHERE key = ?")
+                .bind(serde_json::to_vec(&meta).unwrap_or_default())
+                .bind(&run_key)
+                .execute(db)
+                .await;
+        }
+
+        // rate limit between top-level fetch iterations
+        sleep(Duration::from_secs(delay_secs)).await;
+    }
+
+    // mark run done
+    let run_key = format!("deeplearn_run:{}", run_id);
+    if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
+        .bind(&run_key)
+        .fetch_optional(db)
+        .await
+    {
+        let mut meta: serde_json::Value = serde_json::from_slice::<serde_json::Value>(&row.get::<Vec<u8>, _>(0)).unwrap_or(serde_json::json!({}));
+        meta["status"] = serde_json::Value::String("done".to_string());
+        meta["progress_percent"] = serde_json::Value::Number(serde_json::Number::from_f64(100.0).unwrap());
+        meta["completed_at"] = serde_json::Value::String(chrono::Local::now().to_rfc3339());
+        let _ = sqlx::query("UPDATE jeebs_store SET value = ? WHERE key = ?")
+            .bind(serde_json::to_vec(&meta).unwrap_or_default())
+            .bind(&run_key)
+            .execute(db)
+            .await;
+    }
+
+    Ok(())
+}
+
+>>>>>>> Stashed changes
 /// Add a learned fact to a session
 pub async fn add_learned_fact(
     db: &SqlitePool,

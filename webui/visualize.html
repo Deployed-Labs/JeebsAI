@@ -7,9 +7,10 @@
 <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/webui/style.css"/>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#07121a;color:#e8edf4;font-family:'Space Grotesk',sans-serif;overflow:hidden}
+body{background:#07121a;color:#e8edf4;font-family:'Space Grotesk',sans-serif}
 #mynetwork{width:100vw;height:100vh}
 #loading{position:fixed;top:20px;left:20px;background:rgba(15,22,30,0.9);backdrop-filter:blur(12px);padding:14px 20px;border-radius:10px;border:1px solid rgba(83,216,251,0.2);color:#53d8fb;z-index:10;font-size:0.95em;display:flex;align-items:center;gap:10px}
 #loading .spinner{width:18px;height:18px;border:2px solid rgba(83,216,251,0.2);border-top-color:#53d8fb;border-radius:50%;animation:spin .6s linear infinite}
@@ -23,7 +24,13 @@ body{background:#07121a;color:#e8edf4;font-family:'Space Grotesk',sans-serif;ove
 <div class="shell" style="padding-top:60px;max-width:1200px">
   <div class="card card-glow" style="margin-bottom:24px;text-align:center">
     <h1 style="margin-bottom:8px">Brain Visualization</h1>
-    <p class="text-muted">Interactive graph of the JeebsAI knowledge network.</p>
+    <p class="text-muted">Interactive graph of the JeebsAI knowledge network. <span class="badge badge-accent" style="font-size:0.7em;vertical-align:middle;margin-left:6px">LIVE</span></p>
+    <div style="margin-top:12px;display:flex;justify-content:center;gap:10px;align-items:center">
+       <label class="text-muted" style="font-size:0.9em">Filter by Category:</label>
+       <select id="categoryFilter" class="form-input" style="width:auto;padding:4px 8px;font-size:0.9em" onchange="if(network) network.redraw()">
+         <option value="all">All Categories</option>
+       </select>
+    </div>
   </div>
   <div class="card" style="margin-bottom:24px;position:relative;min-height:600px">
     <div id="loading" style="position:absolute;top:20px;left:20px;background:rgba(15,22,30,0.9);backdrop-filter:blur(12px);padding:14px 20px;border-radius:10px;border:1px solid rgba(83,216,251,0.2);color:#53d8fb;z-index:10;font-size:0.95em;display:flex;align-items:center;gap:10px"><div class="spinner"></div> Loading Brain Graph&hellip;</div>
@@ -32,23 +39,65 @@ body{background:#07121a;color:#e8edf4;font-family:'Space Grotesk',sans-serif;ove
 </div>
 
 <script src="/webui/auth.js"></script>
+<script src="/webui/nav.js"></script>
 <script>
+var network, nodesDataSet, edgesDataSet, nodesView;
+async function initNav(){
+  try{ if (typeof JeebsNav !== 'undefined') JeebsNav.init('brain'); } catch(e){}
+}
 async function loadGraph(){
   try{
-    var res=await safeFetch("/api/brain/visualize");
+    await initNav();
+    var res=await safeFetch("/api/brain/visualize", { credentials: 'same-origin', headers: authHeaders() });
     if(!res.ok){var body=await res.text();throw new Error("HTTP "+res.status+(body?": "+body:""));}
     var data=await res.json();
     var container=document.getElementById("mynetwork");
-    var nodes=new vis.DataSet(Array.isArray(data.nodes)?data.nodes:[]);
-    var edges=new vis.DataSet(Array.isArray(data.edges)?data.edges:[]);
+    nodesDataSet=new vis.DataSet(Array.isArray(data.nodes)?data.nodes:[]);
+    edgesDataSet=new vis.DataSet(Array.isArray(data.edges)?data.edges:[]);
+
+    // Populate categories
+    var categories = new Set();
+    nodesDataSet.forEach(n => categories.add(n.group || n.category || 'default'));
+    var sel = document.getElementById('categoryFilter');
+    if(sel){
+        var current = sel.value;
+        sel.innerHTML = '<option value="all">All Categories</option>';
+        Array.from(categories).sort().forEach(c => {
+            var opt = document.createElement('option');
+            opt.value = c;
+            opt.textContent = c;
+            sel.appendChild(opt);
+        });
+        sel.value = current;
+    }
+
+    nodesView = new vis.DataView(nodesDataSet, {
+        filter: function(item){
+            var val = document.getElementById('categoryFilter') ? document.getElementById('categoryFilter').value : 'all';
+            return val === 'all' || (item.group || item.category || 'default') == val;
+        }
+    });
+
     var options={
       nodes:{shape:"dot",size:16,font:{size:14,color:"#e8edf4"},borderWidth:2,color:{background:"#1a2a3a",border:"#53d8fb",highlight:{background:"#1f3548",border:"#53d8fb"}}},
       edges:{width:1,color:{color:"#2b3a4a",highlight:"#53d8fb"},smooth:{type:"continuous"}},
       physics:{stabilization:false,barnesHut:{gravitationalConstant:-8000,springConstant:0.04,springLength:95}},
       interaction:{hover:true,tooltipDelay:200}
     };
-    new vis.Network(container,{nodes:nodes,edges:edges},options);
+    network = new vis.Network(container,{nodes:nodesView,edges:edgesDataSet},options);
     document.getElementById("loading").style.display="none";
+
+    // Auto-refresh every 5 seconds
+    setInterval(async function(){
+      try {
+        var r=await safeFetch("/api/brain/visualize", { credentials: 'same-origin', headers: authHeaders() });
+        if(r.ok){
+          var d=await r.json();
+          if(nodesDataSet) nodesDataSet.update(d.nodes||[]);
+          if(edgesDataSet) edgesDataSet.update(d.edges||[]);
+        }
+      } catch(e){ console.warn("Graph update failed", e); }
+    }, 5000);
   }catch(e){
     var l=document.getElementById("loading");l.innerHTML="Error loading graph: "+e;l.style.color="#ff6b6b";
   }

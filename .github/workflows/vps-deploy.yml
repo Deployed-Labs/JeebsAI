@@ -8,6 +8,9 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+permissions:
+  contents: write
+
 jobs:
   deploy:
     name: Build & Deploy to VPS
@@ -15,6 +18,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
 
       - name: Install system dependencies
         run: |
@@ -51,7 +57,32 @@ jobs:
           echo "Created VERSION: $(cat VERSION)"
           ls -lh target/release/jeebs VERSION || true
 
+<<<<<<< Updated upstream
       - name: Add SSH key to agent
+=======
+          if [[ "$cur" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            major=${BASH_REMATCH[1]}
+            minor=${BASH_REMATCH[2]}
+            patch=${BASH_REMATCH[3]}
+            patch=$((patch+1))
+            new_version="v${major}.${minor}.${patch}"
+          else
+            new_version="v0.0.1"
+          fi
+
+          echo "$new_version" > VERSION
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add VERSION
+          git commit -m "chore: bump version to $new_version [ci skip]"
+
+          # Ensure we can push using the token and surface errors if push fails
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push origin main
+          echo "Bumped VERSION -> $new_version"
+
+      - name: Start ssh-agent and add deploy key
+>>>>>>> Stashed changes
         uses: webfactory/ssh-agent@v0.5.3
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -66,11 +97,19 @@ jobs:
         env:
           TARGET: ${{ secrets.VPS_TARGET }}
         run: |
+<<<<<<< Updated upstream
           if [ -z "$TARGET" ]; then TARGET="/root/JeebsAI"; fi
           mkdir -p target/release
           echo "Uploading binary and VERSION to ${TARGET} on ${VPS_HOST}..."
           scp -o StrictHostKeyChecking=yes -P "${{ secrets.VPS_PORT }}" target/release/jeebs "${{ secrets.VPS_USER }}"@"${{ secrets.VPS_HOST }}":"$TARGET/target/release/jeebs"
           scp -o StrictHostKeyChecking=yes -P "${{ secrets.VPS_PORT }}" VERSION "${{ secrets.VPS_USER }}"@"${{ secrets.VPS_HOST }}":"$TARGET/VERSION"
+=======
+          # Use ssh-agent (key was added earlier) instead of a hard-coded identity file
+          scp -o StrictHostKeyChecking=yes target/release/jeebs root@192.227.193.148:/root/JeebsAI/target/release/jeebs
+          scp -o StrictHostKeyChecking=yes -r webui/ root@192.227.193.148:/root/JeebsAI/webui/
+          scp -o StrictHostKeyChecking=yes VERSION root@192.227.193.148:/root/JeebsAI/VERSION
+          ssh -o StrictHostKeyChecking=yes root@192.227.193.148 'chmod +x /root/JeebsAI/target/release/jeebs && systemctl daemon-reload && systemctl restart jeebs && systemctl status --no-pager --full jeebs'
+>>>>>>> Stashed changes
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.0

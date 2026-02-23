@@ -7,6 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="/webui/style.css"/>
+<style>
+@keyframes slide-down{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+.feed-item{border-bottom:1px solid var(--border);padding:10px 0}
+</style>
 </head>
 <body>
 <nav id="topnav"></nav>
@@ -19,10 +23,29 @@
     <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
       <button class="btn btn-accent" onclick="setTrainingMode(true)">Enable Training</button>
       <button class="btn btn-danger" onclick="setTrainingMode(false)">Disable Training</button>
-      <button class="btn btn-primary" onclick="runTrainingNow()">Run Full Training</button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input id="full-training-minutes" class="form-input" type="number" min="1" value="15" style="width:80px" title="Minutes"/>
+        <button id="runFullBtn" class="btn btn-primary" onclick="runTrainingNow()">Run Internet Training</button>
+        <div id="training-feeling" title="Jeebs mood" style="font-size:1.4em;line-height:1;">🙂</div>
+      </div>
     </div>
     <div id="training-status" class="text-muted" style="margin-bottom:8px">Loading training status...</div>
-    <div id="training-log" class="log-box" style="max-height:180px;min-height:60px;background:var(--bg-2);overflow:auto;font-size:.92em"></div>
+    
+    <div class="card" style="background:var(--bg-1); border:1px solid var(--border); margin-top:12px;">
+      <h4 style="margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+        <span>🧠 Live Learning Feed</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button id="pauseFeedBtn" class="btn btn-ghost btn-sm" style="padding:2px 6px;font-size:0.7em" onclick="toggleFeedPause()">Pause</button>
+          <button class="btn btn-ghost btn-sm" style="padding:2px 6px;font-size:0.7em" onclick="clearLiveFeed()">Clear</button>
+          <label style="font-size:0.8em;display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none"><input type="checkbox" checked onchange="toggleFeedFilter('source', this.checked)"> Sources</label>
+          <label style="font-size:0.8em;display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none"><input type="checkbox" checked onchange="toggleFeedFilter('fact', this.checked)"> Facts</label>
+          <span class="badge badge-accent" style="font-size:0.7em">REAL-TIME</span>
+        </div>
+      </h4>
+      <div id="live-feed" class="scroll-box" style="max-height:300px; overflow-y:auto; padding-right:5px;">
+        <div class="text-muted" style="text-align:center; padding:20px;">Waiting for activity...</div>
+      </div>
+    </div>
 
     <div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap">
       <a href="/webui/visualize.html" class="btn btn-ghost">Brain Graph</a>
@@ -77,6 +100,78 @@
 <script>
 JeebsNav.init('trainer');
 
+let lastSeenSource = "";
+let lastSeenFact = "";
+let isFeedPaused = false;
+
+window.toggleFeedFilter = function(type, show) {
+    const feed = document.getElementById('live-feed');
+    if(!feed) return;
+    const items = feed.querySelectorAll(`.feed-item[data-type="${type}"]`);
+    items.forEach(item => item.style.display = show ? '' : 'none');
+};
+
+window.toggleFeedPause = function() {
+    isFeedPaused = !isFeedPaused;
+    const btn = document.getElementById('pauseFeedBtn');
+    if(btn) {
+        btn.textContent = isFeedPaused ? "Resume" : "Pause";
+        if(isFeedPaused) { btn.classList.remove('btn-ghost'); btn.classList.add('btn-accent'); }
+        else { btn.classList.add('btn-ghost'); btn.classList.remove('btn-accent'); }
+    }
+};
+
+window.clearLiveFeed = function() {
+    const feed = document.getElementById('live-feed');
+    if(feed) feed.innerHTML = '<div class="text-muted" style="text-align:center; padding:20px;">Waiting for activity...</div>';
+    lastSeenSource = "";
+    lastSeenFact = "";
+};
+
+function addToLiveFeed(type, data) {
+    if(isFeedPaused) return;
+    const feed = document.getElementById('live-feed');
+    if (!feed) return;
+    
+    // Deduplication check
+    const dataStr = JSON.stringify(data);
+    if (type === 'source' && dataStr === lastSeenSource) return;
+    if (type === 'fact' && dataStr === lastSeenFact) return;
+    
+    if (type === 'source') lastSeenSource = dataStr;
+    if (type === 'fact') lastSeenFact = dataStr;
+
+    // Remove empty state
+    if (feed.querySelector('.text-muted') && feed.children.length === 1) {
+        feed.innerHTML = '';
+    }
+    
+    const row = document.createElement('div');
+    row.className = 'feed-item';
+    row.setAttribute('data-type', type);
+    row.style.animation = 'slide-down 0.3s ease';
+    
+    const time = new Date().toLocaleTimeString();
+    
+    if (type === 'source') {
+        row.innerHTML = `<div style="display:flex;gap:10px;align-items:flex-start;width:100%"><span class="text-muted" style="font-size:0.8em;min-width:65px;padding-top:2px">${time}</span><div style="flex:1"><span class="badge" style="background:rgba(83,216,251,0.1);color:#53d8fb;margin-right:6px;font-size:0.7em">SOURCE</span><a href="${escapeHtml(data)}" target="_blank" style="color:var(--text);text-decoration:none;word-break:break-all;font-size:0.9em">${escapeHtml(data)}</a></div></div>`;
+    } else if (type === 'fact') {
+        const fact = data.fact || data.title || (typeof data === 'string' ? data : JSON.stringify(data));
+        const source = data.source ? `<div class="text-muted" style="font-size:0.8em;margin-top:2px;margin-left:2px">From: ${escapeHtml(data.source)}</div>` : '';
+        row.innerHTML = `<div style="display:flex;gap:10px;align-items:flex-start;width:100%"><span class="text-muted" style="font-size:0.8em;min-width:65px;padding-top:2px">${time}</span><div style="flex:1"><span class="badge" style="background:rgba(46,204,64,0.1);color:#2ecc40;margin-right:6px;font-size:0.7em">LEARNED</span><span style="font-weight:500;font-size:0.95em;color:var(--text-1)">${escapeHtml(fact)}</span>${source}</div></div>`;
+    }
+    
+    // Check current filter state
+    const filterCheckbox = document.querySelector(`input[onchange*="'${type}'"]`);
+    if (filterCheckbox && !filterCheckbox.checked) {
+        row.style.display = 'none';
+    }
+    
+    feed.insertBefore(row, feed.firstChild);
+    if (feed.children.length > 100) feed.removeChild(feed.lastChild);
+    feed.scrollTop = 0;
+}
+
 // Unified log: collect and display all info
 window.logAllInfo = async function() {
   const log = window.log || function(msg) {
@@ -97,9 +192,8 @@ window.logAllInfo = async function() {
   } catch (e) { log("Training status error: " + e); }
   // Training log
   try {
-    var logEl = document.getElementById("training-log");
-    log("Training log: " + (logEl ? logEl.textContent : "N/A"));
-  } catch (e) { log("Training log error: " + e); }
+    // Live feed is dynamic, no simple text content to log
+  } catch (e) { }
   // Learning sessions
   try {
     var res = await safeFetch("/api/learning/sessions", {credentials: "same-origin", headers: authHeaders()});
@@ -162,6 +256,149 @@ function escapeHtml(s){if(!s)return"";return String(s).replace(/&/g,"&amp;").rep
         log(data.response||"No response received.");
       }catch(e){log("Request failed: "+e);}
     };
+
+    // Ensure training control functions exist here (they were in admin dashboard previously)
+    window.setTrainingMode = async function(on){
+      try{
+        // disable buttons while working
+        const enableBtn = document.querySelector("button[onclick=\"setTrainingMode(true)\"]");
+        const disableBtn = document.querySelector("button[onclick=\"setTrainingMode(false)\"]");
+        if(enableBtn) enableBtn.disabled = true;
+        if(disableBtn) disableBtn.disabled = true;
+        const res = await safeFetch('/api/admin/training/mode', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: authHeaders(true),
+          body: JSON.stringify({ enabled: !!on })
+        });
+        if(!res.ok){
+          const txt = await res.text().catch(()=>res.statusText);
+          (document.getElementById('training-status')||{}).textContent = 'Failed to set training mode: '+txt;
+        } else {
+          await loadTrainingStatus();
+        }
+      } catch(e){ (document.getElementById('training-status')||{}).textContent = 'Error: '+e }
+      finally{ if(enableBtn) enableBtn.disabled = false; if(disableBtn) disableBtn.disabled = false; }
+    };
+
+    window.runTrainingNow = async function(){
+      try{
+        const runBtn = document.querySelector("button[onclick=\"runTrainingNow()\"]");
+        if(runBtn) runBtn.disabled = true;
+        const statusEl = document.getElementById('training-status');
+        if(statusEl) statusEl.textContent = 'Starting training...';
+        // read desired minutes from the full training input
+        const minutesInput = document.getElementById('full-training-minutes');
+        const minutes = (minutesInput && Number(minutesInput.value)) ? Number(minutesInput.value) : 15;
+        const res = await safeFetch('/api/admin/training/run/full', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', ...authHeaders(true) }, body: JSON.stringify({ minutes }) });
+        if(!res.ok){ const txt = await res.text().catch(()=>res.statusText); statusEl.textContent = 'Failed to start training: '+txt; return; }
+        const d = await res.json();
+        statusEl.textContent = 'Full training started (run ' + (d.run_id||d.runId||'') + ')';
+        // refresh background runs immediately
+        loadBackgroundRuns();
+        // start polling this run for live updates
+        if(d.run_id) startPollingRun(d.run_id);
+      } catch(e){ (document.getElementById('training-status')||{}).textContent = 'Error: '+e }
+      finally{ const runBtn = document.querySelector("button[onclick=\"runTrainingNow()\"]"); if(runBtn) runBtn.disabled = false; }
+    };
+
+    // Poll a specific run and update training log with last_websites and last_learned_items
+    let _runPollers = {};
+    function startPollingRun(runId){
+      if(!runId) return;
+      if(_runPollers[runId]) return; // already polling
+      _runPollers[runId] = true;
+      (async function poll(){
+        try{
+          while(_runPollers[runId]){
+            const res = await safeFetch('/api/learning/extended-run/'+encodeURIComponent(runId), { credentials: 'same-origin', headers: authHeaders() });
+            if(res.ok){
+              const body = await res.json();
+              const run = body.run || {};
+              // show last websites
+              if(run.last_websites && run.last_websites.length){
+                run.last_websites.forEach(w => addToLiveFeed('source', w));
+              }
+              // show last learned items
+              if(run.last_learned_items && run.last_learned_items.length){
+                run.last_learned_items.forEach(i => addToLiveFeed('fact', i));
+              }
+              // update progress and status
+              const statusEl = document.getElementById('training-status');
+              if(statusEl && typeof run.progress_percent !== 'undefined') statusEl.textContent = 'Full training run ' + run.run_id + ' — ' + Math.round(run.progress_percent) + '% — ' + (run.status||'');
+              if(run.status === 'done' || run.status === 'cancelled' || run.status === 'cancelling'){
+                // stop polling
+                delete _runPollers[runId];
+                loadBackgroundRuns();
+                break;
+              }
+            }
+            await new Promise(r=>setTimeout(r,5000));
+          }
+        } catch(e){ console.warn('poll run failed', e); delete _runPollers[runId]; }
+      })();
+    }
+
+    async function loadTrainingStatus(){
+      try{
+        const res = await safeFetch('/api/admin/training/status', { credentials: 'same-origin', headers: authHeaders() });
+        const el = document.getElementById('training-status');
+        if(!res.ok){ if(el) el.textContent = 'Training status unavailable'; return; }
+        const d = await res.json();
+        const t = d.training || {};
+        if(el) el.textContent = 'Training: ' + (t.enabled ? 'ON' : 'OFF') + (t.status ? (' | '+t.status) : '');
+        // Build a concise live summary of what and where JeebsAI is learning
+        try{
+          const feelingEl = document.getElementById('training-feeling');
+          const now = new Date().toLocaleString();
+          const topic = t.active_target || t.focus_topic || (t.last_topics && t.last_topics.length? t.last_topics[0] : null);
+          const phase = t.active_phase || '';
+          const running = t.is_cycle_running ? 'running' : 'idle';
+          let header = `${now}: ${topic?('Topic: '+topic+' | '):''}Phase: ${phase} | ${running}`;
+
+          // Determine sentiment/feeling for the emoji (support multiple possible keys)
+          try{
+            let feeling = 'neutral';
+            if(t.feeling && typeof t.feeling === 'string'){
+              const f = t.feeling.toLowerCase();
+              if(f==='like' || f==='positive' || f==='happy') feeling = 'like';
+              if(f==='dislike' || f==='negative' || f==='sad') feeling = 'dislike';
+            }
+            if(feeling==='neutral' && (typeof t.sentiment_score !== 'undefined')){
+              const s = Number(t.sentiment_score||0);
+              if(!isNaN(s)){ feeling = s>0? 'like' : (s<0? 'dislike' : 'neutral'); }
+            }
+            if(feelingEl){
+              if(feeling==='like'){ feelingEl.textContent = '😊'; feelingEl.title = 'Jeebs likes this topic'; }
+              else if(feeling==='dislike'){ feelingEl.textContent = '☹️'; feelingEl.title = 'Jeebs dislikes this topic'; }
+              else { feelingEl.textContent = '🙂'; feelingEl.title = 'Jeebs is neutral'; }
+            }
+          } catch(e) { /* ignore sentiment parsing errors */ }
+
+          // Show recent websites scraped
+          if(t.last_websites && t.last_websites.length){
+            t.last_websites.forEach(w => addToLiveFeed('source', w));
+          }
+          // Show recently learned items (facts)
+          if(t.last_learned_items && t.last_learned_items.length){
+            t.last_learned_items.forEach(i => addToLiveFeed('fact', i));
+          }
+        }catch(e){ /* non-fatal */ }
+      } catch(e){ const el=document.getElementById('training-status'); if(el) el.textContent='Training status error'; }
+    }
+
+    async function pollTrainingLog(){
+      try{
+        for(let i=0;i<24;i++){ // poll for 2 minutes
+          await new Promise(r=>setTimeout(r,5000));
+          const res = await safeFetch('/api/admin/training/status', { credentials: 'same-origin', headers: authHeaders() });
+          if(!res.ok) continue;
+          const d = await res.json();
+          const t = d.training || {};
+          if(t.status === 'done' || t.status === 'idle') break;
+        }
+      } catch(e){ console.warn('pollTrainingLog failed', e); }
+    }
 
     window.sendFocus=function(){var f=document.getElementById("focusInput").value.trim();if(!f){log("Enter a focus topic.");return;}sendCmd("train: "+f);};
     window.sendCustom=function(){var c=document.getElementById("customInput").value.trim();if(!c){log("Enter a command.");return;}sendCmd(c);};
@@ -269,6 +506,41 @@ function escapeHtml(s){if(!s)return"";return String(s).replace(/&/g,"&amp;").rep
       var el=document.getElementById("background-runs");
       if(el)el.textContent="Error: "+e;
     }
+
+    // Start an extended run against a specific session (from input or selected session)
+    window.startExtendedRun = async function(){
+      try{
+        const minutesInput = document.getElementById('extended-minutes');
+        const inferenceInput = document.getElementById('extended-inference');
+        const minutes = (minutesInput && Number(minutesInput.value)) ? Number(minutesInput.value) : 30;
+        const inference = !!(inferenceInput && inferenceInput.checked);
+        // pick session: prefer selected detail, else first session
+        let sessionId = window._learningDetails && window._learningDetails.session ? window._learningDetails.session : null;
+        if(!sessionId){
+          const res = await safeFetch('/api/learning/sessions',{credentials:'same-origin',headers:authHeaders()});
+          if(res.ok){ const payload = await res.json(); const sessions = payload.sessions||[]; if(sessions.length) sessionId = sessions[0].id; }
+        }
+        if(!sessionId){ alert('No session selected or available to run extended training on.'); return; }
+        const res = await safeFetch('/api/learning/run-extended', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', ...authHeaders(true) }, body: JSON.stringify({ session_id: sessionId, minutes: minutes, inference: inference }) });
+        if(!res.ok){ alert('Failed to start extended run'); return; }
+        const d = await res.json();
+        loadBackgroundRuns();
+        if(d.run_id) startPollingRun(d.run_id);
+        document.getElementById('extended-status').textContent = 'Started run ' + (d.run_id||'');
+      } catch(e){ alert('Error: '+e); }
+    };
+
+    window.cancelRun = async function(id){
+      if(!id) return; if(!confirm('Cancel run '+id+'?')) return;
+      try{
+        const res = await safeFetch('/api/learning/extended-run/'+encodeURIComponent(id)+'/cancel',{ method: 'POST', credentials: 'same-origin', headers: authHeaders(true) });
+        if(!res.ok){ alert('Failed to cancel run'); return; }
+        // stop polling locally
+        if(_runPollers[id]) delete _runPollers[id];
+        loadBackgroundRuns();
+        if(document.getElementById('run-detail')) document.getElementById('run-detail').textContent = 'Cancelling...';
+      } catch(e){ alert('Error: '+e); }
+    };
   }
 
     window.showRun=async function(id){
