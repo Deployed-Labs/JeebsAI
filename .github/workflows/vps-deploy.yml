@@ -34,7 +34,7 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-deploy-
 
       - name: Build release binary
-        run: cargo build --release --locked
+        run: cargo build --release
 
       - name: Create VERSION file from release tag
         env:
