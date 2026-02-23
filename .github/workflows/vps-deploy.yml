@@ -1,12 +1,8 @@
-name: Deploy to VPS
+name: Release Deploy to VPS
 
 on:
   release:
     types: [published]
-  workflow_dispatch:
-
-env:
-  CARGO_TERM_COLOR: always
 
 jobs:
   deploy:
@@ -19,10 +15,13 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config libssl-dev libsqlite3-dev clang llvm
+          sudo apt-get install -y build-essential pkg-config libssl-dev libsqlite3-dev rsync openssh-client
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - name: Set up Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
 
       - name: Cache cargo
         uses: actions/cache@v4
@@ -35,13 +34,12 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-deploy-
 
       - name: Build release binary
-        run: cargo build --release
+        run: cargo build --release --locked
 
       - name: Create VERSION file from release tag
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          # Prefer the release tag from the event. Fallback to GITHUB_REF suffix if missing (e.g., when manually dispatched).
           if [ -n "$RELEASE_TAG" ]; then
             TAG="$RELEASE_TAG"
           else
@@ -52,117 +50,49 @@ jobs:
           ls -lh target/release/jeebs VERSION || true
 
       - name: Add SSH key to agent
-        uses: webfactory/ssh-agent@v0.5.3
+        uses: webfactory/ssh-agent@v0.8.1
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Add VPS to known_hosts
+      - name: Add VPS to known_hosts (optional port)
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -p "${{ secrets.VPS_PORT }}" "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+          PORT=${{ secrets.VPS_PORT }}
+          if [ -z "$PORT" ] || [ "$PORT" = "" ]; then PORT=22; fi
+          ssh-keyscan -p "$PORT" "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts || true
           chmod 600 ~/.ssh/known_hosts
 
-      - name: Upload binary and VERSION to VPS via scp
+      - name: Upload binary, webui and VERSION to VPS
         env:
-          TARGET: ${{ secrets.VPS_TARGET }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_TARGET: ${{ secrets.VPS_TARGET }}
         run: |
-          if [ -z "$TARGET" ]; then TARGET="/root/JeebsAI"; fi
-          mkdir -p target/release
-          echo "Uploading binary and VERSION to ${TARGET} on ${VPS_HOST}..."
-          scp -o StrictHostKeyChecking=yes -P "${{ secrets.VPS_PORT }}" target/release/jeebs "${{ secrets.VPS_USER }}"@"${{ secrets.VPS_HOST }}":"$TARGET/target/release/jeebs"
-          scp -o StrictHostKeyChecking=yes -P "${{ secrets.VPS_PORT }}" VERSION "${{ secrets.VPS_USER }}"@"${{ secrets.VPS_HOST }}":"$TARGET/VERSION"
+          set -euo pipefail
+          if [ -z "${VPS_PORT:-}" ]; then VPS_PORT=22; fi
+          if [ -z "${VPS_TARGET:-}" ]; then VPS_TARGET=/root/JeebsAI; fi
+          echo "Uploading to $VPS_USER@$VPS_HOST:$VPS_TARGET"
+          rsync -avz --delete --exclude target/ ./webui/ -e "ssh -p $VPS_PORT" "$VPS_USER@$VPS_HOST:$VPS_TARGET/webui/"
+          scp -P "$VPS_PORT" target/release/jeebs "$VPS_USER@$VPS_HOST:$VPS_TARGET/target/release/jeebs"
+          scp -P "$VPS_PORT" VERSION "$VPS_USER@$VPS_HOST:$VPS_TARGET/VERSION"
 
-      - name: Deploy to VPS
+      - name: Remote deploy (restart service)
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.VPS_PORT }}
-          command_timeout: 30m
+          command_timeout: 15m
           script: |
             set -e
-            echo "🚀 Starting deployment on VPS..."
-
-            TARGET="${{ secrets.VPS_TARGET }}"
-            if [ -z "$TARGET" ]; then TARGET="/root/JeebsAI"; fi
+            TARGET=${{ secrets.VPS_TARGET }}
+            if [ -z "$TARGET" ]; then TARGET=/root/JeebsAI; fi
             mkdir -p "$TARGET"
-            cd "$TARGET"
-
-            # Ensure cargo/rust are available
-            export PATH="$HOME/.cargo/bin:/usr/local/bin:$PATH"
-
-            # Install build deps on VPS if missing
-            if ! command -v pkg-config &>/dev/null; then
-              echo "Installing build dependencies on VPS..."
-              apt-get update -qq
-              apt-get install -y -qq build-essential pkg-config libssl-dev libsqlite3-dev \
-                clang llvm curl git
-            fi
-
-            # Install Rust if missing
-            if ! command -v cargo &>/dev/null; then
-              echo "Installing Rust on VPS..."
-              curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-              export PATH="$HOME/.cargo/bin:$PATH"
-            fi
-
-            # Clone or update repo
-            if [ ! -d ".git" ]; then
-              echo "Cloning repository..."
-              git clone https://github.com/${{ github.repository }} .
-            else
-              echo "Updating repository..."
-              git fetch origin
-              git reset --hard origin/main
-            fi
-
-            # Use uploaded binary (copied from runner). Make sure it's executable.
-            if [ ! -f "$TARGET/target/release/jeebs" ]; then
-              echo "Uploaded binary not found at $TARGET/target/release/jeebs"
-              ls -la "$TARGET" || true
-              exit 1
-            fi
-            chmod +x "$TARGET/target/release/jeebs"
-
-            # Ensure DB exists
-            [ -f "$TARGET/jeebs.db" ] || touch "$TARGET/jeebs.db"
-
-            # Create/update systemd service
-            cat > /etc/systemd/system/jeebs.service <<UNIT
-          [Unit]
-          Description=JeebsAI Server
-          After=network.target
-
-          [Service]
-          Type=simple
-          User=root
-          WorkingDirectory=$TARGET
-          Environment=PORT=8080
-          Environment=DATABASE_URL=sqlite:$TARGET/jeebs.db
-          Environment=RUST_LOG=info
-          ExecStart=$TARGET/target/release/jeebs
-          Restart=on-failure
-          RestartSec=5
-
-          [Install]
-          WantedBy=multi-user.target
-          UNIT
-
-            systemctl daemon-reload
-            systemctl enable jeebs
-            systemctl restart jeebs
+            chmod +x "$TARGET/target/release/jeebs" || true
+            systemctl daemon-reload || true
+            systemctl restart jeebs || true
             sleep 3
+            systemctl status --no-pager --full jeebs || true
 
-            if systemctl is-active --quiet jeebs; then
-              echo "✅ JeebsAI is running!"
-              curl -sf -o /dev/null -w "   Health: HTTP %{http_code}\n" http://127.0.0.1:8080/api/health || true
-            else
-              echo "❌ Service failed to start"
-              journalctl -u jeebs --no-pager -n 20
-              exit 1
-            fi
-
-      - name: Report status
-        if: failure()
-        run: echo "❌ Build or deploy failed. Check logs above."
