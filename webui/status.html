@@ -177,7 +177,17 @@ JeebsNav.init('status');
 async function checkAccess() {
   // require trainer role (allows trainers and root admin)
   const auth = await requireAuth('trainer');
-  if (!auth || !auth.loggedIn || (!auth.isAdmin && !auth.isTrainer)) {
+
+  // Client-side fallback: ensure the well-known root admin username is always allowed.
+  // Some legacy sessions or token flows may not set the isAdmin/isTrainer flags
+  // on the server response; allow access if the username matches the root admin.
+  const rootName = (typeof JEEBS_ROOT_ADMIN !== 'undefined') ? JEEBS_ROOT_ADMIN : '1090mb';
+  const localUser = (localStorage.getItem('jeebs_username') || '').toString();
+  const username = (auth && auth.username) || localUser || '';
+  const effectiveIsAdmin = (auth && auth.isAdmin) || (username === rootName);
+  const effectiveIsTrainer = (auth && auth.isTrainer) || (username === rootName);
+
+  if (!auth || !auth.loggedIn || (!effectiveIsAdmin && !effectiveIsTrainer)) {
     document.body.innerHTML = '<div class="shell" style="padding-top:60px"><h1>Server Status</h1><div class="card" style="margin-top:32px"><span class="text-danger">Access denied. Admin or Trainer required.</span></div></div>';
     throw new Error('Access denied');
   }
