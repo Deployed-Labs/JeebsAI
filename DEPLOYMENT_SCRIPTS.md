@@ -7,6 +7,7 @@
 | `push_to_main.sh` | Push to Git | **Local** | Commit changes and push to main branch |
 | `push_and_deploy.sh` | Full Deploy | **Local** | Push to git + deploy to VPS in one go |
 | `deploy_to_vps.sh` | VPS Deploy | **VPS** | Pull latest and rebuild on VPS |
+| `devline_release.sh` | Dev Release | **Local** | Commit to devline1 -> Merge Main -> Tag Release |
 
 ---
 

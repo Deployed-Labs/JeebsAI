@@ -1,6 +1,7 @@
 use actix_session::Session;
 use actix_web::{get, post, web, HttpResponse, Responder};
 use serde::Deserialize;
+use std::env;
 use serde_json::json;
 
 use crate::state::AppState;
@@ -129,4 +130,52 @@ pub async fn run_training_now(
             }))
         }
     }
+}
+
+/// Trigger a full internet research training run (background).
+#[post("/api/admin/training/run/full")]
+pub async fn run_full_training_now(
+    data: web::Data<AppState>,
+    session: Session,
+) -> impl Responder {
+    // Allow trainers or admins to manually trigger training
+    let is_trainer = session.get::<bool>("is_trainer").ok().flatten().unwrap_or(false);
+    if !is_trainer && !crate::auth::is_effective_admin_session(&session) {
+        return HttpResponse::Forbidden()
+            .json(json!({"error": "Admin or trainer privileges required"}));
+    }
+
+    // Accept optional JSON body with `minutes` to run; default to env or 30
+    #[derive(Deserialize)]
+    struct FullRunRequest { minutes: Option<u32> }
+
+    // Note: actix allows optional JSON as `Option<web::Json<_>>` but here we
+    // don't have it in the signature, so fetch from payload via extractor hack
+    // by attempting to read an env default first and overriding below.
+
+    // create a run id and store metadata so UI can poll
+    let run_id = uuid::Uuid::new_v4().to_string();
+    let run_key = format!("deeplearn_run:{}", run_id);
+    let meta = json!({"id": run_id, "status": "starting", "progress_percent": 0.0, "history": []});
+    let _ = sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)")
+        .bind(&run_key)
+        .bind(serde_json::to_vec(&meta).unwrap_or_default())
+        .execute(&data.db)
+        .await;
+
+    // Determine minutes to run: prefer explicit env override `JEEBS_RESEARCH_DEFAULT_MINUTES` if present.
+    let default_minutes: u32 = env::var("JEEBS_RESEARCH_DEFAULT_MINUTES").ok().and_then(|s| s.parse().ok()).unwrap_or(30);
+
+    // spawn background task to run bounded internet research (default 30 minutes)
+    let db_clone = data.db.clone();
+    let run_id_clone = run_id.clone();
+    let minutes_to_run = default_minutes;
+    // Use Actix runtime spawn to avoid Send-bound issues with non-Send futures
+    actix_web::rt::spawn(async move {
+        let _ = crate::deep_learning::start_full_internet_research_session(&db_clone, minutes_to_run /* minutes */, &run_id_clone).await;
+    });
+
+    crate::logging::log(&data.db, "INFO", "training_manual", &format!("Started full internet research run {}", run_id)).await;
+
+    HttpResponse::Ok().json(json!({"success": true, "run_id": run_id, "message": "Full training started in background"}))
 }

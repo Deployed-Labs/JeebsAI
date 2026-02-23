@@ -314,18 +314,22 @@ pub async fn start_full_internet_research_session(
     let session = start_deep_learning_session(db, "internet research").await?;
     let session_id = session.id.clone();
 
-    // Allowlist for seed URLs: prefer env var, then repository file, then fallback defaults
-    let allowlist = if let Ok(v) = env::var("JEEBS_RESEARCH_ALLOWLIST") {
-        v
-    } else if let Ok(s) = fs::read_to_string("./research_allowlist.txt") {
-        s.lines()
-            .map(|l| l.trim())
-            .filter(|l| !l.is_empty())
-            .collect::<Vec<_>>()
-            .join(",")
-    } else {
-        "https://en.wikipedia.org/wiki/Special:Random,https://arxiv.org".to_string()
+    // Allowlist for seed URLs: prefer non-empty env var, then repository file, then fallback defaults
+    let allowlist = match env::var("JEEBS_RESEARCH_ALLOWLIST").ok().map(|s| s.trim().to_string()) {
+        Some(v) if !v.is_empty() => v,
+        _ => {
+            if let Ok(s) = fs::read_to_string("./research_allowlist.txt") {
+                s.lines()
+                    .map(|l| l.trim())
+                    .filter(|l| !l.is_empty())
+                    .collect::<Vec<_>>()
+                    .join(",")
+            } else {
+                "https://en.wikipedia.org/wiki/Special:Random,https://arxiv.org".to_string()
+            }
+        }
     };
+
     let seeds: Vec<String> = allowlist
         .split(',')
         .map(|s| s.trim().to_string())
@@ -336,7 +340,10 @@ pub async fn start_full_internet_research_session(
         return Err("No allowlist seeds configured for internet research".to_string());
     }
 
-    let client = Client::builder().user_agent("JeebsAI-research-bot/1.0 (+https://example.com)").build().map_err(|e| e.to_string())?;
+    let client = Client::builder()
+        .user_agent("JeebsAI-research-bot/1.0 (+https://example.com)")
+        .build()
+        .map_err(|e| e.to_string())?;
 
     // configurable delay between top-level fetches (seconds)
     let delay_secs: u64 = env::var("JEEBS_RESEARCH_DELAY_SECS").ok().and_then(|s| s.parse().ok()).unwrap_or(5);
@@ -346,6 +353,10 @@ pub async fn start_full_internet_research_session(
     let iterations = ((minutes as u64) * 60) / delay_secs; // one top-level page per delay_secs
 
     for i in 0..iterations {
+        // Track recent sites and learned snippets so UI can poll them in near-real time
+        let mut recent_sites: Vec<String> = Vec::new();
+        let mut recent_facts: Vec<String> = Vec::new();
+
         // pick a random seed
         let mut rng = rand::thread_rng();
         let seed = seeds[rng.gen_range(0..seeds.len())].clone();
@@ -398,6 +409,10 @@ pub async fn start_full_internet_research_session(
                         let fact = format!("[auto-research:{}] {}", source, snippet);
                         let _ = add_learned_fact(db, &session_id, &fact, &format!("web:{}", source), 0.4).await;
 
+                        // record what we just fetched for UI polling
+                        recent_sites.push(source.clone());
+                        recent_facts.push(snippet.chars().take(300).collect::<String>());
+
                         // If this is the seed (first page), extract a few internal links to follow
                         if page_url == seed {
                             let link_selector = Selector::parse("a[href]").unwrap();
@@ -423,7 +438,7 @@ pub async fn start_full_internet_research_session(
             sleep(Duration::from_secs(1)).await;
         }
 
-        // update run metadata (progress) in jeebs_store if present
+        // update run metadata (progress) in jeebs_store if present, include recent sites/facts
         let run_key = format!("deeplearn_run:{}", run_id);
         if let Ok(Some(row)) = sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
             .bind(&run_key)
@@ -436,6 +451,14 @@ pub async fn start_full_internet_research_session(
             meta["last_update"] = serde_json::Value::String(chrono::Local::now().to_rfc3339());
             let entry = json!({"ts": chrono::Local::now().to_rfc3339(), "seed": seed, "progress_percent": pct});
             if meta.get("history").is_none() { meta["history"] = json!([entry]); } else if let Some(arr) = meta.get_mut("history") { if arr.is_array() { arr.as_array_mut().unwrap().push(entry); } }
+
+            // Attach most-recently seen sites and facts for the UI
+            if !recent_sites.is_empty() {
+                meta["last_websites"] = serde_json::Value::Array(recent_sites.iter().map(|s| serde_json::Value::String(s.clone())).collect());
+            }
+            if !recent_facts.is_empty() {
+                meta["last_learned_items"] = serde_json::Value::Array(recent_facts.iter().map(|s| serde_json::Value::String(s.clone())).collect());
+            }
             let _ = sqlx::query("UPDATE jeebs_store SET value = ? WHERE key = ?")
                 .bind(serde_json::to_vec(&meta).unwrap_or_default())
                 .bind(&run_key)
