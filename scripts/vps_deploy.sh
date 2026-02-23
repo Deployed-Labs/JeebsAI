@@ -11,14 +11,16 @@ SERVICE_NAME=${3:-jeebs}
 GITHUB_REPO=${4:-Deployed-Labs/JeebsAI}
 USE_RELEASE=${USE_RELEASE:-1}
 
-# If ARG looks like a tag (starts with v or contains '-'), prefer release download when available
+# Treat first arg as branch or tag
 BRANCH="$ARG"
 
-echo "Deploying branch '$BRANCH' into $DEPLOY_DIR and restarting service '$SERVICE_NAME'"
+echo "Deploying branch/tag '$BRANCH' into $DEPLOY_DIR and ensuring service '$SERVICE_NAME' is running"
 
-if [ ! -d "$DEPLOY_DIR" ]; then
-  echo "Error: deploy dir '$DEPLOY_DIR' does not exist." >&2
-  exit 2
+mkdir -p "$(dirname "$DEPLOY_DIR")"
+
+if [ ! -d "$DEPLOY_DIR" ] || [ -z "$(ls -A "$DEPLOY_DIR")" ]; then
+  echo "Cloning repository into $DEPLOY_DIR"
+  git clone --depth 1 "https://github.com/$GITHUB_REPO.git" "$DEPLOY_DIR"
 fi
 
 cd "$DEPLOY_DIR"
@@ -31,58 +33,78 @@ fi
 
 git fetch --all --prune
 
-# Checkout the branch (create local tracking branch if needed)
-if git rev-parse --verify --quiet "$BRANCH" >/dev/null; then
-  git checkout "$BRANCH"
-else
+# Checkout or create a local branch/tracking branch for BRANCH
+if git rev-parse --verify --quiet "origin/$BRANCH" >/dev/null 2>&1; then
   git checkout -B "$BRANCH" "origin/$BRANCH"
-fi
-
-# Reset to remote
-
-# If using release assets, try downloading the release matching BRANCH (tag)
-if [ "$USE_RELEASE" = "1" ]; then
-  echo "Attempting to download release for tag: $BRANCH"
-  if command -v gh >/dev/null 2>&1; then
-    set +e
-    gh release download "$BRANCH" --repo "$GITHUB_REPO" -p "jeebs-*.tar.gz" -D . 2>/dev/null
-    rc=$?
-    set -e
-    if [ $rc -eq 0 ]; then
-      ARCHIVE=$(ls jeebs-*.tar.gz 2>/dev/null | head -n1 || true)
-      if [ -n "$ARCHIVE" ]; then
-        echo "Found release archive: $ARCHIVE"
-        tar -xzf "$ARCHIVE" -C .
-        if [ -f jeebs ]; then
-          mv jeebs target/release/jeebs || true
-        fi
-      fi
-    else
-      echo "No release asset found via gh for $BRANCH, falling back to git pull"
-    fi
+else
+  # If tag exists locally or remotely, check it out detached
+  if git rev-parse --verify --quiet "$BRANCH" >/dev/null 2>&1 || git ls-remote --tags origin | grep -q "refs/tags/$BRANCH$"; then
+    git checkout "$BRANCH" || git checkout --detach "origin/$BRANCH" || true
   else
-    echo "gh CLI not available on VPS; falling back to git pull"
+    echo "Branch or tag '$BRANCH' not found on origin; defaulting to origin/main"
+    git checkout -B main "origin/main"
+    BRANCH=main
   fi
 fi
 
-# If we don't have a release artifact, update from git
-if [ ! -f target/release/jeebs ]; then
-  echo "No release binary present; updating git branch $BRANCH"
-  git fetch --all --prune
-  if git rev-parse --verify --quiet "$BRANCH" >/dev/null; then
-    git checkout "$BRANCH"
-  else
-    git checkout -B "$BRANCH" "origin/$BRANCH"
-  fi
+# Reset to exact origin state for the branch if possible
+if git rev-parse --verify --quiet "origin/$BRANCH" >/dev/null 2>&1; then
   git reset --hard "origin/$BRANCH"
-  if [ -f Cargo.toml ]; then
-    echo "Building release (cargo build --release)"
-    cargo build --release
-  fi
 fi
 
-echo "Reloading systemd and restarting service: $SERVICE_NAME"
+# Ensure environment file exists for systemd service
+if [ ! -f /etc/jeebs.env ]; then
+  echo "Creating /etc/jeebs.env with random SESSION_KEY_B64"
+  SESSION_KEY_B64=$(head -c 24 /dev/urandom | base64 | tr -d '\n')
+  echo "SESSION_KEY_B64=$SESSION_KEY_B64" > /etc/jeebs.env
+  chmod 600 /etc/jeebs.env || true
+fi
+
+# Build from source on the VPS
+if [ -f Cargo.toml ]; then
+  echo "Building release on VPS (cargo build --release)"
+  cargo build --release
+fi
+
+# Verify binary
+BINARY_PATH="$DEPLOY_DIR/target/release/jeebs"
+if [ ! -f "$BINARY_PATH" ]; then
+  echo "Build failed or binary not found at $BINARY_PATH" >&2
+  exit 4
+fi
+
+# Install or update systemd unit
+SERVICE_PATH="/etc/systemd/system/$SERVICE_NAME.service"
+if [ -f deploy/jeebs.service ]; then
+  echo "Installing service unit from deploy/jeebs.service -> $SERVICE_PATH"
+  cp deploy/jeebs.service "$SERVICE_PATH"
+else
+  echo "Writing minimal systemd unit to $SERVICE_PATH"
+  cat > "$SERVICE_PATH" <<EOF
+[Unit]
+Description=JeebsAI service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=$DEPLOY_DIR
+EnvironmentFile=/etc/jeebs.env
+ExecStart=$BINARY_PATH
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target
+EOF
+fi
+
+chmod 644 "$SERVICE_PATH" || true
 systemctl daemon-reload || true
+systemctl enable "$SERVICE_NAME" || true
+
+echo "Restarting service: $SERVICE_NAME"
 systemctl restart "$SERVICE_NAME"
 
 sleep 1
