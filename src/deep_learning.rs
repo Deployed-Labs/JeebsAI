@@ -367,7 +367,7 @@ pub async fn start_full_internet_research_session(
                                     let path = l[9..].trim();
                                     if path == "/" {
                                         // skip this domain entirely
-                                        crate::logging::log(&db, "WARN", "research", &format!("Skipping domain {} due to robots.txt", host)).await.ok();
+                                        let _ = crate::logging::log(&db, "WARN", "research", &format!("Skipping domain {} due to robots.txt", host)).await;
                                         continue;
                                     }
                                 }
