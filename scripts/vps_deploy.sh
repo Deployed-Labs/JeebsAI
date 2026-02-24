@@ -4,12 +4,11 @@ set -euo pipefail
 # VPS deploy script: pull a branch, build (if present), and restart systemd service.
 # Usage on VPS: sudo ./scripts/vps_deploy.sh [branch] [deploy_dir]
 
-# Can accept: branch or tag. If TAG_RELEASE=true we'll treat first arg as a release tag.
+# Can accept: branch or tag.
 ARG=${1:-main}
 DEPLOY_DIR=${2:-/root/JeebsAI}
 SERVICE_NAME=${3:-jeebs}
 GITHUB_REPO=${4:-Deployed-Labs/JeebsAI}
-USE_RELEASE=${USE_RELEASE:-1}
 
 # Treat first arg as branch or tag
 BRANCH="$ARG"
@@ -60,66 +59,22 @@ if [ ! -f /etc/jeebs.env ]; then
   chmod 600 /etc/jeebs.env || true
 fi
 
-# Attempt to fetch the latest release asset (preferred) when USE_RELEASE=1
-ARCHIVE=""
-if [ "$USE_RELEASE" = "1" ]; then
-  echo "Attempting to download latest release for $GITHUB_REPO"
-  if command -v gh >/dev/null 2>&1; then
-    set +e
-    gh release download --repo "$GITHUB_REPO" --pattern "jeebs-*.tar.gz" --latest -D . 2>/dev/null
-    rc=$?
-    set -e
-    if [ $rc -eq 0 ]; then
-      ARCHIVE=$(ls jeebs-*.tar.gz 2>/dev/null | head -n1 || true)
-    fi
-  else
-    # Use GitHub API to find a matching asset
-    api_url="https://api.github.com/repos/$GITHUB_REPO/releases/latest"
-    echo "Querying $api_url"
-    if json=$(curl -sSfL "$api_url"); then
-      url=$(echo "$json" | grep -Eo '"browser_download_url": *"[^"]+' | sed -E 's/.*"([^"]+)$/\1/' | grep 'jeebs-.*\.tar\.gz' | head -n1 || true)
-      if [ -n "$url" ]; then
-        fname=$(basename "$url")
-        echo "Downloading $url -> $fname"
-        curl -L -o "$fname" "$url"
-        ARCHIVE="$fname"
-      fi
-    fi
-  fi
-fi
-
-# If we got an archive, extract binary to deploy dir
 BINARY_PATH="$DEPLOY_DIR/jeebs"
-if [ -n "$ARCHIVE" ] && [ -f "$ARCHIVE" ]; then
-  echo "Extracting release archive: $ARCHIVE"
-  tar -xzf "$ARCHIVE" -C . || true
-  # Possible locations
-  if [ -f jeebs ]; then
-    mv -f jeebs "$BINARY_PATH" || true
-  elif [ -f target/release/jeebs ]; then
-    mv -f target/release/jeebs "$BINARY_PATH" || true
-  else
-    # find any matching file
-    found=$(find . -type f -name 'jeebs' -print -quit || true)
-    if [ -n "$found" ]; then
-      mv -f "$found" "$BINARY_PATH" || true
-    fi
-  fi
-fi
 
-# If no binary present from release, build from source
-if [ ! -f "$BINARY_PATH" ]; then
-  if [ -f Cargo.toml ]; then
-    echo "No release binary; building on VPS (cargo build --release)"
-    cargo build --release
-    if [ -f target/release/jeebs ]; then
-      mv -f target/release/jeebs "$BINARY_PATH" || true
-    fi
+if [ -f Cargo.toml ]; then
+  echo "Building on VPS (cargo build --release)"
+  # Optionally you might want to run `cargo clean` if space/cache is an issue, but usually it's better to keep it
+  cargo build --release
+  if [ -f target/release/jeebs ]; then
+    cp -f target/release/jeebs "$BINARY_PATH" || true
   fi
+else
+  echo "Error: Cargo.toml not found in $DEPLOY_DIR, cannot build!" >&2
+  exit 4
 fi
 
 if [ ! -f "$BINARY_PATH" ]; then
-  echo "Error: binary not found at $BINARY_PATH after release download/build" >&2
+  echo "Error: binary not found at $BINARY_PATH after build" >&2
   exit 4
 fi
 

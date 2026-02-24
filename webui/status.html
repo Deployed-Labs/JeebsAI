@@ -1,261 +1,532 @@
 <!doctype html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Server Status — JeebsAI</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="/webui/style.css"/>
-<style>
-.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
-.stat-box{background:var(--bg-1);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;transition:border-color .2s}
-.stat-box:hover{border-color:var(--accent)}
-.stat-label{font-size:.75em;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:6px}
-.stat-value{font-family:'JetBrains Mono',monospace;font-size:1.4em;font-weight:700;color:var(--text)}
-.stat-value.accent{color:var(--accent)}
-.progress-bar{height:8px;border-radius:4px;background:var(--bg-2);overflow:hidden;margin-top:8px}
-.progress-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--accent),#3bbef0);transition:width .6s ease}
-.progress-fill.warn{background:linear-gradient(90deg,#f5a623,#e74c3c)}
-.feature-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;font-size:.85em;font-weight:600;border:1px solid var(--border)}
-.feature-pill .dot{width:8px;height:8px;border-radius:50%}
-.feature-pill.on .dot{background:var(--accent);box-shadow:0 0 6px var(--accent)}
-.feature-pill.off .dot{background:var(--danger)}
-.session-row{display:grid;grid-template-columns:1fr 1fr 2fr auto;gap:8px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--border);font-size:.85em}
-.session-row:last-child{border-bottom:none}
-.session-header{font-weight:600;color:var(--text-muted);font-size:.75em;text-transform:uppercase;letter-spacing:.06em}
-.session-user{font-weight:600;color:var(--accent)}
-.session-ip{font-family:'JetBrains Mono',monospace;color:var(--text-muted);font-size:.82em}
-.kick-btn{background:transparent;border:1px solid var(--danger);color:var(--danger);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:.78em;font-weight:600;transition:all .2s}
-.kick-btn:hover{background:var(--danger);color:#fff}
-.health-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:16px;font-weight:600;font-size:.9em}
-.health-badge.ok{background:rgba(83,216,251,.12);color:var(--accent)}
-.health-badge.degraded{background:rgba(231,76,60,.12);color:var(--danger)}
-.pulse{animation:pulse 2s ease-in-out infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-.refresh-info{display:flex;align-items:center;gap:8px;color:var(--text-muted);font-size:.8em}
-.refresh-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 2s ease-in-out infinite}
-@media(max-width:600px){
-  .stat-grid{grid-template-columns:repeat(2,1fr)}
-  .session-row{grid-template-columns:1fr 1fr;gap:4px}
-  .session-row .ua-col{display:none}
-}
-</style>
-</head>
-<body>
-<nav id="topnav"></nav>
-<div class="shell" style="padding-top:60px;max-width:900px">
-  <div class="card card-glow" style="margin-bottom:24px;">
-    <h1 style="margin-bottom:8px">JeebsAI System Overview</h1>
-    <p class="text-muted">Facts and stats about how JeebsAI works.</p>
-  </div>
-  <div class="card" style="margin-bottom:24px">
-    <h3>Core Architecture</h3>
-    <ul class="data-list">
-      <li class="data-list-item"><span>Language</span><span>Rust (backend), HTML/JS/CSS (frontend)</span></li>
-      <li class="data-list-item"><span>Framework</span><span>Actix-Web (API server)</span></li>
-      <li class="data-list-item"><span>Database</span><span>SQLite (default), supports Postgres</span></li>
-      <li class="data-list-item"><span>Frontend</span><span>Custom SPA, unified design system</span></li>
-      <li class="data-list-item"><span>Deployment</span><span>Docker, systemd, GitHub Actions</span></li>
-    </ul>
-  </div>
-  <div class="card" style="margin-bottom:24px">
-    <h3>Key Features</h3>
-    <ul class="data-list">
-      <li class="data-list-item"><span>Training System</span><span>Unified, robust, live log, background runs</span></li>
-      <li class="data-list-item"><span>Knowledge Graph</span><span>Fact storage, brain search, visualization</span></li>
-      <li class="data-list-item"><span>Reasoning Engine</span><span>Logic graph, proposals, self-evolution</span></li>
-      <li class="data-list-item"><span>Admin Tools</span><span>Internet toggle, user/session management, logs</span></li>
-      <li class="data-list-item"><span>Access Control</span><span>Role-based (admin, trainer, 1090mb, user)</span></li>
-      <li class="data-list-item"><span>Live Monitoring</span><span>Status, sessions, stats, health checks</span></li>
-    </ul>
-  </div>
-  <div class="card" style="margin-bottom:24px">
-    <h3>Current Stats</h3>
-    <ul class="data-list">
-      <li class="data-list-item"><span>Brain Nodes</span><span id="stat-brain-nodes">Loading...</span></li>
-      <li class="data-list-item"><span>Learned Facts</span><span id="stat-learned-facts">Loading...</span></li>
-      <li class="data-list-item"><span>Active Sessions</span><span id="stat-active-sessions">Loading...</span></li>
-      <li class="data-list-item"><span>Chats (24h)</span><span id="stat-chats-24h">Loading...</span></li>
-      <li class="data-list-item"><span>Proposals</span><span id="stat-proposals">Loading...</span></li>
-      <li class="data-list-item"><span>Think Cycles</span><span id="stat-cycles">Loading...</span></li>
-      <li class="data-list-item"><span>Warnings</span><span id="stat-warnings">Loading...</span></li>
-      <li class="data-list-item"><span>Errors</span><span id="stat-errors">Loading...</span></li>
-    </ul>
-  </div>
-  <div class="card">
-    <h3>Fun Facts</h3>
-    <ul class="data-list">
-      <li class="data-list-item"><span>First Commit</span><span>2024-01-01</span></li>
-      <li class="data-list-item"><span>Default Admin</span><span>1090mb</span></li>
-      <li class="data-list-item"><span>Open Source</span><span>github.com/Deployed-Labs/JeebsAI</span></li>
-      <li class="data-list-item"><span>Logo</span><span>&#129302; (JeebsAI Orb)</span></li>
-    </ul>
-  </div>
-
-  <!-- Health Status -->
-  <div class="card card-glow" id="health-card" style="margin-bottom:16px">
-    <div style="display:flex;align-items:center;justify-content:between;gap:12px">
-      <span id="health-icon" style="font-size:1.6em">
-        <div class="spinner" style="width:24px;height:24px;margin:0"></div>
-      </span>
-      <div style="flex:1">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <span id="health-badge" class="health-badge">Checking...</span>
-          <span id="health-db" class="text-muted" style="font-size:.82em"></span>
-        </div>
-        <div id="health-time" class="text-muted" style="font-size:.78em;margin-top:2px"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- System Metrics -->
-  <div class="card" id="metrics-card" style="margin-bottom:16px">
-    <h3 style="margin-top:0;margin-bottom:14px">System Metrics</h3>
-    <div class="stat-grid" id="metrics-grid">
-      <div class="stat-box"><div class="stat-label">Uptime</div><div class="stat-value" id="s-uptime">—</div></div>
-      <div class="stat-box"><div class="stat-label">CPUs</div><div class="stat-value" id="s-cpu">—</div></div>
-      <div class="stat-box"><div class="stat-label">Memory Used</div><div class="stat-value" id="s-mem-used">—</div></div>
-      <div class="stat-box"><div class="stat-label">Memory Total</div><div class="stat-value" id="s-mem-total">—</div></div>
-      <div class="stat-box" style="grid-column:1/-1">
-        <div style="display:flex;justify-content:space-between;align-items:baseline">
-          <div class="stat-label">Memory Usage</div>
-          <div class="stat-value" id="s-mem-pct" style="font-size:1em">—</div>
-        </div>
-        <div class="progress-bar"><div class="progress-fill" id="mem-bar" style="width:0%"></div></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Database Stats -->
-  <div class="card" id="db-card" style="margin-bottom:16px">
-    <h3 style="margin-top:0;margin-bottom:14px">Database</h3>
-    <div class="stat-grid">
-      <div class="stat-box"><div class="stat-label">Brain Nodes</div><div class="stat-value accent" id="s-brain">—</div></div>
-      <div class="stat-box"><div class="stat-label">Knowledge</div><div class="stat-value accent" id="s-knowledge">—</div></div>
-      <div class="stat-box"><div class="stat-label">Store Entries</div><div class="stat-value" id="s-store">—</div></div>
-      <div class="stat-box"><div class="stat-label">System Logs</div><div class="stat-value" id="s-logs">—</div></div>
-      <div class="stat-box"><div class="stat-label">Anomalies</div><div class="stat-value" id="s-anomalies">—</div></div>
-    </div>
-  </div>
-
-  <!-- Feature Toggles -->
-  <div class="card" id="features-card" style="margin-bottom:16px">
-    <h3 style="margin-top:0;margin-bottom:14px">Features</h3>
-    <div style="display:flex;gap:12px;flex-wrap:wrap" id="feature-pills">
-      <span class="feature-pill off" id="f-internet"><span class="dot"></span>Internet</span>
-      <span class="feature-pill off" id="f-training"><span class="dot"></span>Training</span>
-    </div>
-  </div>
-
-  <!-- Active Sessions -->
-  <div class="card" id="sessions-card" style="margin-bottom:16px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <h3 style="margin:0">Active Sessions <span id="session-count" class="text-muted" style="font-size:.7em;font-weight:400"></span></h3>
-    </div>
-    <div id="sessions-list">
-      <div class="text-muted" style="text-align:center;padding:20px">Loading...</div>
-    </div>
-  </div>
-
-  <!-- Footer links -->
-  <div class="card" style="margin-bottom:32px">
-    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-      <a href="/webui/admin_dashboard.html" class="btn btn-ghost">Admin Dashboard</a>
-      <a href="/webui/evolution.html" class="btn btn-ghost">Evolution</a>
-      <a href="/webui/logs.html" class="btn btn-ghost">Logs</a>
-    </div>
-  </div>
-</div>
-
-<script src="/webui/auth.js"></script>
-<script src="/webui/nav.js"></script>
-<script>
-JeebsNav.init('status');
-
-// Access control for 1090mb, admin, trainer
-async function checkAccess() {
-  // require trainer role (allows trainers and root admin)
-  const auth = await requireAuth('trainer');
-
-  // Client-side fallback: ensure the well-known root admin username is always allowed.
-  // Some legacy sessions or token flows may not set the isAdmin/isTrainer flags
-  // on the server response; allow access if the username matches the root admin.
-  const rootName = (typeof JEEBS_ROOT_ADMIN !== 'undefined') ? JEEBS_ROOT_ADMIN : '1090mb';
-  const localUser = (localStorage.getItem('jeebs_username') || '').toString();
-  const username = (auth && auth.username) || localUser || '';
-  const effectiveIsAdmin = (auth && auth.isAdmin) || (username === rootName);
-  const effectiveIsTrainer = (auth && auth.isTrainer) || (username === rootName);
-
-  if (!auth || !auth.loggedIn || (!effectiveIsAdmin && !effectiveIsTrainer)) {
-    document.body.innerHTML = '<div class="shell" style="padding-top:60px"><h1>Server Status</h1><div class="card" style="margin-top:32px"><span class="text-danger">Access denied. Admin or Trainer required.</span></div></div>';
-    throw new Error('Access denied');
-  }
-}
-checkAccess().then(()=>{
-  loadStats();
-  // also load debug session info
-  loadSessionDebug();
-});
-
-// Try to fetch stats, fallback to static if unavailable
-async function loadStats(){
-  try {
-    let res = await safeFetch('/api/evolution/metrics', {credentials:'same-origin',headers:authHeaders()});
-    if(res.ok){
-      let d = await res.json();
-      document.getElementById('stat-brain-nodes').textContent = d.brain_nodes||'-';
-      document.getElementById('stat-learned-facts').textContent = d.learned_facts||'-';
-      document.getElementById('stat-active-sessions').textContent = d.active_sessions||'-';
-      document.getElementById('stat-chats-24h').textContent = d.chats_24h||'-';
-      document.getElementById('stat-proposals').textContent = d.proposals||'-';
-      document.getElementById('stat-cycles').textContent = d.cycles||'-';
-      document.getElementById('stat-warnings').textContent = d.warnings||'-';
-      document.getElementById('stat-errors').textContent = d.errors||'-';
-      return;
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>Server Status — JeebsAI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="/webui/style.css" />
+  <style>
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 12px
     }
-  } catch(e){}
-  // fallback static
-  document.getElementById('stat-brain-nodes').textContent = '1,234';
-  document.getElementById('stat-learned-facts').textContent = '8,765';
-  document.getElementById('stat-active-sessions').textContent = '3';
-  document.getElementById('stat-chats-24h').textContent = '142';
-  document.getElementById('stat-proposals').textContent = '12';
-  document.getElementById('stat-cycles').textContent = '2,345';
-  document.getElementById('stat-warnings').textContent = '0';
-  document.getElementById('stat-errors').textContent = '0';
-}
-</script>
-<script>
-// Debug panel: fetch session info and server stats
-async function loadSessionDebug(){
-  try{
-    // create panel
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.style.marginBottom = '24px';
-    card.innerHTML = `<h3>Session Debug</h3><div style="font-size:.9em;color:var(--text-muted);margin-bottom:8px">Shows the raw session/identity information returned by the server for debugging.</div><pre id="session-json" style="white-space:pre-wrap;background:var(--bg-1);padding:12px;border-radius:8px;border:1px solid var(--border);">Loading...</pre><div style="margin-top:8px"><button id="refresh-session-btn" class="btn btn-ghost">Refresh</button></div>`;
-    const shell = document.querySelector('.shell');
-    if (shell) shell.insertBefore(card, shell.firstChild.nextSibling);
 
-    async function fetchAndRender(){
-      try{
-        const [sres, statsres] = await Promise.all([
-          fetch('/api/auth/session', {credentials:'same-origin'}),
-          fetch('/api/server/stats', {credentials:'same-origin'})
-        ]);
-        const sjson = sres.ok ? await sres.json() : {error: 'session endpoint not available', status: sres.status};
-        const stjson = statsres.ok ? await statsres.json() : {error: 'stats endpoint not available', status: statsres.status};
-        document.getElementById('session-json').textContent = JSON.stringify({session: sjson, server_stats: stjson}, null, 2);
-      }catch(e){
-        document.getElementById('session-json').textContent = 'Failed to fetch debug info: '+String(e);
+    .stat-box {
+      background: var(--bg-1);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+      transition: border-color .2s
+    }
+
+    .stat-box:hover {
+      border-color: var(--accent)
+    }
+
+    .stat-label {
+      font-size: .75em;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--text-muted);
+      margin-bottom: 6px
+    }
+
+    .stat-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.4em;
+      font-weight: 700;
+      color: var(--text)
+    }
+
+    .stat-value.accent {
+      color: var(--accent)
+    }
+
+    .progress-bar {
+      height: 8px;
+      border-radius: 4px;
+      background: var(--bg-2);
+      overflow: hidden;
+      margin-top: 8px
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 4px;
+      background: linear-gradient(90deg, var(--accent), #3bbef0);
+      transition: width .6s ease
+    }
+
+    .progress-fill.warn {
+      background: linear-gradient(90deg, #f5a623, #e74c3c)
+    }
+
+    .feature-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: .85em;
+      font-weight: 600;
+      border: 1px solid var(--border)
+    }
+
+    .feature-pill .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%
+    }
+
+    .feature-pill.on .dot {
+      background: var(--accent);
+      box-shadow: 0 0 6px var(--accent)
+    }
+
+    .feature-pill.off .dot {
+      background: var(--danger)
+    }
+
+    .session-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 2fr auto;
+      gap: 8px;
+      align-items: center;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: .85em
+    }
+
+    .session-row:last-child {
+      border-bottom: none
+    }
+
+    .session-header {
+      font-weight: 600;
+      color: var(--text-muted);
+      font-size: .75em;
+      text-transform: uppercase;
+      letter-spacing: .06em
+    }
+
+    .session-user {
+      font-weight: 600;
+      color: var(--accent)
+    }
+
+    .session-ip {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-muted);
+      font-size: .82em
+    }
+
+    .kick-btn {
+      background: transparent;
+      border: 1px solid var(--danger);
+      color: var(--danger);
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: .78em;
+      font-weight: 600;
+      transition: all .2s
+    }
+
+    .kick-btn:hover {
+      background: var(--danger);
+      color: #fff
+    }
+
+    .health-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 16px;
+      font-weight: 600;
+      font-size: .9em
+    }
+
+    .health-badge.ok {
+      background: rgba(83, 216, 251, .12);
+      color: var(--accent)
+    }
+
+    .health-badge.degraded {
+      background: rgba(231, 76, 60, .12);
+      color: var(--danger)
+    }
+
+    .pulse {
+      animation: pulse 2s ease-in-out infinite
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .5
       }
     }
 
-    document.getElementById('refresh-session-btn').addEventListener('click', fetchAndRender);
-    fetchAndRender();
-  }catch(e){console.warn('loadSessionDebug failed', e)}
-}
-</script>
+    .refresh-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-muted);
+      font-size: .8em
+    }
+
+    .refresh-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 2s ease-in-out infinite
+    }
+
+    @media(max-width:600px) {
+      .stat-grid {
+        grid-template-columns: repeat(2, 1fr)
+      }
+
+      .session-row {
+        grid-template-columns: 1fr 1fr;
+        gap: 4px
+      }
+
+      .session-row .ua-col {
+        display: none
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <nav id="topnav"></nav>
+  <div class="shell" style="padding-top:60px;max-width:900px">
+    <div class="card card-glow" style="margin-bottom:24px;">
+      <h1 style="margin-bottom:8px">JeebsAI System Overview</h1>
+      <p class="text-muted">Facts and stats about how JeebsAI works.</p>
+    </div>
+    <div class="card" style="margin-bottom:24px">
+      <h3>Core Architecture</h3>
+      <ul class="data-list">
+        <li class="data-list-item"><span>Language</span><span>Rust (backend), HTML/JS/CSS (frontend)</span></li>
+        <li class="data-list-item"><span>Framework</span><span>Actix-Web (API server)</span></li>
+        <li class="data-list-item"><span>Database</span><span>SQLite (default), supports Postgres</span></li>
+        <li class="data-list-item"><span>Frontend</span><span>Custom SPA, unified design system</span></li>
+        <li class="data-list-item"><span>Deployment</span><span>Docker, systemd, GitHub Actions</span></li>
+      </ul>
+    </div>
+    <div class="card" style="margin-bottom:24px">
+      <h3>Key Features</h3>
+      <ul class="data-list">
+        <li class="data-list-item"><span>Training System</span><span>Unified, robust, live log, background runs</span>
+        </li>
+        <li class="data-list-item"><span>Knowledge Graph</span><span>Fact storage, brain search, visualization</span>
+        </li>
+        <li class="data-list-item"><span>Reasoning Engine</span><span>Logic graph, proposals, self-evolution</span></li>
+        <li class="data-list-item"><span>Admin Tools</span><span>Internet toggle, user/session management, logs</span>
+        </li>
+        <li class="data-list-item"><span>Access Control</span><span>Role-based (admin, trainer, 1090mb, user)</span>
+        </li>
+        <li class="data-list-item"><span>Live Monitoring</span><span>Status, sessions, stats, health checks</span></li>
+      </ul>
+    </div>
+    <div class="card" style="margin-bottom:24px">
+      <h3>Current Stats</h3>
+      <ul class="data-list">
+        <li class="data-list-item"><span>Brain Nodes</span><span id="stat-brain-nodes">Loading...</span></li>
+        <li class="data-list-item"><span>Learned Facts</span><span id="stat-learned-facts">Loading...</span></li>
+        <li class="data-list-item"><span>Active Sessions</span><span id="stat-active-sessions">Loading...</span></li>
+        <li class="data-list-item"><span>Chats (24h)</span><span id="stat-chats-24h">Loading...</span></li>
+        <li class="data-list-item"><span>Proposals</span><span id="stat-proposals">Loading...</span></li>
+        <li class="data-list-item"><span>Think Cycles</span><span id="stat-cycles">Loading...</span></li>
+        <li class="data-list-item"><span>Warnings</span><span id="stat-warnings">Loading...</span></li>
+        <li class="data-list-item"><span>Errors</span><span id="stat-errors">Loading...</span></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Fun Facts</h3>
+      <ul class="data-list">
+        <li class="data-list-item"><span>First Commit</span><span>2024-01-01</span></li>
+        <li class="data-list-item"><span>Default Admin</span><span>1090mb</span></li>
+        <li class="data-list-item"><span>Open Source</span><span>github.com/Deployed-Labs/JeebsAI</span></li>
+        <li class="data-list-item"><span>Logo</span><span>&#129302; (JeebsAI Orb)</span></li>
+      </ul>
+    </div>
+
+    <!-- Health Status -->
+    <div class="card card-glow" id="health-card" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:between;gap:12px">
+        <span id="health-icon" style="font-size:1.6em">
+          <div class="spinner" style="width:24px;height:24px;margin:0"></div>
+        </span>
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span id="health-badge" class="health-badge">Checking...</span>
+            <span id="health-db" class="text-muted" style="font-size:.82em"></span>
+          </div>
+          <div id="health-time" class="text-muted" style="font-size:.78em;margin-top:2px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- System Metrics -->
+    <div class="card" id="metrics-card" style="margin-bottom:16px">
+      <h3 style="margin-top:0;margin-bottom:14px">System Metrics</h3>
+      <div class="stat-grid" id="metrics-grid">
+        <div class="stat-box">
+          <div class="stat-label">Uptime</div>
+          <div class="stat-value" id="s-uptime">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">CPUs</div>
+          <div class="stat-value" id="s-cpu">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Memory Used</div>
+          <div class="stat-value" id="s-mem-used">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Memory Total</div>
+          <div class="stat-value" id="s-mem-total">—</div>
+        </div>
+        <div class="stat-box" style="grid-column:1/-1">
+          <div style="display:flex;justify-content:space-between;align-items:baseline">
+            <div class="stat-label">Memory Usage</div>
+            <div class="stat-value" id="s-mem-pct" style="font-size:1em">—</div>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="mem-bar" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Database Stats -->
+    <div class="card" id="db-card" style="margin-bottom:16px">
+      <h3 style="margin-top:0;margin-bottom:14px">Database</h3>
+      <div class="stat-grid">
+        <div class="stat-box">
+          <div class="stat-label">Brain Nodes</div>
+          <div class="stat-value accent" id="s-brain">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Knowledge</div>
+          <div class="stat-value accent" id="s-knowledge">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Store Entries</div>
+          <div class="stat-value" id="s-store">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">System Logs</div>
+          <div class="stat-value" id="s-logs">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Anomalies</div>
+          <div class="stat-value" id="s-anomalies">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feature Toggles -->
+    <div class="card" id="features-card" style="margin-bottom:16px">
+      <h3 style="margin-top:0;margin-bottom:14px">Features</h3>
+      <div style="display:flex;gap:12px;flex-wrap:wrap" id="feature-pills">
+        <span class="feature-pill off" id="f-internet"><span class="dot"></span>Internet</span>
+        <span class="feature-pill off" id="f-training"><span class="dot"></span>Training</span>
+      </div>
+    </div>
+
+    <!-- Active Sessions -->
+    <div class="card" id="sessions-card" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <h3 style="margin:0">Active Sessions <span id="session-count" class="text-muted"
+            style="font-size:.7em;font-weight:400"></span></h3>
+      </div>
+      <div id="sessions-list">
+        <div class="text-muted" style="text-align:center;padding:20px">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Footer links -->
+    <div class="card" style="margin-bottom:32px">
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+        <a href="/webui/admin_dashboard.html" class="btn btn-ghost">Admin Dashboard</a>
+        <a href="/webui/evolution.html" class="btn btn-ghost">Evolution</a>
+        <a href="/webui/logs.html" class="btn btn-ghost">Logs</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="/webui/auth.js"></script>
+  <script src="/webui/nav.js"></script>
+  <script>
+    JeebsNav.init('status');
+
+    // Access control for 1090mb, admin, trainer
+    async function checkAccess() {
+      // require trainer role (allows trainers and root admin)
+      const auth = await requireAuth('trainer');
+
+      // Client-side fallback: ensure the well-known root admin username is always allowed.
+      // Some legacy sessions or token flows may not set the isAdmin/isTrainer flags
+      // on the server response; allow access if the username matches the root admin.
+      const rootName = (typeof JEEBS_ROOT_ADMIN !== 'undefined') ? JEEBS_ROOT_ADMIN : '1090mb';
+      const localUser = (localStorage.getItem('jeebs_username') || '').toString();
+      const username = (auth && auth.username) || localUser || '';
+      const effectiveIsAdmin = (auth && auth.isAdmin) || (username === rootName);
+      const effectiveIsTrainer = (auth && auth.isTrainer) || (username === rootName);
+
+      if (!auth || !auth.loggedIn || (!effectiveIsAdmin && !effectiveIsTrainer)) {
+        document.body.innerHTML = '<div class="shell" style="padding-top:60px"><h1>Server Status</h1><div class="card" style="margin-top:32px"><span class="text-danger">Access denied. Admin or Trainer required.</span></div></div>';
+        throw new Error('Access denied');
+      }
+    }
+    checkAccess().then(() => {
+      loadStats();
+      loadSystemMetrics();
+      // also load debug session info
+      loadSessionDebug();
+    });
+
+    // Try to fetch stats, fallback to static if unavailable
+    async function loadStats() {
+      try {
+        let res = await safeFetch('/api/evolution/stats', { credentials: 'same-origin', headers: authHeaders() });
+        if (res.ok) {
+          let d = await res.json();
+          document.getElementById('stat-brain-nodes').textContent = d.brain.nodes || '-';
+          document.getElementById('stat-learned-facts').textContent = d.brain.learned_facts || '-';
+          document.getElementById('stat-chats-24h').textContent = d.brain.chat_logs_24h || '-';
+          document.getElementById('stat-proposals').textContent = d.proposals.total || '-';
+          document.getElementById('stat-cycles').textContent = d.thinker.total_cycles || '-';
+          document.getElementById('stat-warnings').textContent = d.brain.warnings_24h || '-';
+          document.getElementById('stat-errors').textContent = d.brain.errors_24h || '-';
+          return;
+        }
+      } catch (e) { }
+      // fallback static
+      document.getElementById('stat-brain-nodes').textContent = '1,234';
+      document.getElementById('stat-learned-facts').textContent = '8,765';
+      document.getElementById('stat-chats-24h').textContent = '142';
+      document.getElementById('stat-proposals').textContent = '12';
+      document.getElementById('stat-cycles').textContent = '2,345';
+      document.getElementById('stat-warnings').textContent = '0';
+      document.getElementById('stat-errors').textContent = '0';
+    }
+
+    async function loadSystemMetrics() {
+      try {
+        let res = await safeFetch('/api/server/stats', { credentials: 'same-origin', headers: authHeaders() });
+        if (res.ok) {
+          let d = await res.json();
+
+          // Health overrides
+          document.getElementById('health-badge').textContent = 'ONLINE';
+          document.getElementById('health-badge').className = 'health-badge ok';
+          document.getElementById('health-time').textContent = 'Last updated: ' + new Date(d.timestamp).toLocaleString();
+          document.getElementById('health-icon').innerHTML = '✅';
+
+          // System Metrics
+          document.getElementById('s-uptime').textContent = d.system.uptime_formatted || '—';
+          document.getElementById('s-cpu').textContent = d.system.cpu_count || '—';
+          if (d.system.memory) {
+            document.getElementById('s-mem-used').textContent = d.system.memory.used_mb + ' MB';
+            document.getElementById('s-mem-total').textContent = d.system.memory.total_mb + ' MB';
+            document.getElementById('s-mem-pct').textContent = d.system.memory.used_percent + '%';
+            document.getElementById('mem-bar').style.width = d.system.memory.used_percent + '%';
+            if (d.system.memory.used_percent > 85) document.getElementById('mem-bar').classList.add('warn');
+          }
+
+          // Database Stats
+          if (d.database) {
+            document.getElementById('s-brain').textContent = d.database.brain_nodes || '—';
+            document.getElementById('s-knowledge').textContent = d.database.knowledge_triples || '—';
+            document.getElementById('s-store').textContent = d.database.store_entries || '—';
+            document.getElementById('s-logs').textContent = d.database.system_logs || '—';
+            document.getElementById('s-anomalies').textContent = d.database.anomalies || '—';
+          }
+
+          // Feature Toggles
+          if (d.features) {
+            let intPill = document.getElementById('f-internet');
+            let trainPill = document.getElementById('f-training');
+            intPill.className = 'feature-pill ' + (d.features.internet_enabled ? 'on' : 'off');
+            trainPill.className = 'feature-pill ' + (d.features.training_enabled ? 'on' : 'off');
+          }
+
+          // Sessions
+          if (d.sessions) {
+            document.getElementById('stat-active-sessions').textContent = d.sessions.active_count || '0';
+            document.getElementById('session-count').textContent = '(' + (d.sessions.active_count || '0') + ')';
+
+            let sessionHtml = '';
+            if (d.sessions.list && d.sessions.list.length > 0) {
+              d.sessions.list.forEach(s => {
+                sessionHtml += '<div class="session-row">' +
+                  '<div class="session-user">' + escapeHtml(s.username) + '</div>' +
+                  '<div class="session-ip">' + escapeHtml(s.ip || 'Unknown IP') + '</div>' +
+                  '<div class="text-muted ua-col" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + escapeHtml(s.user_agent || '') + '">' + escapeHtml(s.user_agent || '') + '</div>' +
+                  '<div class="text-muted" style="text-align:right">Refreshed</div>' +
+                  '</div>';
+              });
+            } else {
+              sessionHtml = '<div class="text-muted" style="text-align:center;padding:20px">No active sessions</div>';
+            }
+            document.getElementById('sessions-list').innerHTML = sessionHtml;
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load system metrics', e);
+      }
+    }
+  </script>
+  <script>
+    // Debug panel: fetch session info and server stats
+    async function loadSessionDebug() {
+      try {
+        // create panel
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.style.marginBottom = '24px';
+        card.innerHTML = `< h3 > Session Debug</h3 ><div style="font-size:.9em;color:var(--text-muted);margin-bottom:8px">Shows the raw session/identity information returned by the server for debugging.</div><pre id="session-json" style="white-space:pre-wrap;background:var(--bg-1);padding:12px;border-radius:8px;border:1px solid var(--border);">Loading...</pre><div style="margin-top:8px"><button id="refresh-session-btn" class="btn btn-ghost">Refresh</button></div>`;
+        const shell = document.querySelector('.shell');
+        if (shell) shell.insertBefore(card, shell.firstChild.nextSibling);
+
+        async function fetchAndRender() {
+          try {
+            const [sres, statsres] = await Promise.all([
+              fetch('/api/auth/session', { credentials: 'same-origin' }),
+              fetch('/api/server/stats', { credentials: 'same-origin' })
+            ]);
+            const sjson = sres.ok ? await sres.json() : { error: 'session endpoint not available', status: sres.status };
+            const stjson = statsres.ok ? await statsres.json() : { error: 'stats endpoint not available', status: statsres.status };
+            document.getElementById('session-json').textContent = JSON.stringify({ session: sjson, server_stats: stjson }, null, 2);
+          } catch (e) {
+            document.getElementById('session-json').textContent = 'Failed to fetch debug info: ' + String(e);
+          }
+        }
+
+        document.getElementById('refresh-session-btn').addEventListener('click', fetchAndRender);
+        fetchAndRender();
+      } catch (e) { console.warn('loadSessionDebug failed', e) }
+    }
+  </script>
 </body>
+
 </html>
