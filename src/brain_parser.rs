@@ -519,6 +519,23 @@ pub async fn build_knowledge_graph(
         graph.add_parsed_content(parsed);
     }
 
+    // Pull from Jeebs's active store
+    let fact_rows: Vec<(String, Vec<u8>)> = sqlx::query_as(
+        "SELECT key, value FROM jeebs_store WHERE key LIKE 'chat:fact:%'"
+    )
+    .fetch_all(db)
+    .await
+    .unwrap_or_default();
+
+    for (id, val_bytes) in fact_rows {
+        if let Ok(parsed_json) = serde_json::from_slice::<serde_json::Value>(&val_bytes) {
+            let canonical = parsed_json.get("canonical").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let fact = parsed_json.get("fact").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let parsed = parser.parse(id.clone(), canonical, fact);
+            graph.add_parsed_content(parsed);
+        }
+    }
+
     Ok(graph)
 }
 
