@@ -521,7 +521,7 @@ pub async fn build_knowledge_graph(
 
     // Pull from Jeebs's active store
     let fact_rows: Vec<(String, Vec<u8>)> = sqlx::query_as(
-        "SELECT key, value FROM jeebs_store WHERE key LIKE 'chat:fact:%'"
+        "SELECT key, value FROM jeebs_store WHERE key LIKE 'learnsession:%'"
     )
     .fetch_all(db)
     .await
@@ -529,10 +529,15 @@ pub async fn build_knowledge_graph(
 
     for (id, val_bytes) in fact_rows {
         if let Ok(parsed_json) = serde_json::from_slice::<serde_json::Value>(&val_bytes) {
-            let canonical = parsed_json.get("canonical").and_then(|v| v.as_str()).unwrap_or("").to_string();
-            let fact = parsed_json.get("fact").and_then(|v| v.as_str()).unwrap_or("").to_string();
-            let parsed = parser.parse(id.clone(), canonical, fact);
-            graph.add_parsed_content(parsed);
+            if let Some(facts) = parsed_json.get("learned_facts").and_then(|f| f.as_array()) {
+                for (i, fact_obj) in facts.iter().enumerate() {
+                    let canonical = fact_obj.get("source").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                    let fact = fact_obj.get("fact").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                    let node_id = format!("{}-fact-{}", id, i);
+                    let parsed = parser.parse(node_id, canonical, fact);
+                    graph.add_parsed_content(parsed);
+                }
+            }
         }
     }
 

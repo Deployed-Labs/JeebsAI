@@ -3,8 +3,15 @@ use scraper::{Html, Selector};
 
 /// Strip HTML and extract meaningful text content
 pub fn strip_html_extract_text(html_content: &str) -> String {
+    // 1. Aggressive pre-processing: strip entire blocks of code/styles using Regex
+    // This prevents the scraper from accidentally inheriting rogue CSS keyframes or JS arrays as valid text nodes.
+    let code_block_regex = Regex::new(
+        r"(?is)<script[^>]*>.*?</script>|<style[^>]*>.*?</style>|<noscript[^>]*>.*?</noscript>|<svg[^>]*>.*?</svg>"
+    ).unwrap();
+    let pre_processed_html = code_block_regex.replace_all(html_content, " ").to_string();
+
     // Parse HTML
-    let document = Html::parse_document(html_content);
+    let document = Html::parse_document(&pre_processed_html);
 
     // Tags whose text content should be skipped
     let skip_tags: std::collections::HashSet<&str> =
@@ -234,5 +241,32 @@ mod tests {
         let text = strip_html_extract_text(html);
         assert!(!text.contains("alert"));
         assert!(text.contains("Content"));
+    }
+
+    #[test]
+    fn test_remove_css_keyframes() {
+        let html = r#"
+            <html>
+            <head>
+                <style>
+                    @-webkit-keyframes animation-1naewga {
+                        0% { background-position: -400px; }
+                        100% { background-position: 800px; }
+                    }
+                    .test-class { color: red; }
+                </style>
+            </head>
+            <body>
+                <h1>Welcome to JeebsAI</h1>
+                <p>This is real text.</p>
+            </body>
+            </html>
+        "#;
+        let text = strip_html_extract_text(html);
+        assert!(!text.contains("webkit-keyframes"));
+        assert!(!text.contains("background-position"));
+        assert!(!text.contains("test-class"));
+        assert!(text.contains("Welcome to JeebsAI"));
+        assert!(text.contains("This is real text"));
     }
 }
