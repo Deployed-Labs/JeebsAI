@@ -9,7 +9,9 @@
     <link rel="stylesheet" href="/webui/style.css"/>
 </head>
 <body>
-    <nav id="topnav"></nav>
+    <div id="app-layout">
+  <aside id="sidebar-container"></aside>
+  <main class="main-content">
     <div class="shell">
         <div class="header-row" style="margin: 24px 0;">
             <h1>Trainer Resources</h1>
@@ -32,5 +34,7 @@
             JeebsNav.init('resources');
         });
     </script>
+  </main>
+  </div>
 </body>
 </html>

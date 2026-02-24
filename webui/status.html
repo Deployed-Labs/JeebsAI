@@ -214,8 +214,10 @@
 </head>
 
 <body>
-  <nav id="topnav"></nav>
-  <div class="shell" style="padding-top:60px;max-width:900px">
+  <div id="app-layout">
+  <aside id="sidebar-container"></aside>
+  <main class="main-content">
+  <div class="shell" style="max-width:900px">
     <div class="card card-glow" style="margin-bottom:24px;">
       <h1 style="margin-bottom:8px">JeebsAI System Overview</h1>
       <p class="text-muted">Facts and stats about how JeebsAI works.</p>
@@ -393,7 +395,7 @@
       const effectiveIsTrainer = (auth && auth.isTrainer) || (username === rootName);
 
       if (!auth || !auth.loggedIn || (!effectiveIsAdmin && !effectiveIsTrainer)) {
-        document.body.innerHTML = '<div class="shell" style="padding-top:60px"><h1>Server Status</h1><div class="card" style="margin-top:32px"><span class="text-danger">Access denied. Admin or Trainer required.</span></div></div>';
+        document.body.innerHTML = '<div class="shell" style=""><h1>Server Status</h1><div class="card" style="margin-top:32px"><span class="text-danger">Access denied. Admin or Trainer required.</span></div></div>';
         throw new Error('Access denied');
       }
     }
@@ -527,6 +529,8 @@
       } catch (e) { console.warn('loadSessionDebug failed', e) }
     }
   </script>
+  </main>
+  </div>
 </body>
 
 </html>

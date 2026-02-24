@@ -1,8 +1,8 @@
 /**
- * JeebsAI — Shared Navigation Component
+ * JeebsAI — Sidebar Navigation Component
  * Include after auth.js on every page.
  *
- * Usage: <nav id="topnav" data-active="home"></nav>
+ * Usage: <aside id="sidebar-container" data-active="home"></aside>
  * Then call: JeebsNav.init('home');
  */
 const JeebsNav = (function () {
@@ -33,7 +33,7 @@ const JeebsNav = (function () {
     ];
 
     function render(activeId) {
-        const container = document.getElementById('topnav');
+        const container = document.getElementById('sidebar-container');
         if (!container) return;
 
         // Determine admin/root state robustly (works even if auth.js wasn't loaded)
@@ -60,46 +60,56 @@ const JeebsNav = (function () {
         let linksHtml = PAGES.filter(function (p) {
             return isAllowed(p);
         }).map(function (p) {
-            return `<a class="topnav-link${p.id === activeId ? ' active' : ''}" href="${p.href}">${p.label}</a>`;
+            return `<a class="sidebar-link${p.id === activeId ? ' active' : ''}" href="${p.href}">${p.label}</a>`;
         }).join('');
 
         // Add admin/advanced links if allowed
         linksHtml += ADMIN_PAGES.filter(function (p) {
             return isAllowed(p);
         }).map(function (p) {
-            return `<a class="topnav-link${p.id === activeId ? ' active' : ''}" href="${p.href}">${p.label}</a>`;
+            return `<a class="sidebar-link${p.id === activeId ? ' active' : ''}" href="${p.href}">${p.label}</a>`;
         }).join('');
 
-        container.className = 'topnav';
+        container.className = 'sidebar';
         container.innerHTML = `
-            <div class="topnav-inner">
-                <a class="topnav-brand" href="/webui/index.html">
-                    ${LOGO_SVG}
-                    <span>JeebsAI <span id="jeebs-version" class="jeebs-version">v...</span></span>
-                </a>
-                <button class="topnav-toggle" id="navToggle" aria-label="Toggle navigation">&#9776;</button>
-                <div class="topnav-links" id="navLinks">
-                    ${linksHtml}
-                </div>
-                <div class="topnav-status" id="navStatus">
+            <div class="sidebar-header">
+                ${LOGO_SVG}
+                <span>JeebsAI</span>
+                <span id="jeebs-version" class="jeebs-version">v...</span>
+            </div>
+            <nav class="sidebar-links" id="sidebarLinks">
+                ${linksHtml}
+            </nav>
+            <div class="sidebar-footer">
+                <div class="sidebar-status" id="navStatus">
                     <span class="dot" id="navDot"></span>
                     <span id="navStatusText">Checking...</span>
                 </div>
-                <button class="theme-btn" id="themeBtn">Theme: Dark</button>
             </div>
         `;
 
-        // Mobile toggle
-        const toggle = document.getElementById('navToggle');
-        const links = document.getElementById('navLinks');
-        if (toggle && links) {
-            toggle.addEventListener('click', function () {
-                links.classList.toggle('open');
+        // Inject Mobile Navbar globally if not already present
+        if (!document.getElementById('mobileNavHeader')) {
+            const mobileHeader = document.createElement('div');
+            mobileHeader.id = 'mobileNavHeader';
+            mobileHeader.className = 'mobile-nav-header';
+            mobileHeader.innerHTML = `
+                <div class="mobile-brand">
+                    ${LOGO_SVG}
+                    <span>JeebsAI</span>
+                </div>
+                <button class="mobile-toggle-btn" id="mobileToggleBtn">&#9776;</button>
+            `;
+            document.body.prepend(mobileHeader);
+
+            document.getElementById('mobileToggleBtn').addEventListener('click', () => {
+                container.classList.toggle('open');
             });
+
             // Close mobile nav when clicking a link
-            links.querySelectorAll('a').forEach(function (a) {
+            container.querySelectorAll('a').forEach(function (a) {
                 a.addEventListener('click', function () {
-                    links.classList.remove('open');
+                    container.classList.remove('open');
                 });
             });
         }

@@ -13,7 +13,9 @@
 </head>
 
 <body>
-    <nav id="topnav"></nav>
+    <div id="app-layout">
+  <aside id="sidebar-container"></aside>
+  <main class="main-content">
     <div class="chat-container">
         <div class="chat-wrapper">
             <div id="authViews">
@@ -525,6 +527,8 @@
         renderAuthState();
         bootstrapAuth();
     </script>
+  </main>
+  </div>
 </body>
 
 </html>

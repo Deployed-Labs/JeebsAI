@@ -13,8 +13,10 @@
 </style>
 </head>
 <body>
-<nav id="topnav"></nav>
-<div class="shell" style="padding-top:60px">
+<div id="app-layout">
+  <aside id="sidebar-container"></aside>
+  <main class="main-content">
+<div class="shell" style="">
   <h1 style="margin-bottom:24px">Admin Dashboard</h1>
 
   <!-- System Status -->
@@ -525,5 +527,7 @@ async function pollTrainingLog(){
   setInterval(loadTrainingStatus,10000);
 })();
 </script>
+  </main>
+  </div>
 </body>
 </html>

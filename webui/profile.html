@@ -9,8 +9,10 @@
 <link rel="stylesheet" href="/webui/style.css"/>
 </head>
 <body>
-<nav id="topnav"></nav>
-<div class="shell" style="padding-top:60px;max-width:800px">
+<div id="app-layout">
+  <aside id="sidebar-container"></aside>
+  <main class="main-content">
+<div class="shell" style="max-width:800px">
   <div class="card card-glow" style="margin-bottom:24px;text-align:center">
     <h1 style="margin-bottom:8px">User Profile</h1>
     <p class="text-muted">Manage your JeebsAI account and settings.</p>
@@ -182,5 +184,7 @@ document.getElementById("deleteAccountForm").onsubmit=async function(e){
 
 loadProfile().then(loadActivity);
 </script>
+  </main>
+  </div>
 </body>
 </html>

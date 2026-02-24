@@ -15,8 +15,10 @@
 </style>
 </head>
 <body>
-<nav id="topnav"></nav>
-<div class="shell" style="padding-top:60px">
+<div id="app-layout">
+  <aside id="sidebar-container"></aside>
+  <main class="main-content">
+<div class="shell" style="">
   <h1 style="margin-bottom:4px">Reasoning Traces</h1>
   <p class="text-muted" style="margin-bottom:24px">Recent reasoning traces from chat responses (admin only).</p>
 
@@ -65,7 +67,7 @@ document.getElementById("export").addEventListener("click",async function(){
 (async function(){
   var auth=await requireAuth("admin");
   if(!auth||!(auth.username==="1090mb"||auth.is_admin||auth.is_trainer)){
-    document.body.innerHTML = '<div class="shell" style="padding-top:60px"><h1>Reasoning Traces</h1><div class="card" style="margin-top:32px"><span class="text-danger">Access denied. Only admin, trainer, or 1090mb allowed.</span></div></div>';
+    document.body.innerHTML = '<div class="shell" style=""><h1>Reasoning Traces</h1><div class="card" style="margin-top:32px"><span class="text-danger">Access denied. Only admin, trainer, or 1090mb allowed.</span></div></div>';
     return;
   }
   startAuthGuard("admin");
@@ -73,5 +75,7 @@ document.getElementById("export").addEventListener("click",async function(){
   render(t);
 })();
 </script>
+  </main>
+  </div>
 </body>
 </html>
