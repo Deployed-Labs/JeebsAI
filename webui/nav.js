@@ -70,6 +70,10 @@ const JeebsNav = (function () {
             return `<a class="sidebar-link${p.id === activeId ? ' active' : ''}" href="${p.href}">${p.label}</a>`;
         }).join('');
 
+        if (userRole === 'Guest') {
+            linksHtml += `<a class="sidebar-link" href="/webui/index.html#login" style="margin-top: auto; border-top: 1px solid var(--border); padding-top: 20px; color: var(--accent);">Sign In / Register</a>`;
+        }
+
         container.className = 'sidebar';
         container.innerHTML = `
             <div class="sidebar-header">

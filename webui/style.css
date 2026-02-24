@@ -943,30 +943,33 @@ input[type="checkbox"] {
 
 .bubble {
     border-radius: var(--radius-lg);
-    padding: 14px 20px;
+    padding: 14px 22px;
     line-height: 1.6;
-    max-width: 85%;
+    max-width: 80%;
     animation: bubble-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     word-wrap: break-word;
     position: relative;
     font-size: 0.95rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .bubble.user {
-    background: linear-gradient(135deg, rgba(83, 216, 251, 0.1), rgba(83, 216, 251, 0.05));
-    border: 1px solid rgba(83, 216, 251, 0.2);
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #ffffff;
     align-self: flex-end;
     border-bottom-right-radius: 4px;
-    box-shadow: 0 4px 12px rgba(83, 216, 251, 0.05);
+    box-shadow: 0 4px 16px var(--accent-glow);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .bubble.jeebs {
-    background: linear-gradient(135deg, rgba(14, 28, 41, 0.8), rgba(20, 36, 52, 0.9));
-    border: 1px solid rgba(251, 191, 36, 0.3);
-    border-left: 3px solid var(--accent-2);
+    background: var(--panel);
+    border: 1px solid var(--border);
     align-self: flex-start;
     border-bottom-left-radius: 4px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
 }
 
 .bubble small {
@@ -1883,67 +1886,71 @@ input[type="checkbox"] {
 
 /* ── Glass Box Reasoning UI ──────────────────────────────── */
 .thought-process {
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 6px;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-left: 3px solid #a855f7;
+    border-radius: var(--radius-sm);
     margin-bottom: 12px;
     font-size: 0.85em;
     overflow: hidden;
-    max-width: 90%;
+    max-width: 100%;
 }
 
 .thought-summary {
-    padding: 8px 12px;
+    padding: 10px 14px;
     cursor: pointer;
-    color: #8b949e;
-    font-weight: 500;
+    color: #a855f7;
+    font-weight: 600;
     user-select: none;
     display: flex;
     align-items: center;
-    gap: 6px;
-    background: #21262d;
-    transition: color var(--transition-fast);
+    gap: 8px;
+    background: rgba(168, 85, 247, 0.08);
+    transition: all var(--transition-fast);
 }
 
 .thought-summary:hover {
-    color: #c9d1d9;
+    background: rgba(168, 85, 247, 0.12);
+    color: #c084fc;
 }
 
 .thought-content {
-    padding: 12px;
-    border-top: 1px solid #30363d;
-    color: #8b949e;
+    padding: 14px;
+    border-top: 1px solid var(--border);
+    color: var(--text-secondary);
     font-family: var(--font-mono);
-    font-size: 0.9em;
-    background: #0d1117;
+    font-size: 0.88em;
+    background: rgba(0, 0, 0, 0.2);
     white-space: pre-wrap;
-    line-height: 1.5;
+    line-height: 1.6;
 }
 
 /* ── Contextual Chips ────────────────────────────────────── */
 .suggestion-chips {
     display: flex;
-    gap: 8px;
-    margin-top: 12px;
+    gap: 10px;
+    margin-top: 16px;
     flex-wrap: wrap;
 }
 
 .chip {
-    background: rgba(35, 134, 54, 0.2);
-    color: #3fb950;
-    border: 1px solid rgba(46, 160, 67, 0.4);
-    border-radius: 16px;
-    padding: 6px 14px;
-    font-size: 0.8em;
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--accent);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    border-radius: 20px;
+    padding: 6px 16px;
+    font-size: 0.82rem;
     font-weight: 500;
     cursor: pointer;
     transition: all var(--transition-fast);
+    backdrop-filter: blur(4px);
 }
 
 .chip:hover {
-    background: rgba(46, 160, 67, 0.4);
-    color: #fff;
-    transform: translateY(-1px);
+    background: var(--accent);
+    color: #ffffff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px var(--accent-glow);
 }
 
 /* ── Avatar Emotions ─────────────────────────────────────── */
