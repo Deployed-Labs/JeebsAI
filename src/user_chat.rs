@@ -7,6 +7,7 @@ use sqlx::Row;
 use std::env;
 
 use crate::logging;
+use crate::chat_history;
 use crate::state::AppState;
 
 const DEFAULT_JWT_SECRET: &str = "jeebs-secret-key-change-in-production";
@@ -183,6 +184,16 @@ pub async fn user_chat(
         &format!("User {} sent message: {}", username, message),
     )
     .await;
+
+    // Store user message in chat_history
+    let session_id = session.get::<String>("session_id").ok().flatten();
+    let _ = chat_history::insert_chat_message(
+        &data.db,
+        session_id.as_deref(),
+        Some(&username),
+        "user",
+        message
+    ).await;
 
     // Google learning command for all authenticated users (requires internet enabled)
     if let Some(query) = message.strip_prefix(".google").map(|s| s.trim()) {
@@ -410,6 +421,15 @@ pub async fn user_chat(
     )
     .await;
 
+    // Store Jeebs reply in chat_history
+    let _ = chat_history::insert_chat_message(
+        &data.db,
+        session_id.as_deref(),
+        Some(&username),
+        "jeebs",
+        &response
+    ).await;
+
     // Persist a lightweight reasoning trace for analysis (best-effort)
     let _ = crate::logging::record_reasoning_trace(
         &data.db,
@@ -435,6 +455,28 @@ pub async fn chat_preflight() -> impl Responder {
 
 /// Get chat status (check if user is authenticated)
 #[get("/api/chat/status")]
+/// Fetch chat history for a user/session
+#[get("/api/chat/history")]
+pub async fn chat_history_endpoint(
+    data: web::Data<AppState>,
+    session: Session,
+    http_req: HttpRequest,
+    query: web::Query<std::collections::HashMap<String, String>>,
+) -> impl Responder {
+    let session_id = session.get::<String>("session_id").ok().flatten();
+    let username = get_username(&session);
+    let limit = query.get("limit").and_then(|v| v.parse::<usize>().ok()).unwrap_or(20);
+    let history = chat_history::fetch_chat_history(
+        &data.db,
+        session_id.as_deref(),
+        username.as_deref(),
+        limit
+    ).await;
+    match history {
+        Ok(messages) => HttpResponse::Ok().json(messages),
+        Err(e) => HttpResponse::InternalServerError().json(json!({"error": format!("DB error: {}", e)})),
+    }
+}
 pub async fn chat_status(session: Session) -> impl Responder {
     if !is_user_authenticated(&session) {
         return HttpResponse::Ok().json(json!({
