@@ -24,6 +24,8 @@ pub mod state;
 pub mod toggle_manager;
 pub mod updater;
 pub mod user_chat;
+pub mod chat_history;
+pub mod filter_knowledge;
 pub mod utils;
 
 // Re-export AppState for convenience

@@ -156,6 +156,63 @@
             <script src="/webui/nav.js"></script>
             <script>
                 /* ── State & Element References ────────────────────── */
+                async function loadChatHistory() {
+                    try {
+                        const history = await requestJson("/api/chat/history?limit=50");
+                        chatFeed.innerHTML = "";
+                        history.reverse().forEach(msg => {
+                            appendMessageWithFeedback(msg);
+                        });
+                    } catch (e) {
+                        setStatus("Failed to load chat history", "bad");
+                    }
+                }
+
+                function appendMessageWithFeedback(msg) {
+                    const bubble = document.createElement("div");
+                    bubble.className = `bubble ${msg.role}`;
+                    const label = document.createElement("small");
+                    label.textContent = msg.role === "user" ? "You" : "JeebsAI";
+                    const body = document.createElement("div");
+                    body.textContent = msg.message;
+                    bubble.append(label, body);
+                    if (msg.role === "jeebs") {
+                        const feedbackDiv = document.createElement("div");
+                        feedbackDiv.className = "feedback-buttons";
+                        const upBtn = document.createElement("button");
+                        upBtn.textContent = "👍";
+                        upBtn.title = "Helpful";
+                        upBtn.onclick = () => submitFeedback(msg.id, "up");
+                        const downBtn = document.createElement("button");
+                        downBtn.textContent = "👎";
+                        downBtn.title = "Not Helpful";
+                        downBtn.onclick = () => submitFeedback(msg.id, "down");
+                        const corrBtn = document.createElement("button");
+                        corrBtn.textContent = "✏️";
+                        corrBtn.title = "Suggest Correction";
+                        corrBtn.onclick = () => {
+                            const correction = prompt("Suggest a correction for this reply:", msg.message);
+                            if (correction) submitFeedback(msg.id, "correction", correction);
+                        };
+                        feedbackDiv.append(upBtn, downBtn, corrBtn);
+                        bubble.appendChild(feedbackDiv);
+                    }
+                    chatFeed.appendChild(bubble);
+                    chatFeed.scrollTop = chatFeed.scrollHeight;
+                }
+
+                async function submitFeedback(chat_message_id, feedback_type, feedback_text = null) {
+                    try {
+                        await requestJson("/api/chat/feedback", {
+                            method: "POST",
+                            body: JSON.stringify({ chat_message_id, feedback_type, feedback_text }),
+                            headers: { "x-username": state.username }
+                        });
+                        setStatus("Feedback submitted!", "good");
+                    } catch (e) {
+                        setStatus("Feedback failed: " + e.message, "bad");
+                    }
+                }
                 const state = {
                     loggedIn: false,
                     username: "",
@@ -528,6 +585,7 @@
                 updateUnsignedMessage();
                 renderAuthState();
                 bootstrapAuth();
+                loadChatHistory();
             </script>
         </main>
     </div>

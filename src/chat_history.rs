@@ -1,15 +1,14 @@
 use sqlx::SqlitePool;
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, sqlx::FromRow)]
 pub struct ChatMessage {
     pub id: i64,
     pub session_id: Option<String>,
     pub username: Option<String>,
     pub role: String,
     pub message: String,
-    pub timestamp: DateTime<Utc>,
+    pub timestamp: String,
 }
 
 pub async fn insert_chat_message(
@@ -19,13 +18,14 @@ pub async fn insert_chat_message(
     role: &str,
     message: &str,
 ) -> Result<(), sqlx::Error> {
+    let filtered_message = crate::filter_knowledge::filter_knowledge_content(message);
     sqlx::query(
         "INSERT INTO chat_history (session_id, username, role, message) VALUES (?, ?, ?, ?)"
     )
     .bind(session_id)
     .bind(username)
     .bind(role)
-    .bind(message)
+    .bind(&filtered_message)
     .execute(db)
     .await?;
     Ok(())

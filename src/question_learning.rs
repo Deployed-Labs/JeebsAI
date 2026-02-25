@@ -270,11 +270,12 @@ pub async fn google_learn_and_store(
         .map_err(|e| format!("Failed to read response: {}", e))?;
 
     let extracted_text = content_extractor::strip_html_extract_text(&html);
-    if extracted_text.is_empty() {
+    let filtered_text = crate::filter_knowledge::filter_knowledge_content(&extracted_text);
+    if filtered_text.is_empty() {
         return Err("No meaningful content extracted from search results.".to_string());
     }
 
-    let summary = content_extractor::create_summary(&extracted_text, 800);
+    let summary = content_extractor::create_summary(&filtered_text, 800);
     let links = content_extractor::extract_links(&html);
     let metadata = content_extractor::extract_metadata(&html);
 
@@ -292,7 +293,7 @@ pub async fn google_learn_and_store(
         "headings": metadata.headings,
         "keywords": metadata.keywords,
         "links": links,
-        "content": extracted_text,
+        "content": filtered_text,
         "summary": summary,
         "learned_at": Local::now().to_rfc3339(),
     }))

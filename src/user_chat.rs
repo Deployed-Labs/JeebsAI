@@ -8,6 +8,7 @@ use std::env;
 
 use crate::logging;
 use crate::chat_history;
+use crate::filter_knowledge;
 use crate::state::AppState;
 
 const DEFAULT_JWT_SECRET: &str = "jeebs-secret-key-change-in-production";
@@ -453,30 +454,45 @@ pub async fn chat_preflight() -> impl Responder {
     HttpResponse::Ok().finish()
 }
 
-/// Get chat status (check if user is authenticated)
-#[get("/api/chat/status")]
+
 /// Fetch chat history for a user/session
 #[get("/api/chat/history")]
+// Return chat history; accepts optional limit query parameter
 pub async fn chat_history_endpoint(
     data: web::Data<AppState>,
     session: Session,
     http_req: HttpRequest,
-    query: web::Query<std::collections::HashMap<String, String>>,
 ) -> impl Responder {
     let session_id = session.get::<String>("session_id").ok().flatten();
     let username = get_username(&session);
-    let limit = query.get("limit").and_then(|v| v.parse::<usize>().ok()).unwrap_or(20);
+    // parse optional ?limit= from query string manually
+    let limit = http_req
+        .query_string()
+        .split('&')
+        .find_map(|kv| {
+            let mut parts = kv.splitn(2, '=');
+            if let (Some(k), Some(v)) = (parts.next(), parts.next()) {
+                if k == "limit" {
+                    return v.parse::<usize>().ok();
+                }
+            }
+            None
+        })
+        .unwrap_or(20);
     let history = chat_history::fetch_chat_history(
         &data.db,
         session_id.as_deref(),
         username.as_deref(),
-        limit
-    ).await;
+        limit,
+    )
+    .await;
     match history {
         Ok(messages) => HttpResponse::Ok().json(messages),
         Err(e) => HttpResponse::InternalServerError().json(json!({"error": format!("DB error: {}", e)})),
     }
 }
+
+#[get("/api/chat/status")]
 pub async fn chat_status(session: Session) -> impl Responder {
     if !is_user_authenticated(&session) {
         return HttpResponse::Ok().json(json!({
