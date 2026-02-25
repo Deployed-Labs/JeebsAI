@@ -1,3 +1,5 @@
+use reqwest::Response;
+use reqwest::header;
 use reqwest::Client;
 use serde::Deserialize;
 

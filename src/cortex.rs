@@ -1,3 +1,4 @@
+use crate::web_search;
 #[get("/api/code/capabilities")]
 pub async fn get_code_capabilities_endpoint(state: web::Data<AppState>) -> impl Responder {
     let db = &state.db;
