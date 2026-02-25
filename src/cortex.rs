@@ -65,7 +65,6 @@ fn generate_local_code(language: &str, prompt: &str) -> String {
         _ => format!("// {} code for: {}\n// (Custom local codegen only)", language, prompt),
     }
 }
-}
 use actix_web::{get, post, web, HttpResponse, Responder};
 use serde::Deserialize;
 #[get("/api/code/history")]
