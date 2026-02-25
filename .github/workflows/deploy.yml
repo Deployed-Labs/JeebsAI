@@ -1,0 +1,77 @@
+name: Build and Deploy JeebsAI
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libssl-dev libsqlite3-dev sqlite3 build-essential
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Build release binary
+        run: cargo build --release
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jeebsai-binary
+          path: target/release/jeebs
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: jeebsai-binary
+          path: ./deploy
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            set -e
+            sudo systemctl stop jeebsai || true
+            mkdir -p ~/jeebsai
+            mv ./deploy/jeebs ~/jeebsai/jeebs
+            chmod +x ~/jeebsai/jeebs
+            # Create systemd service if not exists
+            if [ ! -f /etc/systemd/system/jeebsai.service ]; then
+              sudo bash -c 'cat > /etc/systemd/system/jeebsai.service' <<EOF
+[Unit]
+Description=JeebsAI Service
+After=network.target
+
+[Service]
+Type=simple
+User=${{ secrets.VPS_USER }}
+WorkingDirectory=/home/${{ secrets.VPS_USER }}/jeebsai
+ExecStart=/home/${{ secrets.VPS_USER }}/jeebsai/jeebs
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+              sudo systemctl daemon-reload
+            fi
+            sudo systemctl start jeebsai
+            sudo systemctl enable jeebsai
+            sudo systemctl status jeebsai --no-pager
+            # (Optional) Start/enable any other required services here
