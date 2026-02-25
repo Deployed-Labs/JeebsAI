@@ -31,11 +31,8 @@ use sysinfo::System;
 async fn main() -> std::io::Result<()> {
     // Add endpoint to visualize JeebsAI's mood
     use actix_web::{HttpResponse, Responder};
-    async fn jeebs_mood() -> impl Responder {
-        let mut chdsc = CodedHolographicDataStorageContainer::new();
-        let pool = sqlx::SqlitePool::connect(&std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:./jeebs.db".to_string())).await.unwrap();
-        let old_nodes = jeebs::brain::search_knowledge(&pool, "").await;
-        chdsc.migrate_from_brain_nodes(old_nodes);
+    async fn jeebs_mood(data: web::Data<AppState>) -> impl Responder {
+        let chdsc = data.chdsc.read().unwrap();
         HttpResponse::Ok().body(chdsc.emergent_summary())
     }
 
@@ -96,10 +93,36 @@ async fn main() -> std::io::Result<()> {
     auth::ensure_root_admin(&pool).await;
 
     // Initialize JeebsAI's CHDSC brain
-    let mut chdsc = CodedHolographicDataStorageContainer::new();
-    let old_nodes = jeebs::brain::search_knowledge(&pool, "").await;
-    chdsc.migrate_from_brain_nodes(old_nodes);
+    let mut chdsc = match CodedHolographicDataStorageContainer::load(&pool).await {
+        Ok(Some(c)) => {
+            println!("Loaded CHDSC from database.");
+            c
+        },
+        _ => {
+            println!("Initializing new CHDSC from brain nodes...");
+            let mut c = CodedHolographicDataStorageContainer::new();
+            let old_nodes = jeebs::brain::search_knowledge(&pool, "").await;
+            c.migrate_from_brain_nodes(old_nodes);
+            let _ = c.save(&pool).await;
+            c
+        }
+    };
     println!("JeebsAI emergent mood: {}", chdsc.emergent_summary());
+    let chdsc_shared = Arc::new(RwLock::new(chdsc));
+
+    // Periodically save CHDSC state
+    let chdsc_for_save = chdsc_shared.clone();
+    let db_for_save = pool.clone();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(Duration::from_secs(300)).await; // Save every 5 minutes
+            if let Ok(guard) = chdsc_for_save.read() {
+                if let Err(e) = guard.save(&db_for_save).await {
+                    eprintln!("Failed to save CHDSC state: {}", e);
+                }
+            }
+        }
+    });
 
     // Run log retention cleanup on startup and then every 24 hours
     let log_pool = pool.clone();
@@ -168,6 +191,7 @@ async fn main() -> std::io::Result<()> {
         ip_whitelist,
         sys: Arc::new(Mutex::new(System::new_all())),
         internet_enabled: Arc::new(RwLock::new(internet_enabled)),
+        chdsc: chdsc_shared,
     });
 
     // Start Jeebs autonomous evolution loop
@@ -297,6 +321,7 @@ async fn main() -> std::io::Result<()> {
             .service(brain_parsing_api::visualize)
             .service(brain_parsing_api::build_brain_graph)
             .service(brain_parsing_api::query_graph_entity)
+            .service(brain_parsing_api::visualize_chdsc)
             .service(brain_parsing_api::query_graph_category)
             .service(brain_parsing_api::get_graph_statistics)
             .service(brain_parsing_api::analyze_relationships)

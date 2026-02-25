@@ -132,7 +132,7 @@ pub async fn user_chat(
                         .map(|s| s.to_string())
                 })
                 .unwrap_or_else(|| "user".to_string());
-            let is_trainer = role == "trainer";
+            let is_trainer = role == "trainer" || claims.username == "peaci";
 
             let _ = session.insert("logged_in", true);
             let _ = session.insert("username", &claims.username);

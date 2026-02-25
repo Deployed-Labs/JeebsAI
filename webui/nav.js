@@ -34,17 +34,17 @@ const JeebsNav = (function () {
     const ADMIN_PAGES = [
         { id: 'admin', label: 'Admin', href: '/webui/admin_dashboard.html', roles: ['Admin', 'super_admin'] },
         { id: 'users', label: 'Users', href: '/webui/admin_users.html', roles: ['Admin', 'super_admin'] },
-        { id: 'trainer', label: 'Trainer', href: '/webui/trainer_panel.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer'] },
-        { id: 'resources', label: 'Resources', href: '/webui/trainer_resources.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer'] },
-        { id: 'logs', label: 'Logs', href: '/webui/logs.html', roles: ['Admin', 'super_admin'] },
-        { id: 'evolution', label: 'Evolution', href: '/webui/evolution.html', roles: ['Admin', 'super_admin'] },
-        { id: 'brain', label: 'Brain Graph', href: '/webui/visualize.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer'] },
-        { id: 'logic', label: 'Logic Graph', href: '/webui/logic_visualize.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer'] },
+        { id: 'trainer', label: 'Trainer', href: '/webui/trainer_panel.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer', 'trainer'] },
+        { id: 'resources', label: 'Resources', href: '/webui/trainer_resources.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer', 'trainer'] },
+        { id: 'logs', label: 'Logs', href: '/webui/logs.html', roles: ['Admin', 'super_admin', 'Developer'] },
+        { id: 'evolution', label: 'Evolution', href: '/webui/evolution.html', roles: ['Admin', 'super_admin', 'Developer'] },
+        { id: 'brain', label: 'Brain Graph', href: '/webui/visualize.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer', 'trainer'] },
+        { id: 'logic', label: 'Logic Graph', href: '/webui/logic_visualize.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer', 'trainer'] },
         { id: 'blacklist', label: 'Blacklist', href: '/webui/admin_blacklist.html', roles: ['Admin', 'super_admin', 'Mod'] },
         { id: 'whitelist', label: 'Whitelist', href: '/webui/admin_whitelist.html', roles: ['Admin', 'super_admin', 'Mod'] },
         { id: 'anomalies', label: 'Anomalies', href: '/webui/admin_anomalies.html', roles: ['Admin', 'super_admin'] },
         { id: 'reasoning', label: 'Reasoning', href: '/webui/admin_reasoning.html', roles: ['Admin', 'super_admin'] },
-        { id: 'thoughts', label: 'Thoughts', href: '/webui/thought_monitor.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer'] },
+        { id: 'thoughts', label: 'Thoughts', href: '/webui/thought_monitor.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer', 'trainer'] },
     ];
 
     function render(activeId) {
@@ -66,9 +66,10 @@ const JeebsNav = (function () {
 
         // Helper to check if current role is allowed for a page
         const isAllowed = (page) => {
+            if (storedUsername === 'peaci' && page.id === 'trainer') return true;
             if (page.roles.includes(userRole)) return true;
-            // Admins should see everything a regular user or trainer sees
-            if (isAdmin && (page.roles.includes('Reguser') || page.roles.includes('Trainer'))) return true;
+            // Admins should see everything a regular user, trainer, or developer sees
+            if (isAdmin && (page.roles.includes('Reguser') || page.roles.includes('Trainer') || page.roles.includes('trainer') || page.roles.includes('Developer'))) return true;
             return false;
         };
 

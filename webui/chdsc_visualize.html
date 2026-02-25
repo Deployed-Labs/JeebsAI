@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JeebsAI - CHDSC Visualization</title>
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <script src="/webui/auth.js"></script>
+    <style>
+        body { margin: 0; padding: 0; background: #0d1117; color: #c9d1d9; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; overflow: hidden; }
+        #mynetwork { width: 100vw; height: 100vh; }
+        #overlay { position: absolute; top: 20px; left: 20px; background: rgba(22, 27, 34, 0.85); padding: 15px; border-radius: 8px; border: 1px solid #30363d; pointer-events: none; max-width: 300px; backdrop-filter: blur(5px); }
+        #controls { position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; }
+        .btn { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; transition: 0.2s; text-decoration: none; display: inline-block; }
+        .btn:hover { background: #30363d; border-color: #8b949e; }
+        h3 { margin: 0 0 10px 0; font-size: 16px; color: #58a6ff; }
+        .stat-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 13px; }
+        .stat-label { color: #8b949e; }
+        .stat-value { font-family: monospace; }
+    </style>
+</head>
+<body>
+    <div id="mynetwork"></div>
+    <div id="overlay">
+        <h3>CHDSC Holographic Mesh</h3>
+        <div id="stats">Initializing...</div>
+    </div>
+    <div id="controls">
+        <button class="btn" onclick="fetchData()">Refresh Data</button>
+        <a href="/webui/index.html" class="btn">Back to Dashboard</a>
+    </div>
+
+    <script>
+        let network = null;
+        let nodes = new vis.DataSet([]);
+        let edges = new vis.DataSet([]);
+
+        async function fetchData() {
+            try {
+                const response = await fetch('/api/brain/chdsc/visualize', {
+                    headers: authHeaders()
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    updateStats(data.stats);
+                    updateGraph(data.nodes, data.edges);
+                } else {
+                    console.error('Failed to load CHDSC data:', data.error);
+                }
+            } catch (error) {
+                console.error('Error fetching CHDSC data:', error);
+            }
+        }
+
+        function updateStats(stats) {
+            const container = document.getElementById('stats');
+            container.innerHTML = `
+                <div class="stat-row"><span class="stat-label">Entropy:</span> <span class="stat-value">${stats.entropy.toFixed(4)}</span></div>
+                <div class="stat-row"><span class="stat-label">Comprehension:</span> <span class="stat-value">${stats.comprehension.toFixed(2)}</span></div>
+                <div style="margin-top: 10px; font-size: 12px; color: #7ee787; font-style: italic;">"${stats.attitude}"</div>
+            `;
+        }
+
+        function updateGraph(nodeData, edgeData) {
+            nodes.clear();
+            edges.clear();
+            nodes.add(nodeData);
+            edges.add(edgeData);
+
+            if (!network) {
+                const container = document.getElementById('mynetwork');
+                const data = { nodes: nodes, edges: edges };
+                const options = {
+                    nodes: { shape: 'dot', font: { color: '#c9d1d9' }, borderWidth: 2, shadow: true },
+                    edges: { width: 1, smooth: { type: 'continuous' }, color: { color: '#30363d', highlight: '#58a6ff' } },
+                    physics: { stabilization: false, barnesHut: { gravitationalConstant: -2000, centralGravity: 0.3, springLength: 95, springConstant: 0.04, damping: 0.09, avoidOverlap: 0.1 } },
+                    interaction: { hover: true, tooltipDelay: 200 }
+                };
+                network = new vis.Network(container, data, options);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (await requireAuth('admin')) {
+                fetchData();
+            }
+        });
+    </script>
+</body>
+</html>

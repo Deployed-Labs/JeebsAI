@@ -307,3 +307,45 @@ pub async fn get_entities_report(state: web::Data<AppState>) -> impl Responder {
         })),
     }
 }
+
+/// Visualize the CodedHolographicDataStorageContainer nodes and links
+#[get("/api/brain/chdsc/visualize")]
+pub async fn visualize_chdsc(state: web::Data<AppState>) -> impl Responder {
+    if let Ok(chdsc) = state.chdsc.read() {
+        let nodes: Vec<serde_json::Value> = chdsc.nodes.values().map(|n| {
+            json!({
+                "id": n.id,
+                "label": n.tags.first().cloned().unwrap_or_else(|| n.id.clone()),
+                "title": format!("ID: {}\nTags: {:?}\nMeta: {:?}", n.id, n.tags, n.meta),
+                "group": "holo_node",
+                "value": 10
+            })
+        }).collect();
+
+        let edges: Vec<serde_json::Value> = chdsc.links.iter().map(|(from, rel, to)| {
+            json!({
+                "from": from,
+                "to": to,
+                "label": rel,
+                "arrows": "to",
+                "font": { "size": 10, "color": "#A1A1AA" }
+            })
+        }).collect();
+
+        HttpResponse::Ok().json(json!({
+            "success": true,
+            "nodes": nodes,
+            "edges": edges,
+            "stats": {
+                "entropy": chdsc.quantum_entropy,
+                "comprehension": chdsc.comprehension,
+                "attitude": chdsc.attitude
+            }
+        }))
+    } else {
+        HttpResponse::InternalServerError().json(json!({
+            "success": false,
+            "error": "Failed to acquire lock on CHDSC"
+        }))
+    }
+}

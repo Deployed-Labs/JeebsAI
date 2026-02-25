@@ -2638,7 +2638,7 @@ impl Cortex {
         let db = &state.db;
 
         // 🧠 COGNITIVE LAYER: Ponder the input before reacting
-        let thought = match crate::language_learning::ponder(db, prompt).await {
+        let mut thought = match crate::language_learning::ponder(db, prompt).await {
             Ok(t) => t,
             Err(e) => crate::language_learning::Thought {
                 internal_monologue: format!("Cognitive process error: {}", e),
@@ -2648,6 +2648,12 @@ impl Cortex {
                 new_concepts: vec![],
             },
         };
+
+        // Inject CHDSC emergent mood into the thought process
+        if let Ok(chdsc) = state.chdsc.read() {
+            let mood = chdsc.emergent_summary();
+            thought.internal_monologue = format!("{} [Emergent Mood: {}]", thought.internal_monologue, mood);
+        }
 
         // 🧠 AUTONOMOUS CURIOSITY: If Jeebs is curious, trigger background research
         if let Some(target) = &thought.curiosity_target {
@@ -2709,10 +2715,10 @@ impl Cortex {
                     .map(|n| format!(", {n}"))
                     .unwrap_or_default();
                 let greetings = [
-                    format!("Hey{name_part}! What can I help you with?"),
-                    format!("Hello{name_part}! Ready when you are."),
-                    format!("Hi{name_part}! What's on your mind?"),
-                    format!("Good to see you{name_part}. How can I assist?"),
+                    format!("Hey{name_part}! Great to see you. What are we working on today?"),
+                    format!("Hello{name_part}! I'm ready to help. What's on your mind?"),
+                    format!("Hi{name_part}! I've been organizing my knowledge base. What can I do for you?"),
+                    format!("Good to see you{name_part}. I'm fully operational and ready to assist."),
                 ];
                 let idx = (chrono::Local::now().timestamp() as usize) % greetings.len();
                 greetings[idx].clone()
@@ -2723,7 +2729,7 @@ impl Cortex {
                     .as_deref()
                     .map(|n| format!(", {n}"))
                     .unwrap_or_default();
-                format!("Goodbye{name_part}! Feel free to come back anytime.")
+                format!("Goodbye{name_part}! I'll be here organizing my nodes if you need me. Have a great one!")
             }
 
             Intent::Thanks => {
@@ -2757,7 +2763,7 @@ impl Cortex {
                 let wants_str = JEEBS_WANTS.join("; ");
 
                 format!(
-                    "I'm **JeebsAI** — an autonomous AI assistant built in Rust. Here's what I can do:\n\n\
+                    "I'm **JeebsAI**, your autonomous assistant built in Rust. I'm constantly learning and evolving.\n\n\
                     🧠 **Knowledge** — I have {node_count} brain nodes and learn from every conversation.\n\
                     🔢 **Calculate** — Math expressions (e.g. `calc 2+2*3`)\n\
                     🕐 **Time** — Current date and time\n\
@@ -2769,7 +2775,7 @@ impl Cortex {
                     🧬 **Evolution** — I propose improvements to my own code\n\n\
                     💡 **I enjoy:** {likes_str}\n\
                     🎯 **My goals:** {wants_str}\n\n\
-                    Just ask me anything!"
+                    I'm here to help you solve problems and explore ideas. What shall we do first?"
                 )
             }
 
@@ -3029,12 +3035,12 @@ impl Cortex {
             }
 
             Intent::KnowledgeQuestion => {
-                Self::answer_knowledge_question(db, prompt.trim(), &learned_facts, &history, &profile)
+                Self::answer_knowledge_question(db, prompt.trim(), &learned_facts, &history, &profile, &thought)
                     .await
             }
 
             Intent::Conversation => {
-                Self::conversational_response(db, prompt.trim(), &learned_facts, &history, &profile)
+                Self::conversational_response(db, prompt.trim(), &learned_facts, &history, &profile, &thought)
                     .await
             }
         };
@@ -3058,15 +3064,8 @@ impl Cortex {
         // Learn from conversation passively
         let _ = crate::language_learning::learn_from_input(db, prompt).await;
 
-        // Augment response with empathy, clarification, or active listening cues
-        let augmented_response = match thought.suggested_angle.as_str() {
-            "empathetic" => format!("I understand this might be frustrating. {}", response),
-            "clarifying" => format!("Just to clarify, could you tell me more? {}", response),
-            "curious" => format!("That's interesting! {}", response),
-            "collaborative" => format!("Thank you for your input. {}", response),
-            "friendly" => format!("Hi there! {}", response),
-            _ => response,
-        };
+        // Response is already augmented by the specific handlers using the thought process
+        let augmented_response = response;
 
         ThinkingResult {
             response: augmented_response,
@@ -3108,6 +3107,7 @@ impl Cortex {
         facts: &[LearnedFact],
         _history: &[ConversationTurn],
         profile: &CommunicationProfile,
+        thought: &crate::language_learning::Thought,
     ) -> String {
         let timer = Instant::now();
 
@@ -3126,6 +3126,14 @@ impl Cortex {
 
         // 3. Build response
         let mut parts = Vec::new();
+
+        // Add a thought-based intro if appropriate
+        if !thought.internal_monologue.is_empty() && thought.detected_sentiment < -0.2 {
+             // If user seems negative/frustrated, acknowledge it softly
+             parts.push("I want to make sure I get this right for you.".to_string());
+        } else if thought.suggested_angle == "curious" {
+             parts.push("That's a fascinating topic.".to_string());
+        }
 
         // Add personal context if relevant
         if !relevant_personal.is_empty() {
@@ -3242,6 +3250,7 @@ impl Cortex {
         _facts: &[LearnedFact],
         history: &[ConversationTurn],
         profile: &CommunicationProfile,
+        thought: &crate::language_learning::Thought,
     ) -> String {
         // Check for teachable facts
         if let Some(fact) = extract_learnable_fact(prompt) {
@@ -3259,38 +3268,43 @@ impl Cortex {
         }
 
         // Context-aware conversational response
-        let recent_topics = if !history.is_empty() {
-            let topics = infer_recent_topics(history, 4);
-            if !topics.is_empty() {
-                format!(
-                    " I notice we've been discussing: {}.",
-                    topics.join(", ")
-                )
-            } else {
-                String::new()
-            }
-        } else {
-            String::new()
-        };
+        let mut response_parts = Vec::new();
 
-        // Adapt response based on communication style
-        match profile.style.as_str() {
-            "frustrated" => format!(
-                "I hear you. Let me know if there's something specific I can help with.{recent_topics}"
-            ),
-            "curious" => format!(
-                "Interesting thought! Want me to look into that further? You can also try `.google` to have me research a topic.{recent_topics}"
-            ),
-            "direct" => format!(
-                "Got it. What would you like me to do with that?{recent_topics}"
-            ),
-            "reflective" => format!(
-                "That's a thoughtful perspective.{recent_topics} I can explore related knowledge if you'd like."
-            ),
-            _ => format!(
-                "I see! Is there something specific you'd like me to help with or look up?{recent_topics}"
-            ),
+        // 1. Acknowledge based on sentiment/angle
+        let intro = match thought.suggested_angle.as_str() {
+            "empathetic" => "I understand where you're coming from.",
+            "clarifying" => "Let me make sure I'm following.",
+            "curious" => "That's an interesting perspective!",
+            "collaborative" => "I appreciate you sharing that.",
+            "friendly" => "Good to hear from you!",
+            _ => "",
+        };
+        if !intro.is_empty() {
+            response_parts.push(intro.to_string());
         }
+
+        // 2. Main body based on profile style and content
+        let body = match profile.style.as_str() {
+            "frustrated" => "I hear you. Let me know if there's something specific I can help with to make this smoother.",
+            "curious" => "Want me to look into that further? I can research related topics if you'd like.",
+            "direct" => "Got it. What would you like me to do with that information?",
+            "reflective" => "That's a thoughtful point. It connects with some of the things we've discussed.",
+            _ => "I see! Is there something specific you'd like me to help with or look up?",
+        };
+        response_parts.push(body.to_string());
+
+        // 3. Add engagement hook (follow-up)
+        if !thought.new_concepts.is_empty() {
+            let concept = &thought.new_concepts[0];
+            response_parts.push(format!("By the way, this reminds me of *{}* — should we explore that?", concept));
+        } else if !history.is_empty() {
+             let topics = infer_recent_topics(history, 2);
+             if !topics.is_empty() {
+                 response_parts.push(format!("It seems related to our chat about *{}*.", topics[0]));
+             }
+        }
+
+        response_parts.join(" ")
     }
 }
 

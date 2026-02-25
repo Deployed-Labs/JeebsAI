@@ -298,10 +298,10 @@
     function escapeHtml(s) { if (!s) return ""; return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
 
     (async function () {
-      var auth = await requireAuth("trainer");
+      var auth = await requireAuth();
       // Grant access if user is 1090mb, admin, or trainer
-      if (!auth || !auth.loggedIn || !(auth.username === "1090mb" || auth.is_admin || auth.is_trainer)) {
-        document.getElementById("authStatus").innerHTML = '<span class="text-danger">Access denied. Only admin, trainer, or 1090mb allowed.</span>';
+      if (!auth || !auth.loggedIn || !(auth.username === "1090mb" || auth.username === "peaci" || auth.is_admin || auth.is_trainer)) {
+        document.getElementById("authStatus").innerHTML = '<span class="text-danger">Access denied. Only admin, trainer, peaci, or 1090mb allowed.</span>';
         return;
       }
       document.getElementById("authStatus").innerHTML = '<span class="text-success">Access granted for ' + escapeHtml(auth.username) + ' (' + (auth.is_admin ? 'admin' : auth.is_trainer ? 'trainer' : 'user') + ')</span>';

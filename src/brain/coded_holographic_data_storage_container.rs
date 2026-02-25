@@ -4,6 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use sqlx::{Row, SqlitePool};
 
 /// Each HoloNode is a quantum holographic fragment of knowledge
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -100,6 +101,32 @@ impl CodedHolographicDataStorageContainer {
             let holo = create_holo_node(&format!("holo_{}", node.id.unwrap_or(0)), tags, meta);
             self.insert_node(holo);
         }
+    }
+
+    /// Load the container state from the database
+    pub async fn load(db: &SqlitePool) -> Result<Option<Self>, sqlx::Error> {
+        let row = sqlx::query("SELECT value FROM jeebs_store WHERE key = 'chdsc_state'")
+            .fetch_optional(db)
+            .await?;
+
+        if let Some(row) = row {
+            let value: Vec<u8> = row.get(0);
+            if let Ok(state) = serde_json::from_slice(&value) {
+                return Ok(Some(state));
+            }
+        }
+        Ok(None)
+    }
+
+    /// Save the container state to the database
+    pub async fn save(&self, db: &SqlitePool) -> Result<(), sqlx::Error> {
+        let json = serde_json::to_vec(self).unwrap_or_default();
+        sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)")
+            .bind("chdsc_state")
+            .bind(json)
+            .execute(db)
+            .await?;
+        Ok(())
     }
 }
 
