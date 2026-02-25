@@ -1,3 +1,4 @@
+use crate::web_search;
 #[get("/api/code/capabilities")]
 pub async fn get_code_capabilities_endpoint(state: web::Data<AppState>) -> impl Responder {
     let db = &state.db;
@@ -65,9 +66,7 @@ fn generate_local_code(language: &str, prompt: &str) -> String {
         _ => format!("// {} code for: {}\n// (Custom local codegen only)", language, prompt),
     }
 }
-}
 use actix_web::{get, post, web, HttpResponse, Responder};
-use serde::Deserialize;
 #[get("/api/code/history")]
 pub async fn get_codegen_history_endpoint(state: web::Data<AppState>, query: web::Query<CodeGenHistoryQuery>) -> impl Responder {
     let db = &state.db;
@@ -136,7 +135,6 @@ use std::env;
 use std::time::Instant;
 
 use crate::state::AppState;
-use crate::web_search;
 use crate::utils::decode_all;
 
 /// Result of Cortex thinking for a user prompt

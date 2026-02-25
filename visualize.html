@@ -1,6 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+        <style>
+            .menu-bar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                background: #7fffd4;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+                z-index: 1000;
+                padding: 16px 0;
+            }
+            .menu-bar-inner {
+                max-width: 900px;
+                margin: 0 auto;
+                display: flex;
+                gap: 16px;
+                justify-content: flex-end;
+            }
+            .menu-link {
+                padding: 12px 24px;
+                background: #181c24;
+                color: #7fffd4;
+                border-radius: 8px;
+                font-size: 1.1rem;
+                font-weight: bold;
+                text-decoration: none;
+                border: 2px solid #7fffd4;
+                transition: background 0.2s, color 0.2s, border-color 0.2s;
+            }
+            .menu-link:hover {
+                background: #23283a;
+                color: #fff;
+                border-color: #fff;
+            }
+        </style>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jeebs Brain Visualization</title>
@@ -12,6 +47,14 @@
     </style>
 </head>
 <body>
+        <div class="menu-bar">
+            <div class="menu-bar-inner">
+                <a href="/admin_dashboard.html" class="menu-link">Dashboard</a>
+                <a href="/admin_whitelist.html" class="menu-link">Whitelist</a>
+                <a href="/admin_blacklist.html" class="menu-link">Blacklist</a>
+            </div>
+        </div>
+        <div style="height:64px;"></div> <!-- Spacer for fixed menu -->
     <div id="loading">Loading Brain Graph...</div>
     <div id="mynetwork"></div>
 

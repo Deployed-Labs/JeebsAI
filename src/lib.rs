@@ -1,3 +1,4 @@
+pub mod web_search;
 pub mod admin;
 pub mod auth;
 pub mod brain;

@@ -1,3 +1,4 @@
+use std::io::Write;
 /// Periodically generates and stores a new 'thought' for the default session for live monitoring
 pub fn spawn_background_thought_generator(db: sqlx::SqlitePool) {
     use std::time::Duration;

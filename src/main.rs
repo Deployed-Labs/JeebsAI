@@ -1,3 +1,4 @@
+mod web_search;
 use actix_cors::Cors;
 use actix_files::Files;
 // Rate limiting removed: actix-governor disabled to avoid 429 responses
