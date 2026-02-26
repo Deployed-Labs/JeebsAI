@@ -133,6 +133,7 @@ use sqlx::{Row, SqlitePool};
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::time::Instant;
+use rand::seq::SliceRandom;
 
 use crate::state::AppState;
 use crate::utils::decode_all;
@@ -846,11 +847,17 @@ fn is_follow_up_prompt(lower: &str) -> bool {
 }
 
 fn extract_name_from_intro(lower_input: &str) -> Option<String> {
-    for prefix in ["my name is ", "i am ", "i'm "] {
+    for prefix in ["my name is ", "i am ", "i'm ", "call me ", "you can call me "] {
         if let Some(rest) = lower_input.strip_prefix(prefix) {
             let candidate = rest
                 .trim()
                 .trim_matches(|ch: char| matches!(ch, '.' | ',' | '!' | '?'));
+
+            // Ignore if it looks like a sentence (more than 3 words) to avoid false positives
+            if candidate.split_whitespace().count() > 3 {
+                continue;
+            }
+
             if candidate.is_empty() {
                 return None;
             }
@@ -943,6 +950,14 @@ fn extract_learnable_fact(prompt: &str) -> Option<String> {
         }
     }
 
+    // Check for suffix patterns for favorites
+    if lower.contains(" is my favorite") || lower.contains(" are my favorite") {
+        let fact = normalize_fact_text(&clean);
+        if !fact.is_empty() {
+            return Some(fact);
+        }
+    }
+
     for prefix in [
         "i am ",
         "i'm ",
@@ -951,7 +966,10 @@ fn extract_learnable_fact(prompt: &str) -> Option<String> {
         "i work at ",
         "i work in ",
         "i like ",
+        "i really like ",
         "i love ",
+        "i really love ",
+        "i enjoy ",
         "i prefer ",
         "i hate ",
         "i dislike ",
@@ -1068,6 +1086,29 @@ async fn save_learned_fact(
         .await?;
 
     Ok(payload)
+}
+
+async fn learn_and_store_fact(
+    db: &SqlitePool,
+    fact: &str,
+    owner: &str,
+    username: Option<&str>,
+) -> String {
+    // Try deep learning first if a topic is detected
+    let topics = crate::knowledge_integration::detect_topics_in_message(fact);
+    if let Some((topic_with_cat, _)) = topics.first() {
+        let topic = topic_with_cat.split('(').next().unwrap_or(topic_with_cat).trim();
+        let source = username.unwrap_or("user");
+        if crate::deep_learning::learn_from_user_input(db, topic, fact, source).await.is_ok() {
+             return format!("✅ Learned new fact about *{}*: {}", topic, fact);
+        }
+    }
+
+    // Fallback to personal memory
+    match save_learned_fact(db, owner, fact).await {
+        Ok(_) => format!("✅ Got it, I'll remember that: *{fact}*"),
+        Err(_) => "I tried to save that but ran into a storage issue.".to_string(),
+    }
 }
 
 async fn load_learned_facts(db: &SqlitePool, owner: &str) -> Vec<LearnedFact> {
@@ -1303,6 +1344,13 @@ fn analyze_communication_profile(
             || lower.contains("broken")
             || lower.contains("wtf")
             || lower.contains("why isn't")
+            || lower.contains("stupid")
+            || lower.contains("useless")
+            || lower.contains("wrong")
+            || lower.contains("fail")
+            || lower.contains("bad")
+            || lower.contains("annoying")
+            || lower.contains("hate")
         {
             frustration_count += 1;
         }
@@ -2419,6 +2467,8 @@ enum Intent {
     MemoryLookup,      // "what is my …"
     CommStyle,         // "how am i communicating"
     FollowUp,          // "go on", "continue"
+    ListLearning,      // "list learning sessions"
+    DeepLearning,      // "study <topic>"
     PluginTime,
     PluginCalc,
     PluginHash,
@@ -2467,6 +2517,8 @@ fn classify_intent(lower: &str) -> Intent {
     if lower.starts_with("my name is ")
         || lower.starts_with("i am ")
         || lower.starts_with("i'm ")
+        || lower.starts_with("call me ")
+        || lower.starts_with("you can call me ")
     {
         if extract_name_from_intro(lower).is_some() {
             return Intent::SelfIntro;
@@ -2526,6 +2578,20 @@ fn classify_intent(lower: &str) -> Intent {
     // Follow up
     if is_follow_up_prompt(lower) {
         return Intent::FollowUp;
+    }
+
+    // List learning sessions
+    if lower.contains("list learning")
+        || lower.contains("active studies")
+        || lower.contains("what are you studying")
+        || lower.contains("learning status")
+    {
+        return Intent::ListLearning;
+    }
+
+    // Deep Learning trigger
+    if lower.starts_with("deep learn ") || lower.starts_with("study ") {
+        return Intent::DeepLearning;
     }
 
     // Plugin: time
@@ -2822,10 +2888,7 @@ impl Cortex {
 
             Intent::MemoryStore => {
                 if let Some(fact) = extract_learnable_fact(prompt.trim()) {
-                    match save_learned_fact(db, &owner, &fact).await {
-                        Ok(_) => format!("✅ Got it, I'll remember that: *{fact}*"),
-                        Err(_) => "I tried to save that but ran into a storage issue.".to_string(),
-                    }
+                    learn_and_store_fact(db, &fact, &owner, username).await
                 } else {
                     "I wasn't sure what to remember from that. Can you rephrase?".to_string()
                 }
@@ -2888,6 +2951,49 @@ impl Cortex {
                 } else {
                     "I don't have context from a previous message. What topic would you like to explore?"
                         .to_string()
+                }
+            }
+
+            Intent::ListLearning => {
+                match crate::deep_learning::get_all_learning_sessions(db).await {
+                    Ok(sessions) => {
+                        if sessions.is_empty() {
+                            "I don't have any active deep learning sessions right now. You can start one with `study <topic>`.".to_string()
+                        } else {
+                            let list = sessions.iter()
+                                .map(|s| format!("• **{}** (Level {}, {} facts, {:.1} hrs)", s.topic, s.depth_level, s.learned_facts.len(), s.study_hours))
+                                .collect::<Vec<_>>()
+                                .join("\n");
+                            format!("📚 **Active Learning Sessions**\n\n{}", list)
+                        }
+                    }
+                    Err(e) => format!("Failed to retrieve learning sessions: {}", e),
+                }
+            }
+
+            Intent::DeepLearning => {
+                let trimmed = prompt.trim();
+                let topic = if lower.starts_with("deep learn ") {
+                    &trimmed[11..]
+                } else {
+                    &trimmed[6..]
+                }
+                .trim();
+
+                if topic.is_empty() {
+                    "Please specify a topic to study. Example: `study quantum mechanics`".to_string()
+                } else {
+                    match crate::deep_learning::start_deep_learning_session(db, topic).await {
+                        Ok(session) => format!(
+                            "📚 **Deep Learning Session Started**\n\n\
+                             I've begun a deep study of **{}**.\n\n\
+                             **Focus Subtopics:**\n• {}\n\n\
+                             I will now prioritize learning facts about this topic. You can teach me or I can research it.",
+                            session.topic,
+                            session.subtopics.iter().take(5).cloned().collect::<Vec<_>>().join("\n• ")
+                        ),
+                        Err(e) => format!("Failed to start learning session: {}", e),
+                    }
                 }
             }
 
@@ -3054,13 +3160,19 @@ impl Cortex {
             }
 
             Intent::KnowledgeQuestion => {
-                Self::answer_knowledge_question(db, prompt.trim(), &learned_facts, &history, &profile, &thought)
+                let base = Self::answer_knowledge_question(db, prompt.trim(), &learned_facts, &history, &profile, &thought)
                     .await
+                crate::knowledge_integration::enhance_response_with_knowledge(db, &base, prompt.trim())
+                    .await
+                    .unwrap_or(base)
             }
 
             Intent::Conversation => {
-                Self::conversational_response(db, prompt.trim(), &learned_facts, &history, &profile, &thought, &owner)
+                let base = Self::conversational_response(db, prompt.trim(), &learned_facts, &history, &profile, &thought, &owner, username)
                     .await
+                crate::knowledge_integration::enhance_response_with_knowledge(db, &base, prompt.trim())
+                    .await
+                    .unwrap_or(base)
             }
         };
 
@@ -3274,29 +3386,42 @@ impl Cortex {
         profile: &CommunicationProfile,
         thought: &crate::language_learning::Thought,
         owner: &str,
+        username: Option<&str>,
     ) -> String {
         // Check for teachable facts
         if let Some(fact) = extract_learnable_fact(prompt) {
             // This was missed by the intent classifier — store it
-            if save_learned_fact(db, owner, &fact).await.is_ok() {
-                return format!("✅ Noted: *{fact}*. I'll keep that in mind.");
-            }
+            return learn_and_store_fact(db, &fact, owner, username).await;
         }
 
         // See if there's relevant knowledge to share
         let kb_response = Self::knowledge_search(db, prompt).await;
-        if !kb_response.is_empty() && kb_response.len() > 20 {
-            return kb_response;
-        }
 
         // If input is ambiguous and we have no knowledge response, ask for clarification
-        if thought.ambiguity_score > 0.5 && kb_response.is_empty() {
+        if (thought.ambiguity_score > 0.5 || (prompt.split_whitespace().count() < 4 && !prompt.contains('?'))) && kb_response.is_empty() {
+             // If we identified a specific concept we don't know, ask about it
+             if let Some(target) = &thought.curiosity_target {
+                 return format!("I'm not familiar with *{}* yet. Could you explain what that is?", target);
+             }
+
+             // Proactively suggest a topic if conversation stalls (30% chance)
+             if rand::random::<f32>() < 0.3 {
+                 if let Ok(sessions) = crate::deep_learning::get_all_learning_sessions(db).await {
+                     if !sessions.is_empty() {
+                         let mut rng = rand::thread_rng();
+                         if let Some(session) = sessions.choose(&mut rng) {
+                             return format!("I'm not sure how to respond to that. But since things are quiet, I've been studying **{}**. Want to discuss it?", session.topic);
+                         }
+                     }
+                 }
+             }
+
              let clarifications = [
-                 format!("Could you elaborate on '{}'?", prompt),
-                 "I'm not sure I follow. Can you explain more?".to_string(),
-                 "That's a bit brief. What do you mean?".to_string(),
-                 "I want to understand better. Can you give me more context?".to_string(),
-                 format!("I'm listening, but I need a bit more detail about '{}'.", prompt),
+                 format!("Could you elaborate on '{}'? I want to make sure I understand your intent.", prompt),
+                 "I'm not sure I follow. Can you explain more about what you mean?".to_string(),
+                 "That's a bit brief. Could you give me more context?".to_string(),
+                 format!("I'm listening, but I need a bit more detail about '{}' to give a good answer.", prompt),
+                 "I want to help, but I'm not sure what you're asking. Can you rephrase that?".to_string(),
              ];
              let idx = (chrono::Local::now().timestamp() as usize) % clarifications.len();
              return clarifications[idx].clone();
@@ -3323,11 +3448,21 @@ impl Cortex {
         let body = if thought.correction_detected {
             let _ = save_learned_fact(db, owner, prompt).await;
             "I've updated my internal context with this correction. Thanks for setting me straight.".to_string()
+        } else if !kb_response.is_empty() {
+            kb_response
         } else if let Some(target) = &thought.curiosity_target {
              format!("I'm actually quite curious about *{}*. Could you tell me more about it?", target)
         } else {
             match profile.style.as_str() {
-                "frustrated" => "I hear you. Let me know if there's something specific I can help with to make this smoother.".to_string(),
+                "frustrated" => {
+                    let responses = [
+                        "I hear your frustration. I'm trying my best to understand. Could you rephrase what you need?",
+                        "I apologize if I'm not being helpful. Let's try a different approach.",
+                        "I seem to be missing the mark. Please tell me exactly what you're looking for.",
+                        "I want to get this right. Can you help me understand where I went wrong?",
+                    ];
+                    responses[chrono::Local::now().timestamp() as usize % responses.len()].to_string()
+                },
                 "curious" => "Want me to look into that further? I can research related topics if you'd like.".to_string(),
                 "direct" => "Got it. What would you like me to do with that information?".to_string(),
                 "reflective" => "That's a thoughtful point. It connects with some of the things we've discussed.".to_string(),

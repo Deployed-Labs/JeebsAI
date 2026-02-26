@@ -506,17 +506,22 @@ pub async fn build_knowledge_graph(
     db: &SqlitePool,
     parser: &BrainParser,
 ) -> Result<KnowledgeGraph, String> {
-    let brain_nodes: Vec<(String, String, String)> =
-        sqlx::query_as("SELECT id, label, COALESCE(summary,'') || ' ' || COALESCE(CAST(data AS TEXT),'') FROM brain_nodes")
+    let brain_nodes: Vec<(String, String, String, String)> =
+        sqlx::query_as("SELECT id, label, COALESCE(summary,''), COALESCE(CAST(data AS TEXT),'') FROM brain_nodes")
             .fetch_all(db)
             .await
             .map_err(|e| format!("Failed to fetch brain nodes: {}", e))?;
 
     let mut graph = KnowledgeGraph::new();
+    let mut summary_to_id: HashMap<String, Vec<String>> = HashMap::new();
 
-    for (id, key, value) in brain_nodes {
-        let parsed = parser.parse(id, key, value);
+    for (id, key, summary, data) in brain_nodes {
+        let value = format!("{} {}", summary, data);
+        let parsed = parser.parse(id.clone(), key, value);
         graph.add_parsed_content(parsed);
+        if !summary.is_empty() {
+            summary_to_id.entry(summary).or_default().push(id);
+        }
     }
 
     // Pull from Jeebs's active store
@@ -536,6 +541,47 @@ pub async fn build_knowledge_graph(
                     let node_id = format!("{}-fact-{}", id, i);
                     let parsed = parser.parse(node_id, canonical, fact);
                     graph.add_parsed_content(parsed);
+                }
+            }
+        }
+    }
+
+    // Build explicit edges from knowledge_triples
+    let triples: Vec<(String, String, String, f64)> = sqlx::query_as(
+        "SELECT subject, predicate, object, confidence FROM knowledge_triples"
+    )
+    .fetch_all(db)
+    .await
+    .unwrap_or_default();
+
+    let mut label_to_id: HashMap<String, Vec<String>> = HashMap::new();
+    for (id, node) in &graph.nodes {
+        label_to_id.entry(node.content.original_key.clone()).or_default().push(id.clone());
+    }
+
+    for (subject, predicate, object, confidence) in triples {
+        let mut from_ids = HashSet::new();
+        let mut to_ids = HashSet::new();
+
+        if let Some(ids) = label_to_id.get(&subject) { from_ids.extend(ids.clone()); }
+        if let Some(ids) = graph.entity_index.get(&subject) { from_ids.extend(ids.clone()); }
+
+        if let Some(ids) = label_to_id.get(&object) { to_ids.extend(ids.clone()); }
+        if let Some(ids) = graph.entity_index.get(&object) { to_ids.extend(ids.clone()); }
+        
+        // Try matching object to summary (truncated fact)
+        let truncated = object.chars().take(200).collect::<String>();
+        if let Some(ids) = summary_to_id.get(&truncated) { to_ids.extend(ids.clone()); }
+
+        for from in &from_ids {
+            for to in &to_ids {
+                if from != to {
+                    graph.edges.push(GraphEdge {
+                        from: from.clone(),
+                        to: to.clone(),
+                        relationship_type: RelationType::Custom(predicate.clone()),
+                        strength: confidence,
+                    });
                 }
             }
         }

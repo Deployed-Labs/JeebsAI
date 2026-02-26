@@ -5,7 +5,7 @@ use chrono::Local;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{Row, SqlitePool};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 use rand::Rng;
 use std::time::Duration;
@@ -489,13 +489,14 @@ pub async fn add_learned_fact(
     {
         let value: Vec<u8> = row.get(0);
         if let Ok(mut session) = serde_json::from_slice::<DeepLearningSession>(&value) {
+            let related_concepts = extract_concepts(fact);
             let learned_fact = LearnedFact {
                 fact: fact.to_string(),
                 source: source.to_string(),
                 learned_at: Local::now().to_rfc3339(),
                 importance,
                 used_in_responses: 0,
-                related_concepts: extract_concepts(fact),
+                related_concepts: related_concepts.clone(),
             };
 
             session.learned_facts.push(learned_fact);
@@ -518,6 +519,62 @@ pub async fn add_learned_fact(
 
             // Also update expertise tracking
             update_topic_expertise(db, &session.topic, session.learned_facts.len() as u32).await?;
+
+            // --- Store as Brain Node and Knowledge Triples for Graph Connectivity ---
+
+            // 1. Create Brain Node
+            let node_id = format!("fact:{}", Uuid::new_v4());
+            let summary = fact.chars().take(200).collect::<String>();
+            let node_data = json!({
+                "type": "learned_fact",
+                "topic": session.topic,
+                "fact": fact,
+                "source": source,
+                "importance": importance,
+                "related_concepts": related_concepts,
+                "session_id": session_id,
+                "learned_at": Local::now().to_rfc3339()
+            });
+
+            let _ = sqlx::query(
+                "INSERT OR REPLACE INTO brain_nodes (id, label, summary, data, created_at) VALUES (?, ?, ?, ?, ?)"
+            )
+            .bind(&node_id)
+            .bind(format!("Fact: {}", session.topic))
+            .bind(summary)
+            .bind(serde_json::to_vec(&node_data).unwrap_or_default())
+            .bind(Local::now().to_rfc3339())
+            .execute(db)
+            .await;
+
+            // 2. Create Knowledge Triples
+            // Link Topic -> Fact
+            let _ = sqlx::query(
+                "INSERT OR REPLACE INTO knowledge_triples (subject, predicate, object, confidence, created_at) VALUES (?, ?, ?, ?, ?)"
+            )
+            .bind(&session.topic)
+            .bind("has_fact")
+            .bind(fact)
+            .bind(importance as f64)
+            .bind(Local::now().to_rfc3339())
+            .execute(db)
+            .await;
+
+            // Link Related Concepts -> Topic (Inference connections)
+            for concept in related_concepts {
+                if concept.len() > 3 && concept != session.topic.to_lowercase() {
+                    let _ = sqlx::query(
+                        "INSERT OR REPLACE INTO knowledge_triples (subject, predicate, object, confidence, created_at) VALUES (?, ?, ?, ?, ?)"
+                    )
+                    .bind(&concept)
+                    .bind("related_to")
+                    .bind(&session.topic)
+                    .bind(0.6) // Slightly lower confidence for inferred relations
+                    .bind(Local::now().to_rfc3339())
+                    .execute(db)
+                    .await;
+                }
+            }
         }
     }
 
@@ -576,7 +633,13 @@ pub async fn add_practice_problem(
 }
 
 /// Record that a fact was used in a chat response
-pub async fn record_fact_usage(db: &SqlitePool, topic: &str, fact: &str) -> Result<(), String> {
+pub async fn record_fact_usage(
+    db: &SqlitePool,
+    topic: &str,
+    fact: &str,
+    context: &str,
+    conversation_id: Option<&str>,
+) -> Result<(), String> {
     let key = format!("{}{}", KNOWLEDGE_APPLICATION_PREFIX, topic.to_lowercase());
 
     let mut applications: Vec<FactApplication> = if let Ok(Some(row)) =
@@ -594,7 +657,8 @@ pub async fn record_fact_usage(db: &SqlitePool, topic: &str, fact: &str) -> Resu
     applications.push(FactApplication {
         fact: fact.to_string(),
         used_at: Local::now().to_rfc3339(),
-        context: "chat_response".to_string(),
+        context: context.to_string(),
+        conversation_id: conversation_id.map(|s| s.to_string()),
     });
 
     let payload = serde_json::to_vec(&applications).map_err(|e| e.to_string())?;
@@ -614,6 +678,67 @@ pub struct FactApplication {
     pub fact: String,
     pub used_at: String,
     pub context: String,
+    #[serde(default)]
+    pub conversation_id: Option<String>,
+}
+
+/// Statistics about how a fact has been used
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FactUsageStats {
+    pub fact: String,
+    pub total_uses: usize,
+    pub contexts: HashMap<String, usize>,
+    pub last_used: String,
+}
+
+/// Analyze fact usage patterns to determine utility
+pub async fn analyze_fact_usage(
+    db: &SqlitePool,
+    topic_filter: Option<&str>,
+) -> Result<Vec<FactUsageStats>, String> {
+    let rows = if let Some(topic) = topic_filter {
+        let key = format!("{}{}", KNOWLEDGE_APPLICATION_PREFIX, topic.to_lowercase());
+        sqlx::query("SELECT value FROM jeebs_store WHERE key = ?")
+            .bind(&key)
+            .fetch_all(db)
+            .await
+            .map_err(|e| e.to_string())?
+    } else {
+        sqlx::query("SELECT value FROM jeebs_store WHERE key LIKE ?")
+            .bind(format!("{}%", KNOWLEDGE_APPLICATION_PREFIX))
+            .fetch_all(db)
+            .await
+            .map_err(|e| e.to_string())?
+    };
+
+    let mut stats_map: HashMap<String, FactUsageStats> = HashMap::new();
+
+    for row in rows {
+        let value: Vec<u8> = row.get(0);
+        if let Ok(applications) = serde_json::from_slice::<Vec<FactApplication>>(&value) {
+            for app in applications {
+                let entry = stats_map.entry(app.fact.clone()).or_insert(FactUsageStats {
+                    fact: app.fact.clone(),
+                    total_uses: 0,
+                    contexts: HashMap::new(),
+                    last_used: app.used_at.clone(),
+                });
+
+                entry.total_uses += 1;
+                *entry.contexts.entry(app.context.clone()).or_insert(0) += 1;
+
+                if app.used_at > entry.last_used {
+                    entry.last_used = app.used_at;
+                }
+            }
+        }
+    }
+
+    let mut stats: Vec<FactUsageStats> = stats_map.into_values().collect();
+    // Sort by total uses descending
+    stats.sort_by(|a, b| b.total_uses.cmp(&a.total_uses));
+
+    Ok(stats)
 }
 
 /// Get relevant facts for a topic to use in chat
@@ -622,47 +747,80 @@ pub async fn get_relevant_facts_for_chat(
     topic: &str,
     query: &str,
 ) -> Result<Vec<LearnedFact>, String> {
-    // Find all learning sessions for this topic
+    // Find all learning sessions
     let rows = sqlx::query("SELECT value FROM jeebs_store WHERE key LIKE ?")
         .bind(format!("{}%", LEARNING_SESSION_PREFIX))
         .fetch_all(db)
         .await
         .map_err(|e| e.to_string())?;
 
-    let mut relevant_facts = Vec::new();
-    let query_lower = query.to_lowercase();
+    // Extract keywords from the user's query for better matching
+    let query_keywords: HashSet<String> = query
+        .to_lowercase()
+        .chars()
+        .filter(|c| c.is_alphanumeric() || c.is_whitespace())
+        .collect::<String>()
+        .split_whitespace()
+        .filter(|s| s.len() > 2)
+        .map(String::from)
+        .collect();
+
+    let mut scored_facts: Vec<(LearnedFact, f32)> = Vec::new();
+    let topic_lower = topic.to_lowercase();
 
     for row in rows {
         let value: Vec<u8> = row.get(0);
         if let Ok(session) = serde_json::from_slice::<DeepLearningSession>(&value) {
-            if session.topic.to_lowercase() == topic.to_lowercase()
+            // Check if the session is relevant to the current topic
+            if session.topic.to_lowercase() == topic_lower
                 || session
                     .subtopics
                     .iter()
-                    .any(|s| s.to_lowercase() == topic.to_lowercase())
+                    .any(|s| s.to_lowercase() == topic_lower)
             {
                 for fact in &session.learned_facts {
-                    // Check if fact is relevant to query
-                    if fact.fact.to_lowercase().contains(&query_lower)
-                        || matches_any_concept(&query_lower, &fact.related_concepts)
-                    {
-                        relevant_facts.push(fact.clone());
+                    let mut relevance_score = 0;
+                    let fact_text_lower = fact.fact.to_lowercase();
+
+                    // Score based on keyword matches in fact text and concepts
+                    for keyword in &query_keywords {
+                        if fact_text_lower.contains(keyword) {
+                            relevance_score += 2; // Higher weight for match in fact text
+                        }
+                        if fact
+                            .related_concepts
+                            .iter()
+                            .any(|c| c.to_lowercase().contains(keyword))
+                        {
+                            relevance_score += 1; // Lower weight for match in concepts
+                        }
+                    }
+
+                    // If the fact is relevant, calculate its final score and store it
+                    if relevance_score > 0 {
+                        let final_score = (relevance_score as f32)
+                            * fact.importance
+                            * (1.0 + (fact.used_in_responses as f32) / 10.0);
+                        scored_facts.push((fact.clone(), final_score));
                     }
                 }
             }
         }
     }
 
-    // Sort by importance and usage
-    relevant_facts.sort_by(|a, b| {
-        let score_a = a.importance * (1.0 + (a.used_in_responses as f32) / 10.0);
-        let score_b = b.importance * (1.0 + (b.used_in_responses as f32) / 10.0);
+    // Sort by the final combined score in descending order
+    scored_facts.sort_by(|(_, score_a), (_, score_b)| {
         score_b
-            .partial_cmp(&score_a)
+            .partial_cmp(score_a)
             .unwrap_or(std::cmp::Ordering::Equal)
     });
 
-    Ok(relevant_facts.into_iter().take(5).collect())
+    // Return the top 5 most relevant facts
+    Ok(scored_facts
+        .into_iter()
+        .map(|(fact, _)| fact)
+        .take(5)
+        .collect())
 }
 
 /// Get expertise level for a topic
@@ -721,6 +879,42 @@ pub async fn get_learning_session_by_id(
     Ok(None)
 }
 
+/// Find the most relevant active learning session for a topic
+pub async fn find_active_session_for_topic(
+    db: &SqlitePool,
+    topic: &str,
+) -> Result<Option<DeepLearningSession>, String> {
+    let sessions = get_all_learning_sessions(db).await?;
+    let topic_lower = topic.to_lowercase();
+
+    // Find the most recently updated session for this topic
+    let session = sessions
+        .into_iter()
+        .filter(|s| s.topic.to_lowercase() == topic_lower)
+        .max_by(|a, b| a.last_studied.cmp(&b.last_studied));
+
+    Ok(session)
+}
+
+/// Learn a new fact directly from user input during a conversation
+pub async fn learn_from_user_input(
+    db: &SqlitePool,
+    topic: &str,
+    fact_content: &str,
+    source_user: &str,
+) -> Result<String, String> {
+    // 1. Find or create a session for this topic
+    let session = match find_active_session_for_topic(db, topic).await? {
+        Some(s) => s,
+        None => start_deep_learning_session(db, topic).await?,
+    };
+
+    // 2. Add the fact with higher importance (0.6) for user-taught knowledge
+    add_learned_fact(db, &session.id, fact_content, &format!("user:{}", source_user), 0.6).await?;
+
+    Ok(format!("Successfully learned new fact about {}", topic))
+}
+
 /// Get learning statistics
 pub async fn get_learning_stats(db: &SqlitePool) -> Result<serde_json::Value, String> {
     let sessions = get_all_learning_sessions(db).await?;
@@ -754,6 +948,42 @@ pub async fn get_learning_stats(db: &SqlitePool) -> Result<serde_json::Value, St
                 "study_hours": s.study_hours,
             }))
             .collect::<Vec<_>>(),
+    }))
+}
+
+/// Get aggregated fact usage statistics formatted for visualization
+pub async fn get_fact_usage_visualization(
+    db: &SqlitePool,
+    topic_filter: Option<&str>,
+) -> Result<serde_json::Value, String> {
+    let stats = analyze_fact_usage(db, topic_filter).await?;
+
+    // 1. Top 20 most used facts for a list or bar chart
+    let top_facts: Vec<serde_json::Value> = stats
+        .iter()
+        .take(20)
+        .map(|s| {
+            json!({
+                "fact": s.fact,
+                "count": s.total_uses,
+                "last_used": s.last_used
+            })
+        })
+        .collect();
+
+    // 2. Context distribution (where are facts being used?) for a pie chart
+    let mut context_counts: HashMap<String, usize> = HashMap::new();
+    for s in &stats {
+        for (ctx, count) in &s.contexts {
+            *context_counts.entry(ctx.clone()).or_insert(0) += count;
+        }
+    }
+
+    Ok(json!({
+        "total_facts_used": stats.len(),
+        "top_facts": top_facts,
+        "context_distribution": context_counts,
+        "filter_topic": topic_filter
     }))
 }
 
