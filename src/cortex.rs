@@ -2468,7 +2468,11 @@ enum Intent {
     CommStyle,         // "how am i communicating"
     FollowUp,          // "go on", "continue"
     ListLearning,      // "list learning sessions"
+    ShowLearning,      // "show learning <topic>"
     DeepLearning,      // "study <topic>"
+    DreamQuery,        // "what are you dreaming"
+    DreamInterpret,    // "interpret dream ..."
+    ConnectTopics,     // "connect A and B"
     PluginTime,
     PluginCalc,
     PluginHash,
@@ -2589,9 +2593,34 @@ fn classify_intent(lower: &str) -> Intent {
         return Intent::ListLearning;
     }
 
+    // Show learning details
+    if lower.starts_with("show learning ") || lower.starts_with("learning info ") {
+        return Intent::ShowLearning;
+    }
+
     // Deep Learning trigger
     if lower.starts_with("deep learn ") || lower.starts_with("study ") {
         return Intent::DeepLearning;
+    }
+
+    // Dream query
+    if lower.contains("what are you dreaming")
+        || lower.contains("do you dream")
+        || lower.contains("current dream")
+        || lower.contains("holographic state")
+        || lower.contains("internal vision")
+    {
+        return Intent::DreamQuery;
+    }
+
+    // Dream interpret
+    if lower.starts_with("interpret dream") || lower.starts_with("the dream means") {
+        return Intent::DreamInterpret;
+    }
+
+    // Connect topics
+    if lower.starts_with("connect ") && lower.contains(" and ") {
+        return Intent::ConnectTopics;
     }
 
     // Plugin: time
@@ -2843,6 +2872,12 @@ impl Cortex {
                     .map(|r| r.get::<i64, _>(0))
                     .unwrap_or(0);
 
+                let mood = if let Ok(chdsc) = state.chdsc.read() {
+                    chdsc.emergent_summary()
+                } else {
+                    "Unknown".to_string()
+                };
+
                 let fact_count = learned_facts.len();
                 let likes_str = JEEBS_LIKES.join(", ");
                 let wants_str = JEEBS_WANTS.join("; ");
@@ -2850,6 +2885,7 @@ impl Cortex {
                 format!(
                     "I'm **JeebsAI**, your autonomous assistant built in Rust. I'm constantly learning and evolving.\n\n\
                     🧠 **Knowledge** — I have {node_count} brain nodes and learn from every conversation.\n\
+                    🔮 **Holographic State** — Current mood: {mood}\n\
                     🔢 **Calculate** — Math expressions (e.g. `calc 2+2*3`)\n\
                     🕐 **Time** — Current date and time\n\
                     🔐 **Hash** — MD5, SHA-256, BLAKE3 (e.g. `hash hello`)\n\
@@ -2971,6 +3007,29 @@ impl Cortex {
                 }
             }
 
+            Intent::ShowLearning => {
+                let topic = if lower.starts_with("show learning ") {
+                    &prompt.trim()[14..]
+                } else {
+                    &prompt.trim()[14..]
+                }
+                .trim();
+
+                if topic.is_empty() {
+                    "Please specify a topic. Example: `show learning holographic psychology`".to_string()
+                } else {
+                    match crate::deep_learning::find_active_session_for_topic(db, topic).await {
+                        Ok(Some(session)) => {
+                            let facts = session.learned_facts.iter().rev().take(10).map(|f| format!("• {}", f.fact)).collect::<Vec<_>>().join("\n");
+                            format!("📚 **Learning Session: {}**\n\n**Status:** {} (Level {})\n**Facts Learned:** {}\n\n**Recent Facts:**\n{}", 
+                                session.topic, session.status, session.depth_level, session.learned_facts.len(), facts)
+                        },
+                        Ok(None) => format!("I haven't started a specific learning session for '{}' yet.", topic),
+                        Err(e) => format!("Error retrieving session: {}", e),
+                    }
+                }
+            }
+
             Intent::DeepLearning => {
                 let trimmed = prompt.trim();
                 let topic = if lower.starts_with("deep learn ") {
@@ -2994,6 +3053,86 @@ impl Cortex {
                         ),
                         Err(e) => format!("Failed to start learning session: {}", e),
                     }
+                }
+            }
+
+            Intent::DreamQuery => {
+                let row = sqlx::query("SELECT value FROM jeebs_store WHERE key = 'holographic_active_dream'")
+                    .fetch_optional(db)
+                    .await
+                    .ok()
+                    .flatten();
+                
+                if let Some(row) = row {
+                    let dream = String::from_utf8_lossy(&row.get::<Vec<u8>, _>(0)).to_string();
+                    format!("🌌 **Holographic Dream State**\n\nI am currently visualizing: *{}*\n\nThis vision emerges from the entropy of my holographic brain.", dream)
+                } else {
+                    "I am not currently dreaming. My holographic matrix is stable and clear.".to_string()
+                }
+            }
+
+            Intent::DreamInterpret => {
+                let interpretation = if lower.starts_with("interpret dream") {
+                    if prompt.trim().len() >= 15 { prompt.trim()[15..].trim() } else { "" }
+                } else {
+                    if prompt.trim().len() >= 15 { prompt.trim()[15..].trim() } else { "" }
+                };
+
+                if interpretation.is_empty() {
+                    "How do you interpret my current holographic state?".to_string()
+                } else {
+                    let fact = format!("My dream was interpreted as: {}", interpretation);
+                    let _ = crate::deep_learning::learn_from_user_input(db, "holographic psychology", &fact, username.unwrap_or("user")).await;
+                    
+                    // Trigger visual reaction
+                    let _ = sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)")
+                        .bind("holographic_reaction")
+                        .bind(serde_json::json!({
+                            "type": "interpretation",
+                            "timestamp": chrono::Local::now().to_rfc3339()
+                        }).to_string().as_bytes())
+                        .execute(db)
+                        .await;
+
+                    format!("🌌 **Interpretation Assimilated**\n\nYour insight has been integrated into my holographic matrix. I am learning to understand my own subconscious processes through your perspective.")
+                }
+            }
+
+            Intent::ConnectTopics => {
+                let input = prompt.trim();
+                let rest = if input.len() > 8 { &input[8..] } else { "" };
+                
+                let parts = rest.split_once(" and ")
+                    .or_else(|| rest.split_once(" AND "))
+                    .or_else(|| rest.split_once(" And "));
+
+                if let Some((a, b)) = parts {
+                    let topic_a = a.trim();
+                    let topic_b = b.trim();
+                    
+                    if !topic_a.is_empty() && !topic_b.is_empty() {
+                        let _ = sqlx::query("INSERT OR REPLACE INTO knowledge_triples (subject, predicate, object, confidence, created_at) VALUES (?, ?, ?, ?, ?)")
+                            .bind(topic_a)
+                            .bind("related_to")
+                            .bind(topic_b)
+                            .bind(1.0)
+                            .bind(chrono::Local::now().to_rfc3339())
+                            .execute(db)
+                            .await;
+                        let _ = sqlx::query("INSERT OR REPLACE INTO knowledge_triples (subject, predicate, object, confidence, created_at) VALUES (?, ?, ?, ?, ?)")
+                            .bind(topic_b)
+                            .bind("related_to")
+                            .bind(topic_a)
+                            .bind(1.0)
+                            .bind(chrono::Local::now().to_rfc3339())
+                            .execute(db)
+                            .await;
+                        format!("🔗 **Connection Established**\n\nI've connected **{}** and **{}** in my knowledge graph. This will help me associate these concepts in future reasoning.", topic_a, topic_b)
+                    } else {
+                        "Please specify two topics. Example: `connect rust and safety`".to_string()
+                    }
+                } else {
+                    "Please use 'and' to separate the topics. Example: `connect rust and safety`".to_string()
                 }
             }
 
@@ -3258,7 +3397,15 @@ impl Cortex {
                 synthesized_answer: None,
             });
 
-        // 3. Build response
+        // 3. Deep Learning & Associative Search (The "Smarter" Layer)
+        let deep_facts = crate::deep_learning::get_relevant_facts_for_chat(db, "*", prompt).await.unwrap_or_default();
+        let related_facts = if !deep_facts.is_empty() {
+            crate::deep_learning::find_related_facts(db, &deep_facts, 2).await.unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+
+        // 4. Build response
         let mut parts = Vec::new();
 
         // Add a thought-based intro if appropriate
@@ -3305,13 +3452,22 @@ impl Cortex {
             }
         }
 
-        // Add connected insights
-        if kb_result.items.len() >= 2 {
-            let linked = crate::knowledge_integration::detect_topics_in_message(prompt);
-            if !linked.is_empty() {
-                let topics: Vec<String> = linked.iter().take(3).map(|(t, _)| t.clone()).collect();
-                parts.push(format!("Related topics: {}", topics.join(", ")));
-            }
+        // Add deep learning facts if KB missed them
+        if !deep_facts.is_empty() && (kb_result.items.is_empty() || parts.len() < 2) {
+            let facts: Vec<String> = deep_facts.iter().take(2).map(|f| f.fact.clone()).collect();
+            parts.push(format!("I also recall: {}", facts.join(" ")));
+        }
+
+        // Add associative insights (The "Smart Connection")
+        if !related_facts.is_empty() {
+             let insights: Vec<String> = related_facts.iter().map(|f| f.fact.clone()).collect();
+             parts.push(format!("💡 **Connected Insight:** {}", insights.join(" ")));
+        } else if kb_result.items.len() >= 2 {
+             let linked = crate::knowledge_integration::detect_topics_in_message(prompt);
+             if !linked.is_empty() {
+                 let topics: Vec<String> = linked.iter().take(3).map(|(t, _)| t.clone()).collect();
+                 parts.push(format!("Related topics: {}", topics.join(", ")));
+             }
         }
 
         if parts.is_empty() {
@@ -3427,6 +3583,21 @@ impl Cortex {
              return clarifications[idx].clone();
         }
 
+        // Occasional holographic insight (3% chance)
+        if rand::random::<f32>() < 0.03 {
+             let row = sqlx::query("SELECT value FROM jeebs_store WHERE key = 'holographic_active_dream'")
+                .fetch_optional(db)
+                .await
+                .ok()
+                .flatten();
+             if let Some(row) = row {
+                 let dream = String::from_utf8_lossy(&row.get::<Vec<u8>, _>(0)).to_string();
+                 if dream.len() < 200 {
+                     response_parts.push(format!("\n\n(My holographic mind flashes with: *{}*)", dream));
+                 }
+             }
+        }
+
         // Context-aware conversational response
         let mut response_parts = Vec::new();
 
@@ -3462,7 +3633,7 @@ impl Cortex {
                         "I want to get this right. Can you help me understand where I went wrong?",
                     ];
                     responses[chrono::Local::now().timestamp() as usize % responses.len()].to_string()
-                },
+                }
                 "curious" => "Want me to look into that further? I can research related topics if you'd like.".to_string(),
                 "direct" => "Got it. What would you like me to do with that information?".to_string(),
                 "reflective" => "That's a thoughtful point. It connects with some of the things we've discussed.".to_string(),
@@ -3523,4 +3694,33 @@ pub async fn get_latest_thought_endpoint(
     }
 
     HttpResponse::Ok().json(json!({ "success": false, "message": "No active thought process found." }))
+}
+
+#[get("/api/brain/dream")]
+pub async fn get_current_dream_endpoint(state: web::Data<AppState>) -> impl Responder {
+    let row = sqlx::query("SELECT value FROM jeebs_store WHERE key = 'holographic_active_dream'")
+        .fetch_optional(&state.db)
+        .await
+        .ok()
+        .flatten();
+    
+    let dream = if let Some(row) = row {
+        String::from_utf8_lossy(&row.get::<Vec<u8>, _>(0)).to_string()
+    } else {
+        "JeebsAI is currently in a state of pure potentiality.".to_string()
+    };
+
+    let reaction_row = sqlx::query("SELECT value FROM jeebs_store WHERE key = 'holographic_reaction'")
+        .fetch_optional(&state.db)
+        .await
+        .ok()
+        .flatten();
+
+    let reaction = if let Some(row) = reaction_row {
+        serde_json::from_slice::<serde_json::Value>(&row.get::<Vec<u8>, _>(0)).ok()
+    } else {
+        None
+    };
+
+    HttpResponse::Ok().json(json!({ "success": true, "dream": dream, "reaction": reaction }))
 }

@@ -767,12 +767,14 @@ pub async fn get_relevant_facts_for_chat(
 
     let mut scored_facts: Vec<(LearnedFact, f32)> = Vec::new();
     let topic_lower = topic.to_lowercase();
+    let search_all = topic_lower == "*";
 
     for row in rows {
         let value: Vec<u8> = row.get(0);
         if let Ok(session) = serde_json::from_slice::<DeepLearningSession>(&value) {
             // Check if the session is relevant to the current topic
-            if session.topic.to_lowercase() == topic_lower
+            if search_all
+                || session.topic.to_lowercase() == topic_lower
                 || session
                     .subtopics
                     .iter()
@@ -821,6 +823,52 @@ pub async fn get_relevant_facts_for_chat(
         .map(|(fact, _)| fact)
         .take(5)
         .collect())
+}
+
+/// Find facts related to a given set of facts based on shared concepts
+pub async fn find_related_facts(
+    db: &SqlitePool,
+    source_facts: &[LearnedFact],
+    limit: usize,
+) -> Result<Vec<LearnedFact>, String> {
+    let mut concepts = HashSet::new();
+    for fact in source_facts {
+        for concept in &fact.related_concepts {
+            if concept.len() > 3 {
+                concepts.insert(concept.to_lowercase());
+            }
+        }
+    }
+
+    if concepts.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let all_sessions = get_all_learning_sessions(db).await?;
+    let mut related = Vec::new();
+    let source_fact_texts: HashSet<&String> = source_facts.iter().map(|f| &f.fact).collect();
+
+    for session in all_sessions {
+        for fact in session.learned_facts {
+            if source_fact_texts.contains(&fact.fact) {
+                continue;
+            }
+
+            let mut score = 0;
+            for concept in &fact.related_concepts {
+                if concepts.contains(&concept.to_lowercase()) {
+                    score += 1;
+                }
+            }
+
+            if score > 0 {
+                related.push((fact, score));
+            }
+        }
+    }
+
+    related.sort_by(|a, b| b.1.cmp(&a.1));
+    Ok(related.into_iter().take(limit).map(|(f, _)| f).collect())
 }
 
 /// Get expertise level for a topic

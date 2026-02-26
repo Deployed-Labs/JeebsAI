@@ -206,6 +206,28 @@ async fn main() -> std::io::Result<()> {
     // Start background thought generator for live thoughts page
     evolution::spawn_background_thought_generator(state.db.clone());
 
+    // Start Holographic Dreamer
+    let state_for_dreamer = state.clone();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(Duration::from_secs(900)).await; // Dream every 15 minutes
+            
+            let mood = if let Ok(guard) = state_for_dreamer.chdsc.read() {
+                guard.emergent_summary()
+            } else {
+                "neutral entropy".to_string()
+            };
+
+            let prompt = format!("My internal holographic state is '{}'. Describe a brief, abstract, surreal vision or metaphor that represents this state. Be poetic and cryptic.", mood);
+            
+            let dream_response = jeebs::cortex::Cortex::think(&prompt, &state_for_dreamer).await;
+            let dream_text = dream_response.trim().to_string();
+
+            let _ = sqlx::query("INSERT OR REPLACE INTO jeebs_store (key, value) VALUES (?, ?)").bind("holographic_active_dream").bind(dream_text.as_bytes()).execute(&state_for_dreamer.db).await;
+            let _ = jeebs::logging::log(&state_for_dreamer.db, "INFO", "DREAMER", &format!("Generated new holographic dream: {}", dream_text)).await;
+        }
+    });
+
     // Sync training state with persisted toggle and always run worker
     let _ = cortex::sync_training_state_with_toggle(&state.db, training_enabled, "startup").await;
     // Training worker was removed; if reintroduced, wire it here.
@@ -350,6 +372,7 @@ async fn main() -> std::io::Result<()> {
             .service(cortex::cancel_extended_run)
             .service(cortex::get_learning_statistics)
             .service(cortex::get_learning_summary_endpoint)
+            .service(cortex::get_current_dream_endpoint)
             .route("/api/version", web::get().to(get_version))
             .service(Files::new("/webui", "./webui").index_file("index.html"))
             .service(Files::new("/", "./webui").index_file("index.html"))

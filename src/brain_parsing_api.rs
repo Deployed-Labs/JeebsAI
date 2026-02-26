@@ -114,11 +114,21 @@ pub async fn visualize(state: web::Data<AppState>) -> impl Responder {
                         RelationType::Custom(s) => s.clone(),
                         _ => format!("{:?}", e.relationship_type),
                     };
+
+                    let (color, width, dashes) = if label == "related_to" {
+                        ("#FFD700", 2, true) // Gold, thicker, dashed for insights
+                    } else {
+                        ("#cccccc", 1, false)
+                    };
+
                     serde_json::json!({ 
                         "from": e.from, 
                         "to": e.to,
                         "label": label,
                         "arrows": "to",
+                        "color": { "color": color, "highlight": color },
+                        "width": width,
+                        "dashes": dashes,
                         "font": { "size": 10, "color": "#A1A1AA" }
                     })
                 })
