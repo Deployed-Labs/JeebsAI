@@ -2139,6 +2139,25 @@ pub async fn update_proposal_status_endpoint(
         }));
     }
 
+    // Handle Bulk Approval
+    if req.proposal_id == "ALL" {
+        let sql = "UPDATE template_proposals SET status = ? WHERE status = 'proposed'";
+        match sqlx::query(sql)
+            .bind(&req.status)
+            .execute(&state.db)
+            .await 
+        {
+            Ok(result) => return HttpResponse::Ok().json(json!({
+                "success": true,
+                "message": format!("Bulk update successful: {} proposals set to {}", result.rows_affected(), req.status)
+            })),
+            Err(e) => return HttpResponse::InternalServerError().json(json!({
+                "success": false,
+                "error": format!("Database error during bulk update: {}", e)
+            }))
+        }
+    }
+
     if crate::proposals::update_template_proposal_status(&state.db, &req.proposal_id, &req.status)
         .await
     {

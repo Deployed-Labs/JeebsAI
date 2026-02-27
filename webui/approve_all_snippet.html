@@ -1,0 +1,29 @@
+<!-- 
+PASTE THIS SNIPPET INTO webui/evolution.html 
+Place it near the other control buttons.
+-->
+
+<button onclick="approveAllProposals()" class="btn btn-success" style="margin-left: 10px;">
+    ✅ Approve All Pending
+</button>
+
+<script>
+async function approveAllProposals() {
+    if (!confirm("Are you sure you want to APPROVE ALL pending proposals? This cannot be undone.")) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/brain/template-proposals/update-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ proposal_id: "ALL", status: "accepted" })
+        });
+        const data = await response.json();
+        alert(data.message || (data.success ? "Success!" : "Error: " + data.error));
+        if (data.success) location.reload();
+    } catch (e) {
+        alert("Request failed: " + e);
+    }
+}
+</script>
