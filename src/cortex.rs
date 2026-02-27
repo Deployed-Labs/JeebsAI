@@ -2147,10 +2147,14 @@ pub async fn update_proposal_status_endpoint(
             .execute(&state.db)
             .await 
         {
-            Ok(result) => return HttpResponse::Ok().json(json!({
-                "success": true,
-                "message": format!("Bulk update successful: {} proposals set to {}", result.rows_affected(), req.status)
-            })),
+            Ok(result) => {
+                let msg = format!("Bulk update successful: {} proposals set to {}", result.rows_affected(), req.status);
+                let _ = crate::logging::log(&state.db, "INFO", "EVOLUTION", &msg).await;
+                return HttpResponse::Ok().json(json!({
+                    "success": true,
+                    "message": msg
+                }));
+            },
             Err(e) => return HttpResponse::InternalServerError().json(json!({
                 "success": false,
                 "error": format!("Database error during bulk update: {}", e)

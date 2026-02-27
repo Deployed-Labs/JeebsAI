@@ -311,6 +311,7 @@
         <option value="denied">Denied</option>
       </select>
       <button class="btn btn-ghost btn-sm" onclick="fullRefresh()">Refresh</button>
+      <button class="btn btn-success btn-sm" onclick="approveAllProposals()">Approve All</button>
     </div>
     <div id="updates-list">
       <div class="text-muted" style="padding:30px;text-align:center">Loading proposals...</div>
@@ -618,6 +619,24 @@
           alert("Failed to deny: " + txt);
         }
       } catch (e) { alert(e); }
+    }
+
+    async function approveAllProposals() {
+      if (!confirm("Are you sure you want to APPROVE ALL pending proposals? This cannot be undone.")) return;
+      try {
+        const res = await safeFetch('/api/brain/template-proposals/update-status', {
+            method: 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ proposal_id: "ALL", status: "accepted" })
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert(data.message);
+            fullRefresh();
+        } else {
+            alert("Error: " + (data.error || "Unknown error"));
+        }
+      } catch (e) { alert("Request failed: " + e); }
     }
 
     function escapeHtml(s) { if (!s) return ""; return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
