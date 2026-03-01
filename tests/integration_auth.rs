@@ -1,8 +1,10 @@
 use actix_web::{App, test, web};
 use jeebs::auth::TokenClaims;
 use jeebs::state::AppState;
+use jeebs::brain::coded_holographic_data_storage_container::CodedHolographicDataStorageContainer;
 use sqlx::SqlitePool;
 use std::env;
+use std::sync::{Arc, RwLock};
 use jsonwebtoken::{encode, EncodingKey, Header};
 use serde_json::json;
 
@@ -38,6 +40,7 @@ async fn test_auth_session_and_admin_with_bearer() {
         ip_whitelist: std::sync::Arc::new(std::sync::RwLock::new(std::collections::HashSet::new())),
         sys: std::sync::Arc::new(std::sync::Mutex::new(sysinfo::System::new_all())),
         internet_enabled: std::sync::Arc::new(std::sync::RwLock::new(true)),
+        chdsc: Arc::new(RwLock::new(CodedHolographicDataStorageContainer::new())),
     };
 
     // create JWT for alice

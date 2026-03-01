@@ -3323,7 +3323,7 @@ impl Cortex {
 
             Intent::KnowledgeQuestion => {
                 let base = Self::answer_knowledge_question(db, prompt.trim(), &learned_facts, &history, &profile, &thought)
-                    .await
+                    .await;
                 crate::knowledge_integration::enhance_response_with_knowledge(db, &base, prompt.trim())
                     .await
                     .unwrap_or(base)
@@ -3331,7 +3331,7 @@ impl Cortex {
 
             Intent::Conversation => {
                 let base = Self::conversational_response(db, prompt.trim(), &learned_facts, &history, &profile, &thought, &owner, username)
-                    .await
+                    .await;
                 crate::knowledge_integration::enhance_response_with_knowledge(db, &base, prompt.trim())
                     .await
                     .unwrap_or(base)
@@ -3606,6 +3606,9 @@ impl Cortex {
              return clarifications[idx].clone();
         }
 
+        // Context-aware conversational response
+        let mut response_parts = Vec::new();
+
         // Occasional holographic insight (3% chance)
         if rand::random::<f32>() < 0.03 {
              let row = sqlx::query("SELECT value FROM jeebs_store WHERE key = 'holographic_active_dream'")
@@ -3620,9 +3623,6 @@ impl Cortex {
                  }
              }
         }
-
-        // Context-aware conversational response
-        let mut response_parts = Vec::new();
 
         // 1. Acknowledge based on sentiment/angle
         let intro = match thought.suggested_angle.as_str() {
