@@ -247,7 +247,7 @@ pub async fn enhance_response_with_knowledge(
         for topic in context.detected_topics.iter() {
             let base_topic = topic.0.split('(').next().unwrap_or(&topic.0).trim();
             for fact in &context.relevant_learned_facts {
-                let _ = deep_learning::record_fact_usage(db, base_topic, fact).await;
+                let _ = deep_learning::record_fact_usage(db, base_topic, fact, "chat_response", None).await;
             }
         }
     }
