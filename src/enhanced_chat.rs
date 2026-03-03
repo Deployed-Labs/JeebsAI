@@ -80,19 +80,18 @@ pub async fn smart_chat(
             match intelligent_inference::infer_response(&inference_context).await {
                 Ok(inference_result) => {
                     // Step 5: Extract facts from inference
-                    let facts: Vec<String> = inference_result
-                        .sources
+                    let facts: Vec<String> = inference_context
+                        .relevant_facts
                         .iter()
-                        .enumerate()
-                        .map(|(i, src)| {
-                            // Map sources to actual facts
-                            inference_context
-                                .relevant_facts
-                                .get(i)
-                                .map(|f| f.fact.clone())
-                                .unwrap_or_else(|| format!("Knowledge from {}", src))
-                        })
+                        .map(|f| f.fact.clone())
                         .collect();
+
+                    // Quality check: if we have no meaningful facts and low confidence, use fallback
+                    if facts.is_empty() || (facts.iter().all(|f| f.len() < 10) && inference_context.confidence < 0.5) {
+                        eprintln!("[SmartChat] Insufficient facts (count: {}, confidence: {}), using fallback",
+                                   facts.len(), inference_context.confidence);
+                        return fallback_response(message, &context.current_topic);
+                    }
 
                     // Step 6: Generate smart response
                     let response_config =
@@ -167,28 +166,38 @@ pub async fn smart_chat(
 
 /// Fallback response when intelligent system can't answer
 fn fallback_response(question: &str, topic: &str) -> HttpResponse {
-    let response = if question.contains("?") {
-        format!(
-            "I'm still learning about {}. Can you help me understand this better by sharing what you know?",
-            topic
-        )
+    // Generate helpful fallback that acknowledges the question while being honest
+    let response = if question.contains('?') {
+        if question.to_lowercase().contains("who") || question.to_lowercase().contains("where") {
+            format!("I don't have specific information about that yet. Can you tell me what you know about {}?", topic)
+        } else if question.to_lowercase().contains("how") {
+            format!("I'm learning how to explain {}. What's your experience with this?", topic)
+        } else if question.to_lowercase().contains("why") {
+            format!("I haven't fully understood why {} works this way yet. What's your perspective?", topic)
+        } else {
+            format!("I don't have enough knowledge about {} to answer confidently. Help me learn by sharing what you know.", topic)
+        }
     } else {
-        format!(
-            "I acknowledge: {}. I'm learning more about {} as we talk.",
-            question, topic
-        )
+        // For statements, acknowledge and ask for more info
+        if question.len() < 50 {
+            format!("Noted: {}. I'd like to learn more about {}. Can you elaborate?",
+                    question.trim_end_matches('?'), topic)
+        } else {
+            format!("I'm processing that. Can you help me understand {} better?", topic)
+        }
     };
 
     HttpResponse::Ok().json(json!({
         "response": response,
-        "summary": "Learning mode",
-        "confidence": 0.3,
-        "follow_up": Some(format!("Tell me more about {}", topic)),
+        "summary": "Building knowledge",
+        "confidence": 0.25,
+        "follow_up": Some(format!("What else should I know about {}?", topic)),
         "understanding": {
             "intent": "learning",
             "topic": topic,
             "context_messages": 0
-        }
+        },
+        "note": "Brain database appears to be empty. Starting fresh knowledge acquisition."
     }))
 }
 
