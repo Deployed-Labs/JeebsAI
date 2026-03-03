@@ -1,48 +1,38 @@
-## Ignore build artifacts
+# Rust
 /target/
+**/*.rs.bk
 
-## Cargo
-/Cargo.lock
-
-## Editor / OS
-.DS_Store
-/.vscode/
-.idea/
-
-## Environment and secrets
-.env
-.env.local
-/etc/jeebs.env
-
-## Databases and backups (contain user data)
-jeebs.db
-*.sqlite
+# Database (SQLite)
 *.db
 *.db-shm
 *.db-wal
-/backups/
-/logs/
-*.backup
+*.sqlite
 
-## Node / frontend
-/node_modules/
+# Environment Variables
+.env
+.env.*
 
-## Temporary files
-*.tmp
-*.swp
-update.tar.gz
-
-## Tooling / state
-mcp-state.json
-
-## Logs
+# Logs
 *.log
+logs/
 
-## Keys & certificates
-*.pem
-*.key
-!*.pub
-/.github/keys
+# Backups
+backups/
+*.gz
+*.tar.gz
 
-## Misc
-webui/*Diagnostics*.md
+# macOS Metadata (Critical for external drives)
+._*
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDEs & Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Deployment Artifacts
+deploy_package.tar.gz
+INSTALLATION_INFO.txt

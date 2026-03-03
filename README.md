@@ -14,14 +14,71 @@ Jeebs now features:
 
 👉 **[Quick Start Guide](QUICK_START.md)** | **[Full Learning System Docs](LEARNING_SYSTEM.md)**
 
-## 🚀 Quick VPS Install
+---
 
-**Deploy to VPS in one command:**
+## 🚀 Deployment
+
+### 1. Fresh Installation (New VPS)
+Run this single command on your Ubuntu/Debian VPS to install dependencies, build the app, and start the service.
+
 ```bash
 curl -sSL https://raw.githubusercontent.com/Deployed-Labs/JeebsAI/main/vps_fresh_install.sh | sudo bash
 ```
 
-👉 **[Full VPS Installation Guide](VPS_INSTALL.md)**
+### 2. Deploying Updates (From Local)
+To push your local changes and automatically deploy them to your VPS:
+
+```bash
+# 1. Configure the script (first time only)
+nano scripts/push_and_deploy.sh
+# Set VPS_HOST="your-ip" and VPS_USER="root"
+
+# 2. Run it
+./scripts/push_and_deploy.sh
+```
+
+This script will:
+1. Push your code to GitHub
+2. SSH into your VPS
+3. Pull the latest code
+4. Rebuild and restart the service
+
+### 3. Manual Deployment (On VPS)
+If you are already logged into the VPS and want to update manually:
+
+```bash
+cd /root/JeebsAI
+sudo ./deploy_to_vps.sh
+```
+
+### 4. Service Management
+
+```bash
+# Check status
+sudo systemctl status jeebs
+
+# View logs (real-time)
+sudo journalctl -u jeebs -f
+
+# Restart service
+sudo systemctl restart jeebs
+```
+
+### 5. Backups & SSL
+
+**SSL Setup (HTTPS):**
+```bash
+sudo ./scripts/setup_ssl.sh
+```
+
+**Database Backups:**
+```bash
+# Manual backup
+sudo ./scripts/backup.sh
+
+# Restore from backup
+sudo ./scripts/restore.sh
+```
 
 ---
 
@@ -29,8 +86,6 @@ curl -sSL https://raw.githubusercontent.com/Deployed-Labs/JeebsAI/main/vps_fresh
 
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
-  - [Local Development](#local-development)
-  - [VPS Production Deployment](#vps-production-deployment)
 - [Configuration](#configuration)
 - [Usage](#usage)
 - [Project Structure](#project-structure)
@@ -43,21 +98,6 @@ curl -sSL https://raw.githubusercontent.com/Deployed-Labs/JeebsAI/main/vps_fresh
 ### Local Development
 - Rust 1.70+ and Cargo
 - SQLite 3
-
-### VPS Production Deployment
-- Ubuntu/Debian-based VPS (recommended)
-- Rust 1.70+ and Cargo
-- SQLite 3
-- Nginx (for reverse proxy)
-- Certbot (for SSL/TLS certificates)
-- systemd (for process management)
-
-### System Dependencies
-Install required system packages on Ubuntu/Debian:
-```bash
-sudo apt update
-sudo apt install -y build-essential pkg-config libssl-dev sqlite3 nginx certbot python3-certbot-nginx
-```
 
 ## Installation
 
@@ -77,74 +117,11 @@ sudo apt install -y build-essential pkg-config libssl-dev sqlite3 nginx certbot 
 3. **Access the web UI:**
    - Development server: [http://localhost:8080](http://localhost:8080)
 
-### VPS Production Deployment
-
-The recommended way to install on a fresh VPS is using the one-click installation script.
-
-You can customize the installation with environment variables:
-
-```bash
-chmod +x vps_fresh_install.sh
-APP_DIR=/root/JeebsAI APP_USER=root APP_PORT=8080 DOMAIN=example.com EMAIL=admin@example.com ./vps_fresh_install.sh
-
-# For non-interactive overwrite of existing config/systemd/nginx files:
-FORCE=1 ./vps_fresh_install.sh
-```
-
-#### Manual Installation Steps
-
-If you prefer manual installation, follow these steps:
-
-1. **Build the project:**
-   ```bash
-   cargo build --release
-   ```
-
-2. **Set up the systemd service:**
-   ```bash
-   # Copy the service template
-   sudo cp jeebs.service /etc/systemd/system/jeebs.service
-   
-   # Edit the service file with your actual paths and username
-   sudo nano /etc/systemd/system/jeebs.service
-   
-   # Enable and start the service
-   sudo systemctl daemon-reload
-   sudo systemctl enable jeebs
-   sudo systemctl start jeebs
-   ```
-
-3. **Configure Nginx reverse proxy:**
-   ```bash
-   # Copy the nginx configuration
-   sudo cp jeebs.nginx /etc/nginx/sites-available/jeebs
-   
-   # Edit the configuration with your domain
-   sudo nano /etc/nginx/sites-available/jeebs
-   
-   # Enable the site
-   sudo ln -s /etc/nginx/sites-available/jeebs /etc/nginx/sites-enabled/
-   
-   # Test configuration and reload
-   sudo nginx -t
-   sudo systemctl reload nginx
-   ```
-
-4. **Set up SSL (Automated):**
-   ```bash
-   sudo ./scripts/setup_ssl.sh
-   ```
-
-5. **Initialize the database:**
-   ```bash
-   sqlite3 /var/lib/jeebs/jeebs.db < 20240101000000_initial_setup.sql
-   ```
-
 ## Configuration
 
 ### Environment Variables
 
-Edit `/etc/jeebs.env` to configure the application:
+Edit `/etc/jeebs.env` (on VPS) or `.env` (local) to configure the application:
 
 ```bash
 # Server configuration
