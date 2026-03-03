@@ -145,14 +145,6 @@ pub async fn run_full_training_now(
             .json(json!({"error": "Admin or trainer privileges required"}));
     }
 
-    // Accept optional JSON body with `minutes` to run; default to env or 30
-    #[derive(Deserialize)]
-    struct FullRunRequest { minutes: Option<u32> }
-
-    // Note: actix allows optional JSON as `Option<web::Json<_>>` but here we
-    // don't have it in the signature, so fetch from payload via extractor hack
-    // by attempting to read an env default first and overriding below.
-
     // create a run id and store metadata so UI can poll
     let run_id = uuid::Uuid::new_v4().to_string();
     let run_key = format!("deeplearn_run:{}", run_id);

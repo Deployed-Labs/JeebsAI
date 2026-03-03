@@ -27,6 +27,9 @@ jobs:
     - name: Lint with Clippy
       run: cargo clippy --workspace -- -D warnings
 
+    - name: Clean macOS metadata files
+      run: find . -type f -name '._*' -print -delete
+
     - name: Build JeebsAI (Release)
       run: cargo build --release
 

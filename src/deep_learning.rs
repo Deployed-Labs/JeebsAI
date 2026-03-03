@@ -1088,10 +1088,6 @@ fn extract_concepts(text: &str) -> Vec<String> {
         .collect()
 }
 
-fn matches_any_concept(query: &str, concepts: &[String]) -> bool {
-    concepts.iter().any(|c| query.contains(c.as_str()))
-}
-
 fn update_session_status(session: &mut DeepLearningSession) {
     // Update status based on hours and facts learned
     let score = session.study_hours + (session.learned_facts.len() as f32 * 2.0);
