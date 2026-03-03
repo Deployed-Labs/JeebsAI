@@ -9,6 +9,8 @@ pub mod cli;
 pub mod content_extractor;
 pub mod cortex;
 pub mod intelligent_inference;
+pub mod mcp_server;
+pub mod mcp_api;
 pub mod data_synthesis;
 pub mod deep_learning;
 pub mod evolution;

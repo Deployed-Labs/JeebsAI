@@ -12,7 +12,7 @@ use jeebs::plugins::{
     TranslatePlugin, WeatherPlugin, WebsiteStatusPlugin,
 };
 use jeebs::{
-    admin, auth, brain_parsing_api, chat, chat_feedback, cortex, evolution, logging, user_chat, AppState,
+    admin, auth, brain_parsing_api, chat, chat_feedback, cortex, evolution, logging, user_chat, mcp_api, AppState,
 };
 use jeebs::brain::coded_holographic_data_storage_container::CodedHolographicDataStorageContainer;
 use sqlx::{Row, SqlitePool};
@@ -379,6 +379,15 @@ async fn main() -> std::io::Result<()> {
             .service(cortex::get_learning_statistics)
             .service(cortex::get_learning_summary_endpoint)
             .service(cortex::get_current_dream_endpoint)
+            // MCP API endpoints for model context protocol
+            .service(mcp_api::search_facts)
+            .service(mcp_api::query_relationships)
+            .service(mcp_api::find_connections)
+            .service(mcp_api::get_learning)
+            .service(mcp_api::brain_state)
+            .service(mcp_api::full_context)
+            .service(mcp_api::log_learning)
+            .service(mcp_api::capabilities)
             .route("/api/version", web::get().to(get_version))
             .service(Files::new("/webui", "./webui").index_file("index.html"))
             .service(Files::new("/", "./webui").index_file("index.html"))
