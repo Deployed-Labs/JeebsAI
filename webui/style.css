@@ -978,33 +978,33 @@ input[type="checkbox"] {
 
 .bubble {
     border-radius: var(--radius-lg);
-    padding: 14px 22px;
+    padding: 16px 22px;
     line-height: 1.6;
     max-width: 80%;
     animation: bubble-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     word-wrap: break-word;
     position: relative;
     font-size: 0.95rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    backdrop-filter: blur(4px);
 }
 
 .bubble.user {
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
     color: #ffffff;
     align-self: flex-end;
     border-bottom-right-radius: 4px;
-    box-shadow: 0 4px 16px var(--accent-glow);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 24px rgba(59, 130, 246, 0.2);
+    border: none;
 }
 
 .bubble.jeebs {
-    background: var(--panel);
-    border: 1px solid var(--border);
+    background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(250,250,250,0.7) 100%);
+    border: 1px solid rgba(0, 0, 0, 0.08);
     align-self: flex-start;
     border-bottom-left-radius: 4px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    color: var(--text);
 }
 
 .bubble small {
@@ -1289,12 +1289,22 @@ input[type="checkbox"] {
 }
 
 .chat-header {
+    background: linear-gradient(135deg, rgba(255,255,255,0.8) 0%, rgba(250,250,250,0.5) 100%);
+    backdrop-filter: blur(20px) saturate(1.8);
+    -webkit-backdrop-filter: blur(20px) saturate(1.8);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    padding: 20px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.chat-top-section {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 20px 24px;
-    border-bottom: 1px solid var(--border);
-    background: var(--panel-2);
+    gap: 20px;
 }
 
 .chat-info {
@@ -1304,20 +1314,22 @@ input[type="checkbox"] {
 }
 
 .chat-avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-lg);
+    background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--bg-0);
     flex-shrink: 0;
+    color: white;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    animation: avatar-pulse 3s ease-in-out infinite;
 }
 
 .chat-avatar svg {
-    width: 20px;
-    height: 20px;
+    width: 28px;
+    height: 28px;
 }
 
 .chat-details h3 {
@@ -2360,4 +2372,113 @@ input[type="checkbox"] {
     color: var(--muted);
     margin: 0;
     line-height: 1.6;
+}
+
+/* ═════════════════════════════════════════════════════════
+   Enhanced Chat UI Animations & Styles
+   ═════════════════════════════════════════════════════════ */
+
+@keyframes avatar-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+@keyframes status-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    background: #10b981;
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+    animation: status-pulse 2s ease-in-out infinite;
+    margin-left: 8px;
+}
+
+.status-indicator.online {
+    background: #10b981;
+}
+
+/* ── CDHSC Brain Info Row ─────────────────────────────── */
+.chat-brain-info {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    padding: 12px 0;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.brain-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: center;
+}
+
+.stat-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+}
+
+.stat-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.6);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    padding: 0;
+}
+
+.action-btn:hover {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: #3b82f6;
+    color: #3b82f6;
+    transform: translateY(-2px);
+}
+
+/* ── Textarea Auto-Resize ────────────────────────────── */
+#promptInput {
+    resize: none;
+    font-family: var(--font-sans);
+    max-height: 150px;
+    min-height: 44px;
+    overflow-y: auto;
+    padding: 10px 14px;
+}
+
+/* ── Chat Input Hints ────────────────────────────────── */
+.input-hints {
+    display: flex;
+    gap: 8px;
+    padding: 0 4px;
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 8px;
+    justify-content: flex-end;
+}
+
+.input-hints small {
+    font-weight: 500;
 }

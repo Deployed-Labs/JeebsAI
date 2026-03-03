@@ -177,36 +177,52 @@
                     </div>
                     <section class="chat-panel" id="chatPanel">
                         <div class="chat-header">
-                            <div class="chat-info">
-                                <div class="chat-avatar">
-                                    <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2" />
-                                        <circle cx="16" cy="16" r="6" fill="currentColor" opacity=".6" />
-                                        <path d="M16 2v8M16 22v8M2 16h8M22 16h8" stroke="currentColor"
-                                            stroke-width="1.5" opacity=".4" />
-                                    </svg>
+                            <div class="chat-top-section">
+                                <div class="chat-info">
+                                    <div class="chat-avatar">
+                                        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2" />
+                                            <circle cx="16" cy="16" r="6" fill="currentColor" opacity=".6" />
+                                            <path d="M16 2v8M16 22v8M2 16h8M22 16h8" stroke="currentColor"
+                                                stroke-width="1.5" opacity=".4" />
+                                        </svg>
+                                    </div>
+                                    <div class="chat-details">
+                                        <h3>JeebsAI <span class="status-indicator online"></span></h3>
+                                        <div class="chat-meta" id="chatMeta">Intelligent Assistant • CDHSC-Powered</div>
+                                    </div>
                                 </div>
-                                <div class="chat-details">
-                                    <h3>JeebsAI</h3>
-                                    <div class="chat-meta" id="chatMeta">AI Assistant</div>
+                                <div class="chat-actions">
+                                    <button id="copyTokenBtn" class="action-btn" title="Copy Token">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                            stroke-width="2">
+                                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                        </svg>
+                                    </button>
+                                    <button id="logoutBtn" class="action-btn" title="Logout">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                            stroke-width="2">
+                                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                                            <polyline points="16,17 21,12 16,7"></polyline>
+                                            <line x1="21" y1="12" x2="9" y2="12"></line>
+                                        </svg>
+                                    </button>
                                 </div>
                             </div>
-                            <div class="chat-actions">
-                                <button id="copyTokenBtn" class="action-btn" title="Copy Token">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                        stroke-width="2">
-                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                                    </svg>
-                                </button>
-                                <button id="logoutBtn" class="action-btn" title="Logout">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                        stroke-width="2">
-                                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                                        <polyline points="16,17 21,12 16,7"></polyline>
-                                        <line x1="21" y1="12" x2="9" y2="12"></line>
-                                    </svg>
-                                </button>
+                            <div class="chat-brain-info" id="brainInfo">
+                                <div class="brain-stat">
+                                    <span class="stat-label">Brain Entropy</span>
+                                    <span class="stat-value" id="entropyValue">--</span>
+                                </div>
+                                <div class="brain-stat">
+                                    <span class="stat-label">Comprehension</span>
+                                    <span class="stat-value" id="comprehensionValue">--</span>
+                                </div>
+                                <div class="brain-stat">
+                                    <span class="stat-label">Knowledge Base</span>
+                                    <span class="stat-value" id="nodeCountValue">--</span>
+                                </div>
                             </div>
                         </div>
                         <div class="token-display" id="tokenBox"></div>
@@ -214,15 +230,18 @@
                         <div class="chat-input">
                             <form id="chatForm" class="message-form">
                                 <div class="input-wrapper">
-                                    <input id="promptInput" autocomplete="off"
-                                        placeholder="Type your message to JeebsAI..." required />
-                                    <button class="send-btn" type="submit">
+                                    <textarea id="promptInput" autocomplete="off"
+                                        placeholder="Ask me anything... (shift+enter to send)" rows="1"></textarea>
+                                    <button class="send-btn" type="submit" title="Send (Shift+Enter or Ctrl+Enter)">
                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
                                             stroke="currentColor" stroke-width="2">
                                             <line x1="22" y1="2" x2="11" y2="13"></line>
                                             <polygon points="22,2 15,22 11,13 2,9"></polygon>
                                         </svg>
                                     </button>
+                                </div>
+                                <div class="input-hints">
+                                    <small>💡 Shift+Enter to send • Greetings auto-detected • Learning enabled</small>
                                 </div>
                             </form>
                         </div>
@@ -614,7 +633,7 @@
                     }
                 });
 
-                /* ── Chat Form ─────────────────────────────────────── */
+                /* ── Chat Form with Shift+Enter Support ──────────────── */
                 document.getElementById("chatForm").addEventListener("submit", async (event) => {
                     event.preventDefault();
 
@@ -623,6 +642,7 @@
 
                     appendMessage("user", prompt);
                     promptInput.value = "";
+                    promptInput.style.height = "auto";
                     showTyping();
 
                     try {
@@ -638,6 +658,43 @@
                         setStatus(`Chat request failed: ${error.message}`, "bad");
                     }
                 });
+
+                /* ── Textarea Auto-Resize & Shift+Enter ─────────────── */
+                promptInput.addEventListener("keydown", (event) => {
+                    if ((event.shiftKey || event.ctrlKey) && event.key === "Enter") {
+                        event.preventDefault();
+                        document.getElementById("chatForm").dispatchEvent(new Event('submit'));
+                    }
+                });
+
+                promptInput.addEventListener("input", () => {
+                    promptInput.style.height = "auto";
+                    promptInput.style.height = Math.min(promptInput.scrollHeight, 150) + "px";
+                });
+
+                /* ── Fetch & Update CDHSC Brain Info ───────────────── */
+                async function updateBrainInfo() {
+                    try {
+                        const status = await requestJson("/api/jeebs_mood");
+                        if (status && typeof status === 'string') {
+                            const entropyMatch = status.match(/Entropy: ([\d.]+)/);
+                            const comprehensionMatch = status.match(/Comprehension: ([\d.]+)/);
+                            const nodesMatch = status.match(/(\d+) nodes/);
+
+                            if (entropyMatch) {
+                                document.getElementById("entropyValue").textContent = parseFloat(entropyMatch[1]).toFixed(2);
+                            }
+                            if (comprehensionMatch) {
+                                document.getElementById("comprehensionValue").textContent = parseFloat(comprehensionMatch[1]).toFixed(2);
+                            }
+                            if (nodesMatch) {
+                                document.getElementById("nodeCountValue").textContent = nodesMatch[1];
+                            }
+                        }
+                    } catch (e) {
+                        // Brain info unavailable, that's OK
+                    }
+                }
 
                 /* ── Token Copy & Logout Buttons ───────────────────── */
                 document.getElementById("copyTokenBtn").addEventListener("click", async () => {
@@ -682,6 +739,9 @@
                 renderAuthState();
                 bootstrapAuth();
                 loadChatHistory();
+                updateBrainInfo();
+                // Update brain info every 10 seconds
+                setInterval(updateBrainInfo, 10000);
             </script>
         </main>
     </div>
