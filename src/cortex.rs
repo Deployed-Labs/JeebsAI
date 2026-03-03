@@ -164,3 +164,42 @@ pub async fn get_learning_statistics(data: web::Data<AppState>) -> impl Responde
         Err(e) => HttpResponse::InternalServerError().json(json!({ "success": false, "error": e })),
     }
 }
+
+// --- Core Cortex Logic & Helpers ---
+
+pub struct Cortex;
+
+impl Cortex {
+    pub async fn think(input: String, data: &web::Data<AppState>) -> String {
+        // Search across all topics ("*") for relevant facts based on the input query
+        let facts = crate::deep_learning::get_relevant_facts_for_chat(&data.db, "*", &input)
+            .await
+            .unwrap_or_default();
+
+        if facts.is_empty() {
+            return format!("I processed: \"{}\". I don't have enough data on this topic yet.", input);
+        }
+
+        let mut response = format!("Based on my knowledge regarding \"{}\":\n\n", input);
+        for fact in facts {
+            response.push_str(&format!("• {}\n", fact.fact));
+        }
+        response
+    }
+}
+
+pub async fn collect_training_topics(_db: &SqlitePool, _limit: u32) -> Vec<String> {
+    vec!["general".to_string()]
+}
+
+pub async fn query_wikipedia_docs(_client: &reqwest::Client, _topic: &str, _limit: u32) -> Result<Vec<String>, String> {
+    Ok(vec![])
+}
+
+pub async fn store_external_learning_doc(_db: &SqlitePool, _doc: &str) -> Result<(), String> {
+    Ok(())
+}
+
+pub async fn set_training_focus_for_trainer(_db: &SqlitePool, _topic: &str, _user: &str) -> Result<(), String> {
+    Ok(())
+}
