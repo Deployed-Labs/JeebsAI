@@ -174,6 +174,10 @@ echo ""
 info "Building JeebsAI (this may take several minutes)..."
 cd "$APP_DIR"
 
+# Clean up macOS metadata files that can break migrations
+info "Cleaning up potential macOS metadata files..."
+find . -type f -name '._*' -print -delete
+
 # Set proper ownership if not root
 if [ "$APP_USER" != "root" ]; then
     chown -R "$APP_USER:$APP_USER" "$APP_DIR"

@@ -43,6 +43,9 @@ ssh -i "$SSH_KEY" "$VPS_USER@$VPS_HOST" << EOF
     git fetch origin
     git reset --hard origin/main
     
+    echo "🧹 Cleaning up macOS metadata..."
+    find . -type f -name '._*' -print -delete
+    
     echo "🔨 Building release..."
     cargo build --release
     
