@@ -144,8 +144,8 @@ pub async fn jeebs_api(
     );
     let result = Cortex::think_for_user(prompt, &data, &user_id, username.as_deref()).await;
     HttpResponse::Ok().json(JeebsResponse { 
-        response: result.response,
-        thought: result.thought,
+        response: result,
+        thought: None,
     })
 }
 
