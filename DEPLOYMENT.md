@@ -50,7 +50,7 @@ ssh root@your-server.com
 
 **Run deployment script:**
 ```bash
-cd /opt/jeebs
+cd /root/JeebsAI
 sudo ./deploy_to_vps.sh
 ```
 

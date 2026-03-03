@@ -29,16 +29,12 @@ You need to configure the following secrets in your GitHub repository:
 2. Navigate to **Settings** → **Secrets and variables** → **Actions**
 3. Click **New repository secret** and add each of the following:
 
-#### VPS_HOST
-- **Name:** `VPS_HOST`
-- **Value:** Your VPS IP address or domain (e.g., `192.168.1.100` or `example.com`)
+#### STAGING_SSH_USERNAME
+- **Name:** `STAGING_SSH_USERNAME`
+- **Value:** Your SSH username on the VPS (e.g., `root`)
 
-#### VPS_USER
-- **Name:** `VPS_USER`
-- **Value:** Your SSH username on the VPS (e.g., `ubuntu`, `deploy`, or your username)
-
-#### VPS_SSH_KEY
-- **Name:** `VPS_SSH_KEY`
+#### STAGING_SSH_PRIVATE_KEY
+- **Name:** `STAGING_SSH_PRIVATE_KEY`
 - **Value:** Your private SSH key for accessing the VPS
 
 To generate an SSH key for deployment:

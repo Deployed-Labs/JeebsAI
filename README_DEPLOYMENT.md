@@ -67,13 +67,13 @@ nano push_and_deploy.sh
 ssh root@your-vps.com
 
 # On VPS:
-cd /opt/jeebs
+cd /root/JeebsAI
 git pull origin main
 cargo build --release
 sudo systemctl restart jeebs
 
 # Or use the deploy script:
-cd /opt/jeebs
+cd /root/JeebsAI
 sudo ./deploy_to_vps.sh
 ```
 

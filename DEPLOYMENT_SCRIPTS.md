@@ -49,7 +49,7 @@ chmod +x push_to_main.sh
 #### Step 2: Deploy on VPS
 ```bash
 ssh root@your-vps.com
-cd /opt/jeebs
+cd /root/JeebsAI
 sudo ./deploy_to_vps.sh
 ```
 
