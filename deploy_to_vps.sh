@@ -90,10 +90,19 @@ pull_code() {
     # Stash any local changes
     if [ -d .git ]; then
         git stash push -m "Auto-stash before deployment $(date)"
-        git fetch origin
-        git checkout main
-        git pull origin main
-        success "Code updated to latest main branch"
+        
+        # Try to pull. If it fails, try to fix remote or re-clone
+        if ! git pull origin main; then
+            warn "Git pull failed. Attempting to reset remote URL and fetch..."
+            git remote set-url origin "$REPO_URL"
+            if ! git pull origin main; then
+                error "Git pull failed even after resetting remote. You may need to re-clone manually or check GitHub status."
+                exit 1
+            fi
+        else
+            git checkout main
+            success "Code updated to latest main branch"
+        fi
     else
         error "Not a git repository. Please ensure $APP_DIR is a git clone."
         exit 1
