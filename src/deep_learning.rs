@@ -343,7 +343,7 @@ pub async fn start_full_internet_research_session(
     log_research_event(db, "Starting autonomous internet research session...", run_id).await;
 
     let client = Client::builder()
-        .user_agent("JeebsAI-research-bot/v0.0.5 (+https://example.com)")
+        .user_agent("JeebsAI-research-bot/v0.0.6 (+https://example.com)")
         .build()
         .map_err(|e| e.to_string())?;
 
