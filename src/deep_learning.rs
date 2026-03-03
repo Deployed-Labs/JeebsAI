@@ -340,6 +340,8 @@ pub async fn start_full_internet_research_session(
         return Err("No allowlist seeds configured for internet research".to_string());
     }
 
+    log_research_event(db, "Starting autonomous internet research session...", run_id).await;
+
     let client = Client::builder()
         .user_agent("JeebsAI-research-bot/v0.0.5 (+https://example.com)")
         .build()
@@ -360,6 +362,7 @@ pub async fn start_full_internet_research_session(
         // pick a random seed
         let mut rng = rand::thread_rng();
         let seed = seeds[rng.gen_range(0..seeds.len())].clone();
+        log_research_event(db, &format!("Selected seed: {}", seed), run_id).await;
 
         // Build list of pages to process this iteration (seed + a few links)
         let mut pages_to_process: Vec<String> = vec![seed.clone()];
@@ -368,6 +371,7 @@ pub async fn start_full_internet_research_session(
         for page_url in pages_to_process.clone().into_iter().take(1 + follow_links) {
             // Explicitly log that we are crawling (ignoring robots.txt)
             println!("[{}] [research] Crawling {} (ignoring robots.txt)", Local::now().to_rfc3339(), page_url);
+            log_research_event(db, &format!("Crawling {}", page_url), run_id).await;
 
             // Fetch the page
             if let Ok(resp) = client.get(&page_url).timeout(Duration::from_secs(15)).send().await {
@@ -375,13 +379,26 @@ pub async fn start_full_internet_research_session(
                     if let Ok(body) = resp.text().await {
                         // Extract visible text via scraper
                         let document = Html::parse_document(&body);
-                        let selector = Selector::parse("body").unwrap_or_else(|_| Selector::parse("html").unwrap());
+
+                        // Use a specific selector to target content and avoid scripts, styles, and navigation noise.
+                        // This ensures we store "facts and information" rather than "page source".
+                        let selector = Selector::parse("p, h1, h2, h3, h4, h5, li, article, section, blockquote").unwrap_or_else(|_| Selector::parse("body").unwrap());
+
                         let mut text = String::new();
                         for element in document.select(&selector) {
-                            text.push_str(&element.text().collect::<Vec<_>>().join(" "));
+                            let content = element.text().collect::<Vec<_>>().join(" ");
+                            let trimmed = content.trim();
+                            if !trimmed.is_empty() {
+                                text.push_str(trimmed);
+                                text.push(' ');
+                            }
                         }
 
-                        let snippet = text.chars().take(800).collect::<String>().replace('\n', " ");
+                        log_research_event(db, &format!("Extracted {} chars of content", text.len()), run_id).await;
+
+                        // Clean up whitespace to ensure it looks like natural language facts
+                        let clean_text = text.split_whitespace().collect::<Vec<_>>().join(" ");
+                        let snippet = clean_text.chars().take(1000).collect::<String>();
                         let source = match reqwest::Url::parse(&page_url) {
                             Ok(u) => u.host_str().map(|s| s.to_string()).unwrap_or_else(|| page_url.clone()),
                             Err(_) => page_url.clone(),
@@ -409,6 +426,7 @@ pub async fn start_full_internet_research_session(
                                 }
                                 if abs_links.len() >= follow_links { break; }
                             }
+                            log_research_event(db, &format!("Found {} internal links to follow", abs_links.len()), run_id).await;
                             for al in abs_links { pages_to_process.push(al); }
                         }
                     }
@@ -470,6 +488,28 @@ pub async fn start_full_internet_research_session(
     }
 
     Ok(())
+}
+
+async fn log_research_event(db: &SqlitePool, message: &str, run_id: &str) {
+    let node_id = format!("log:{}", Uuid::new_v4());
+    let summary = message.chars().take(50).collect::<String>();
+    let data = json!({
+        "type": "research_event",
+        "message": message,
+        "run_id": run_id,
+        "created_at": Local::now().to_rfc3339()
+    });
+    
+    let _ = sqlx::query(
+        "INSERT INTO brain_nodes (id, label, summary, data, created_at) VALUES (?, ?, ?, ?, ?)"
+    )
+    .bind(&node_id)
+    .bind("Research Log")
+    .bind(&summary)
+    .bind(serde_json::to_vec(&data).unwrap_or_default())
+    .bind(Local::now().to_rfc3339())
+    .execute(db)
+    .await;
 }
 
 /// Add a learned fact to a session
