@@ -10,10 +10,10 @@ const JeebsNav = (function () {
 
     // General navigation
     const PAGES = [
-        { id: 'home', label: 'Console', href: '/webui/index.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer', 'Reguser', 'Guest'] },
-        { id: 'profile', label: 'Profile', href: '/webui/profile.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer', 'Reguser'] },
-        { id: 'search', label: 'Brain Search', href: '/webui/search.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer', 'Reguser'] },
-        { id: 'status', label: 'Status', href: '/webui/status.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer'] },
+        { id: 'home', label: 'Console', href: '/webui/index.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer', 'Reguser', 'Guest'], icon: '💬' },
+        { id: 'profile', label: 'Profile', href: '/webui/profile.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer', 'Reguser'], icon: '👤' },
+        { id: 'search', label: 'Brain Search', href: '/webui/search.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer', 'Reguser'], icon: '🧠' },
+        { id: 'status', label: 'Status', href: '/webui/status.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer'], icon: '📊' },
     ];
 
     let currentActiveId = 'home';
@@ -32,19 +32,19 @@ const JeebsNav = (function () {
 
     // Admin/Trainer/Advanced navigation
     const ADMIN_PAGES = [
-        { id: 'admin', label: 'Admin', href: '/webui/admin_dashboard.html', roles: ['Admin', 'super_admin'] },
-        { id: 'users', label: 'Users', href: '/webui/admin_users.html', roles: ['Admin', 'super_admin'] },
-        { id: 'trainer', label: 'Trainer', href: '/webui/trainer_panel.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer', 'trainer'] },
-        { id: 'resources', label: 'Resources', href: '/webui/trainer_resources.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer', 'trainer'] },
-        { id: 'logs', label: 'Logs', href: '/webui/logs.html', roles: ['Admin', 'super_admin', 'Developer'] },
-        { id: 'evolution', label: 'Evolution', href: '/webui/evolution.html', roles: ['Admin', 'super_admin', 'Developer'] },
-        { id: 'brain', label: 'Brain Graph', href: '/webui/visualize.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer', 'trainer'] },
-        { id: 'logic', label: 'Logic Graph', href: '/webui/logic_visualize.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer', 'trainer'] },
-        { id: 'blacklist', label: 'Blacklist', href: '/webui/admin_blacklist.html', roles: ['Admin', 'super_admin', 'Mod'] },
-        { id: 'whitelist', label: 'Whitelist', href: '/webui/admin_whitelist.html', roles: ['Admin', 'super_admin', 'Mod'] },
-        { id: 'anomalies', label: 'Anomalies', href: '/webui/admin_anomalies.html', roles: ['Admin', 'super_admin'] },
-        { id: 'reasoning', label: 'Reasoning', href: '/webui/admin_reasoning.html', roles: ['Admin', 'super_admin'] },
-        { id: 'thoughts', label: 'Thoughts', href: '/webui/thought_monitor.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer', 'trainer'] },
+        { id: 'admin', label: 'Admin Dashboard', href: '/webui/admin_dashboard.html', roles: ['Admin', 'super_admin'], icon: '⚙️', category: 'Admin' },
+        { id: 'users', label: 'Users', href: '/webui/admin_users.html', roles: ['Admin', 'super_admin'], icon: '👥', category: 'Admin' },
+        { id: 'trainer', label: 'Trainer Panel', href: '/webui/trainer_panel.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer', 'trainer'], icon: '🎓', category: 'Training' },
+        { id: 'resources', label: 'Resources', href: '/webui/trainer_resources.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer', 'trainer'], icon: '📚', category: 'Training' },
+        { id: 'brain', label: 'Brain Graph', href: '/webui/visualize.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer', 'trainer'], icon: '🌐', category: 'Visualization' },
+        { id: 'logic', label: 'Logic Graph', href: '/webui/logic_visualize.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer', 'trainer'], icon: '⚡', category: 'Visualization' },
+        { id: 'thoughts', label: 'Thought Monitor', href: '/webui/thought_monitor.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer', 'trainer'], icon: '💭', category: 'Monitoring' },
+        { id: 'logs', label: 'Logs', href: '/webui/logs.html', roles: ['Admin', 'super_admin', 'Developer'], icon: '📋', category: 'Developer' },
+        { id: 'evolution', label: 'Evolution', href: '/webui/evolution.html', roles: ['Admin', 'super_admin', 'Developer'], icon: '🔄', category: 'Developer' },
+        { id: 'anomalies', label: 'Anomalies', href: '/webui/admin_anomalies.html', roles: ['Admin', 'super_admin'], icon: '⚠️', category: 'Admin' },
+        { id: 'reasoning', label: 'Reasoning', href: '/webui/admin_reasoning.html', roles: ['Admin', 'super_admin'], icon: '🤔', category: 'Admin' },
+        { id: 'blacklist', label: 'Blacklist', href: '/webui/admin_blacklist.html', roles: ['Admin', 'super_admin', 'Mod'], icon: '🚫', category: 'Moderation' },
+        { id: 'whitelist', label: 'Whitelist', href: '/webui/admin_whitelist.html', roles: ['Admin', 'super_admin', 'Mod'], icon: '✅', category: 'Moderation' },
     ];
 
     function render(activeId) {
@@ -76,15 +76,32 @@ const JeebsNav = (function () {
         let linksHtml = PAGES.filter(function (p) {
             return isAllowed(p);
         }).map(function (p) {
-            return `<a class="sidebar-link${p.id === activeId ? ' active' : ''}" href="${p.href}">${p.label}</a>`;
+            return `<a class="sidebar-link${p.id === activeId ? ' active' : ''}" href="${p.href}" title="${p.label}"><span class="sidebar-icon">${p.icon}</span><span class="sidebar-text">${p.label}</span></a>`;
         }).join('');
 
-        // Add admin/advanced links if allowed
-        linksHtml += ADMIN_PAGES.filter(function (p) {
-            return isAllowed(p);
-        }).map(function (p) {
-            return `<a class="sidebar-link${p.id === activeId ? ' active' : ''}" href="${p.href}">${p.label}</a>`;
-        }).join('');
+        // Organize admin pages by category and add them
+        let adminLinksHtml = '';
+        const categories = {};
+
+        ADMIN_PAGES.forEach(function(p) {
+            if (!isAllowed(p)) return;
+            if (!categories[p.category]) categories[p.category] = [];
+            categories[p.category].push(p);
+        });
+
+        // Add category headers and links
+        if (Object.keys(categories).length > 0) {
+            adminLinksHtml += '<div class="sidebar-divider" style="margin: 16px 0; padding: 8px 0; border-top: 1px solid rgba(255,255,255,0.1); border-bottom: 1px solid rgba(255,255,255,0.1);"></div>';
+
+            Object.keys(categories).forEach(function(cat) {
+                adminLinksHtml += `<div class="sidebar-category"><span class="category-label">${cat}</span></div>`;
+                categories[cat].forEach(function(p) {
+                    adminLinksHtml += `<a class="sidebar-link${p.id === activeId ? ' active' : ''}" href="${p.href}" title="${p.label}"><span class="sidebar-icon">${p.icon}</span><span class="sidebar-text">${p.label}</span></a>`;
+                });
+            });
+        }
+
+        linksHtml += adminLinksHtml;
 
         if (userRole === 'Guest') {
             linksHtml += `<a class="sidebar-link" href="/webui/index.html#login" style="margin-top: auto; border-top: 1px solid var(--border); padding-top: 20px; color: var(--accent);">Sign In / Register</a>`;
