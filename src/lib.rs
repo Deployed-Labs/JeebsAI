@@ -37,6 +37,7 @@ pub mod chat_history;
 pub mod chat_feedback;
 pub mod filter_knowledge;
 pub mod cdhsc_proposals;
+pub mod admin_dashboard;
 pub mod utils;
 
 // Re-export AppState for convenience
