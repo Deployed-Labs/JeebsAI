@@ -281,17 +281,13 @@ pub async fn collect_training_topics(_db: &SqlitePool, _limit: u32) -> Vec<Strin
 }
 
 pub async fn query_wikipedia_docs(client: &reqwest::Client, topic: &str, limit: u32) -> Result<Vec<ExternalDoc>, String> {
-    let limit_str = limit.to_string();
-    let params = [
-        ("action", "opensearch"),
-        ("search", topic),
-        ("limit", limit_str.as_str()),
-        ("namespace", "0"),
-        ("format", "json"),
-    ];
+    let url = format!(
+        "https://en.wikipedia.org/w/api.php?action=opensearch&search={}&limit={}&namespace=0&format=json",
+        urlencoding::encode(topic),
+        limit
+    );
 
-    let resp = client.get("https://en.wikipedia.org/w/api.php")
-        .query(&params)
+    let resp = client.get(&url)
         .send()
         .await
         .map_err(|e| e.to_string())?;
