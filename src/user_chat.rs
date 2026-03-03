@@ -513,3 +513,123 @@ pub async fn chat_status(session: Session) -> impl Responder {
         "message": "Ready to chat!"
     }))
 }
+
+/// Enhanced intelligent chat endpoint using inference engine
+#[post("/api/chat/intelligent")]
+pub async fn intelligent_chat(
+    data: web::Data<AppState>,
+    req: web::Json<UserChatRequest>,
+    session: Session,
+    http_req: HttpRequest,
+) -> impl Responder {
+    // Verify authentication
+    if !is_user_authenticated(&session) {
+        return HttpResponse::Unauthorized().json(json!({
+            "error": "Not authenticated"
+        }));
+    }
+
+    let username = match get_username(&session) {
+        Some(u) => u,
+        None => {
+            return HttpResponse::Unauthorized().json(json!({
+                "error": "Unable to retrieve username"
+            }));
+        }
+    };
+
+    let message = req.message.trim();
+    if message.is_empty() {
+        return HttpResponse::BadRequest().json(json!({
+            "error": "Message cannot be empty"
+        }));
+    }
+
+    // Build inference context from brain databases
+    match crate::intelligent_inference::build_context(&data.db, message, Some(&username)).await {
+        Ok(context) => {
+            // Perform intelligent inference with reasoning
+            match crate::intelligent_inference::infer_response(&context).await {
+                Ok(inference) => {
+                    // Store chat message
+                    let session_id = session.get::<String>("session_id").ok().flatten();
+                    let _ = chat_history::insert_chat_message(
+                        &data.db,
+                        session_id.as_deref(),
+                        Some(&username),
+                        "user",
+                        message,
+                    )
+                    .await;
+
+                    // Store response in chat history
+                    let _ = chat_history::insert_chat_message(
+                        &data.db,
+                        session_id.as_deref(),
+                        None,
+                        "jeebs",
+                        &inference.response,
+                    )
+                    .await;
+
+                    // Log learning outcome for continuous learning
+                    let _ = crate::intelligent_inference::log_inference_outcome(
+                        &data.db,
+                        &inference,
+                        None,
+                    )
+                    .await;
+
+                    // Log the interaction
+                    logging::log(
+                        &data.db,
+                        "INFO",
+                        "INTELLIGENT_CHAT",
+                        &format!(
+                            "User {} confidence={:.0}% sources={}",
+                            username,
+                            inference.confidence * 100.0,
+                            inference.sources.join(",")
+                        ),
+                    )
+                    .await;
+
+                    HttpResponse::Ok().json(json!({
+                        "response": inference.response,
+                        "confidence": inference.confidence,
+                        "reasoning": inference.reasoning,
+                        "sources": inference.sources,
+                        "learned_concepts": inference.learned_concepts,
+                        "username": username,
+                    }))
+                }
+                Err(e) => {
+                    logging::log(
+                        &data.db,
+                        "ERROR",
+                        "INTELLIGENT_CHAT",
+                        &format!("Inference error: {}", e),
+                    )
+                    .await;
+
+                    HttpResponse::InternalServerError().json(json!({
+                        "error": format!("Inference failed: {}", e)
+                    }))
+                }
+            }
+        }
+        Err(e) => {
+            logging::log(
+                &data.db,
+                "ERROR",
+                "INTELLIGENT_CHAT",
+                &format!("Context building error: {}", e),
+            )
+            .await;
+
+            HttpResponse::InternalServerError().json(json!({
+                "error": format!("Failed to build context: {}", e)
+            }))
+        }
+    }
+}

@@ -298,6 +298,7 @@ async fn main() -> std::io::Result<()> {
             .service(user_chat::chat_preflight)
             .service(user_chat::chat_status)
             .service(user_chat::chat_history_endpoint)
+            .service(user_chat::intelligent_chat)
             .service(chat_feedback::submit_feedback)
             // Removed admin/knowledge routes that are no longer implemented in cortex
             .service(admin::status::get_system_status)
