@@ -80,6 +80,13 @@ stop_service() {
 # Pull latest code
 pull_code() {
     info "Pulling latest code from main branch..."
+    info "Updating code from main branch..."
+
+    if [ ! -d "$APP_DIR" ]; then
+        info "Directory $APP_DIR not found. Cloning from $REPO_URL..."
+        mkdir -p "$(dirname "$APP_DIR")"
+        git clone "$REPO_URL" "$APP_DIR"
+    fi
 
     cd "$APP_DIR"
 
@@ -92,6 +99,7 @@ pull_code() {
         success "Code updated to latest main branch"
     else
         error "Not a git repository. Please ensure $APP_DIR is a git clone."
+        error "Directory exists but is not a git repository: $APP_DIR"
         exit 1
     fi
 }
