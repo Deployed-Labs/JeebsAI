@@ -65,21 +65,13 @@ ssh -o ConnectTimeout=30 -i "$SSH_KEY" "$VPS_USER@$VPS_HOST" << EOF
         git clone https://github.com/Deployed-Labs/JeebsAI.git . || echo "Clone failed, trying to pull if dir not empty"
     fi
 
-    echo "⬇️  Pulling latest code..."
+    echo "⬇️  Updating deployment script..."
     git fetch origin
     git reset --hard origin/main
     
-    echo "🧹 Cleaning up macOS metadata..."
-    find . -type f -name '._*' -print -delete
-    
-    echo "🔨 Building release..."
-    cargo build --release
-    
-    echo "🔄 Restarting JeebsAI service..."
-    systemctl restart jeebs
-    
-    echo "✅ Service Status:"
-    systemctl status jeebs --no-pager | grep "Active:"
+    echo "🚀 Running full VPS deployment..."
+    chmod +x deploy_to_vps.sh
+    sudo ./deploy_to_vps.sh
 EOF
 
 echo -e "${GREEN}🎉 Deployment Complete!${NC}"
