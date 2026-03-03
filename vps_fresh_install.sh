@@ -34,7 +34,7 @@ error() {
 
 # Configuration (edit these as needed)
 REPO_URL="${REPO_URL:-https://github.com/Deployed-Labs/JeebsAI.git}"
-APP_DIR="${APP_DIR:-/opt/jeebs}"
+APP_DIR="${APP_DIR:-/root/JeebsAI}"
 APP_USER="${APP_USER:-root}"
 APP_PORT="${APP_PORT:-8080}"
 DB_PATH="${DB_PATH:-/var/lib/jeebs/jeebs.db}"
@@ -295,6 +295,8 @@ echo "🔧 Useful Commands:"
 echo "  • Check status:     sudo systemctl status $SERVICE_NAME"
 echo "  • View logs:        sudo journalctl -u $SERVICE_NAME -f"
 echo "  • Restart service:  sudo systemctl restart $SERVICE_NAME"
+echo "  • Manual backup:    sudo $APP_DIR/scripts/backup.sh"
+echo "  • Restore backup:   sudo $APP_DIR/scripts/restore.sh"
 echo "  • Stop service:     sudo systemctl stop $SERVICE_NAME"
 echo ""
 echo "🌐 Access JeebsAI:"

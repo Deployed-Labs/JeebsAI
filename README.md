@@ -109,7 +109,7 @@ set -euo pipefail
 IFS=$'\n\t'
 
 REPO_URL=${REPO_URL:-"https://github.com/Deployed-Labs/JeebsAI.git"}
-APP_DIR=${APP_DIR:-"/opt/jeebs"}
+APP_DIR=${APP_DIR:-"/root/JeebsAI"}
 APP_USER=${APP_USER:-"root"}
 APP_PORT=${APP_PORT:-"8080"}
 DOMAIN=${DOMAIN:-""}
@@ -240,7 +240,9 @@ Usage (single line, optional overrides):
 
 ```bash
 chmod +x one-click.sh
-APP_DIR=/opt/jeebs APP_USER=jeebs APP_PORT=8080 DOMAIN=example.com EMAIL=admin@example.com ./one-click.sh
+APP_DIR=/root/JeebsAI APP_USER=root APP_PORT=8080 DOMAIN=example.com EMAIL=admin@example.com ./one-click.sh
+chmod +x vps_fresh_install.sh
+APP_DIR=/root/JeebsAI APP_USER=root APP_PORT=8080 DOMAIN=example.com EMAIL=admin@example.com ./vps_fresh_install.sh
 
 # For non-interactive overwrite of existing config/systemd/nginx files:
 FORCE=1 ./one-click.sh
@@ -338,16 +340,17 @@ sudo journalctl -u jeebs -f
 A backup script is provided for automated database backups:
 
 ```bash
-# Make the backup script executable
-chmod +x backup.sh
+# Make the backup script executable (if not already)
+chmod +x scripts/backup.sh
 
 # Run manual backup
-./backup.sh
+# From the project root:
+./scripts/backup.sh
 
 # Set up automated nightly backups with cron
 sudo crontab -e
 # Add this line to run backup at 2 AM daily:
-# 0 2 * * * /path/to/JeebsAI/backup.sh
+# 0 2 * * * /path/to/JeebsAI/scripts/backup.sh
 ```
 
 Backups are stored in the `backups/` directory and automatically compressed. Backups older than 7 days are automatically deleted.

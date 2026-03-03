@@ -55,7 +55,7 @@ jobs:
     
     env:
       # Production Path
-      REMOTE_APP_DIR: /opt/jeebs
+      REMOTE_APP_DIR: /root/JeebsAI
 
     steps:
     - name: Download Binary

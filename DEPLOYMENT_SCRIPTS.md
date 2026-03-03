@@ -3,10 +3,12 @@
 ## Available Scripts
 
 | Script | Purpose | Run On | Description |
-|--------|---------|--------|-------------|
+|--------|---------|--------|--------------------------------------------------|
 | `push_to_main.sh` | Push to Git | **Local** | Commit changes and push to main branch |
 | `push_and_deploy.sh` | Full Deploy | **Local** | Push to git + deploy to VPS in one go |
 | `deploy_to_vps.sh` | VPS Deploy | **VPS** | Pull latest and rebuild on VPS |
+| `scripts/backup.sh` | Database Backup | **VPS** | Creates and manages database backups |
+| `scripts/restore.sh` | Database Restore | **VPS** | Restores database from a backup file |
 | `devline_release.sh` | Dev Release | **Local** | Commit to devline1 -> Merge Main -> Tag Release |
 
 ---
@@ -224,10 +226,11 @@ commit_message="Your default message here - $(date '+%Y-%m-%d')"
 
 Edit `deploy_to_vps.sh`:
 ```bash
-# Change this line (default: 10)
-ls -t jeebs_*.db | tail -n +11 | xargs -r rm
-# To keep 20 backups:
-ls -t jeebs_*.db | tail -n +21 | xargs -r rm
+# The deploy_to_vps.sh script currently keeps the last 3 backups.
+# To change this, modify the 'tail -n +4' line in the backup_database function.
+# For example, to keep 10 backups, change 'tail -n +4' to 'tail -n +11'.
+#
+# ls -t jeebs_*.db | tail -n +4 | xargs -r rm
 ```
 
 ### Skip Health Check

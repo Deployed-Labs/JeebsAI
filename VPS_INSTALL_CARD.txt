@@ -24,7 +24,7 @@
 
 ✅ WHAT IT DOES:
    • Installs all dependencies (Rust, build tools, etc.)
-   • Clones JeebsAI repository to /opt/jeebs
+   • Clones JeebsAI repository to /root/JeebsAI
    • Builds release binary (~5-10 minutes)
    • Creates systemd service
    • Starts JeebsAI automatically
@@ -46,7 +46,7 @@
    sudo journalctl -u jeebs -f
 
    Update Later:
-   cd /opt/jeebs && sudo ./deploy_to_vps.sh
+   cd /root/JeebsAI && sudo ./deploy_to_vps.sh
 
 ═══════════════════════════════════════════════════════════════
 

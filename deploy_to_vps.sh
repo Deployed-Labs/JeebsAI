@@ -10,11 +10,12 @@ echo "================================"
 echo ""
 
 # Configuration
-APP_DIR="${APP_DIR:-/opt/jeebs}"
+APP_DIR="${APP_DIR:-/root/JeebsAI}"
 REPO_URL="${REPO_URL:-https://github.com/Deployed-Labs/JeebsAI.git}"
 SERVICE_NAME="jeebs"
 BACKUP_DIR="/var/backups/jeebs"
 DB_PATH="${DB_PATH:-/var/lib/jeebs/jeebs.db}"
+PORT="${PORT:-8080}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -58,8 +59,8 @@ backup_database() {
 
         # Keep only last 10 backups
         cd "$BACKUP_DIR"
-        ls -t jeebs_*.db | tail -n +11 | xargs -r rm
-        info "Cleaned up old backups (keeping last 10)"
+        ls -t jeebs_*.db | tail -n +4 | xargs -r rm
+        info "Cleaned up old backups (keeping last 3)"
     else
         warn "No existing database found at $DB_PATH"
     fi
@@ -102,6 +103,11 @@ build_app() {
 
     cd "$APP_DIR"
 
+    # Clean up macOS metadata files that can break migrations
+    info "Cleaning up potential macOS metadata files..."
+    find . -type f -name '._*' -print -delete
+    success "Cleanup complete."
+
     # Ensure Rust is available
     if ! command -v cargo &> /dev/null; then
         error "Rust/Cargo not found. Installing Rust..."
@@ -140,6 +146,34 @@ run_migrations() {
     else
         warn "No migrations directory found"
     fi
+}
+
+# Update systemd service file
+update_service_config() {
+    info "Updating systemd service configuration..."
+
+    cat > "/etc/systemd/system/${SERVICE_NAME}.service" <<EOF
+[Unit]
+Description=JeebsAI Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=$APP_DIR
+ExecStart=$APP_DIR/target/release/jeebs
+Environment=PORT=$PORT
+Environment=DATABASE_URL=sqlite:$DB_PATH
+Environment=RUST_LOG=info
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl daemon-reload
+    success "Systemd service updated to use $APP_DIR"
 }
 
 # Start the service
@@ -186,10 +220,24 @@ health_check() {
     fi
 }
 
+# Cleanup old installation directory if it exists
+cleanup_old_directory() {
+    local old_dir="/opt/jeebs"
+    if [ -d "$old_dir" ]; then
+        info "Found old installation directory at $old_dir. Removing..."
+        rm -rf "$old_dir"
+        success "Successfully removed old directory."
+    fi
+}
+
 # Main deployment flow
 main() {
     echo ""
     info "Starting deployment process..."
+    echo ""
+
+    # Step 0: Cleanup old directory
+    cleanup_old_directory
     echo ""
 
     # Step 1: Backup
@@ -212,15 +260,19 @@ main() {
     run_migrations
     echo ""
 
-    # Step 6: Start service
+    # Step 6: Update service config
+    update_service_config
+    echo ""
+
+    # Step 7: Start service
     start_service
     echo ""
 
-    # Step 7: Check status
+    # Step 8: Check status
     check_status
     echo ""
 
-    # Step 8: Health check
+    # Step 9: Health check
     health_check
     echo ""
 
