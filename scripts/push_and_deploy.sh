@@ -42,6 +42,10 @@ if [ -n "$DISCORD_WEBHOOK_URL" ]; then
          "$DISCORD_WEBHOOK_URL" > /dev/null
 fi
 
+# Fix macOS metadata corruption in .git folder (common on external drives)
+echo -e "${BLUE}🧹 Cleaning up git metadata...${NC}"
+find .git -name "._*" -delete 2>/dev/null || true
+
 # 1. Git Push
 echo -e "${BLUE}📦 Pushing to GitHub...${NC}"
 git add .

@@ -40,6 +40,10 @@ if ! git rev-parse --git-dir > /dev/null 2>&1; then
     exit 1
 fi
 
+# Fix macOS metadata corruption in .git folder
+info "Cleaning up git metadata..."
+find .git -name "._*" -delete 2>/dev/null || true
+
 # Show current branch
 CURRENT_BRANCH=$(git branch --show-current)
 info "Current branch: $CURRENT_BRANCH"
