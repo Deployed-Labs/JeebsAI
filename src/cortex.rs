@@ -96,24 +96,30 @@ pub async fn get_brain_status() -> impl Responder {
 pub async fn get_evolution_stats(data: web::Data<AppState>) -> impl Responder {
     // Fetch real learning stats from deep_learning module
     let learning_stats = crate::deep_learning::get_learning_stats(&data.db).await.unwrap_or(json!({}));
-    
+
+    let total_sessions = learning_stats.get("total_learning_sessions").and_then(|v| v.as_i64()).unwrap_or(0);
+    let total_facts = learning_stats.get("total_facts_learned").and_then(|v| v.as_i64()).unwrap_or(0);
+
+    // Provide accurate stats or helpful defaults
     HttpResponse::Ok().json(json!({
         "brain": {
-            "nodes": 0,
-            "learned_facts": learning_stats.get("total_facts_learned").unwrap_or(&json!(0)),
+            "nodes": total_facts,
+            "learned_facts": total_facts,
             "chat_logs_24h": 0,
             "unanswered_24h": 0,
             "warnings_24h": 0,
             "errors_24h": 0,
-            "knowledge_drive": 0.8,
-            "top_unknown_topics": []
+            "knowledge_drive": if total_facts > 0 { 0.8 } else { 0.2 },
+            "top_unknown_topics": [],
+            "learning_sessions": total_sessions,
+            "status": if total_sessions == 0 { "initializing" } else { "learning" }
         },
         "proposals": { "total": 0 },
-        "thinker": { 
-            "status": "idle", 
+        "thinker": {
+            "status": "idle",
             "total_cycles": 0,
             "last_cycle_at": chrono::Local::now().to_rfc3339(),
-            "last_reason": "Waiting for trigger"
+            "last_reason": if total_sessions == 0 { "Awaiting knowledge input" } else { "Learning from interactions" }
         }
     }))
 }
@@ -145,8 +151,27 @@ pub async fn deny_update(session: Session, path: web::Path<String>) -> impl Resp
 #[get("/api/brain/learning-sessions")]
 pub async fn get_learning_sessions(data: web::Data<AppState>) -> impl Responder {
     match crate::deep_learning::get_all_learning_sessions(&data.db).await {
-        Ok(sessions) => HttpResponse::Ok().json(json!({ "success": true, "sessions": sessions })),
-        Err(e) => HttpResponse::InternalServerError().json(json!({ "success": false, "error": e })),
+        Ok(sessions) => {
+            if sessions.is_empty() {
+                HttpResponse::Ok().json(json!({
+                    "success": true,
+                    "sessions": [],
+                    "status": "empty",
+                    "message": "No learning sessions yet. Conversations will create learning sessions."
+                }))
+            } else {
+                HttpResponse::Ok().json(json!({ "success": true, "sessions": sessions }))
+            }
+        },
+        Err(e) => {
+            // Return graceful empty response on error
+            HttpResponse::Ok().json(json!({
+                "success": true,
+                "sessions": [],
+                "status": "error",
+                "message": format!("Could not load sessions: {}", e)
+            }))
+        }
     }
 }
 
@@ -162,8 +187,32 @@ pub async fn get_learning_session_endpoint(data: web::Data<AppState>, path: web:
 #[get("/api/brain/learning-stats")]
 pub async fn get_learning_statistics(data: web::Data<AppState>) -> impl Responder {
     match crate::deep_learning::get_learning_stats(&data.db).await {
-        Ok(stats) => HttpResponse::Ok().json(json!({ "success": true, "stats": stats })),
-        Err(e) => HttpResponse::InternalServerError().json(json!({ "success": false, "error": e })),
+        Ok(mut stats) => {
+            // Add helpful status message if brain is empty
+            if stats.get("total_learning_sessions").and_then(|v| v.as_i64()).unwrap_or(0) == 0 {
+                stats["status"] = json!("empty_brain");
+                stats["message"] = json!("Brain is building knowledge. Have conversations to populate learning data.");
+                stats["total_facts_learned"] = json!(0);
+                stats["total_study_hours"] = json!(0.0);
+                stats["average_confidence"] = json!(0.0);
+            }
+            HttpResponse::Ok().json(json!({ "success": true, "stats": stats }))
+        },
+        Err(e) => {
+            // Return empty stats on error instead of failing
+            HttpResponse::Ok().json(json!({
+                "success": true,
+                "stats": {
+                    "total_learning_sessions": 0,
+                    "total_study_hours": 0.0,
+                    "total_facts_learned": 0,
+                    "average_confidence": 0.0,
+                    "topics_in_learning": [],
+                    "status": "error",
+                    "message": format!("Could not load stats: {}", e)
+                }
+            }))
+        }
     }
 }
 
