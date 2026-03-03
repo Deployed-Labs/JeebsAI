@@ -287,9 +287,9 @@ If you prefer manual installation, follow these steps:
    sudo systemctl reload nginx
    ```
 
-4. **Set up SSL with Certbot:**
+4. **Set up SSL (Automated):**
    ```bash
-   sudo certbot --nginx -d your_domain.com
+   sudo ./scripts/setup_ssl.sh
    ```
 
 5. **Initialize the database:**

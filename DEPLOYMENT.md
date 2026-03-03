@@ -4,7 +4,7 @@
 
 ### Option 1: Automated Push and Deploy (Recommended)
 
-1. **Configure the script** (edit `push_and_deploy.sh`):
+1. **Configure the script** (edit `scripts/push_and_deploy.sh`):
    ```bash
    export VPS_HOST="your-server.com"  # or IP address
    export VPS_USER="root"              # or your user
@@ -12,8 +12,8 @@
 
 2. **Run the script**:
    ```bash
-   chmod +x push_and_deploy.sh
-   ./push_and_deploy.sh
+   chmod +x scripts/push_and_deploy.sh
+   ./scripts/push_and_deploy.sh
    ```
 
    This will:
@@ -130,7 +130,7 @@ export VPS_USER="ubuntu"
 export APP_DIR="/opt/jeebs"
 export DB_PATH="/var/lib/jeebs/jeebs.db"
 
-./push_and_deploy.sh
+./scripts/push_and_deploy.sh
 ```
 
 ---

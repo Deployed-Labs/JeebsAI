@@ -60,7 +60,7 @@
 🎯 QUICK START:
 
    1. Push to GitHub:
-      ./push_to_main.sh
+      ./scripts/push_to_main.sh
 
    2. SSH to VPS:
       ssh root@your-vps.com

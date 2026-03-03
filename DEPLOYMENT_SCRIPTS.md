@@ -4,12 +4,13 @@
 
 | Script | Purpose | Run On | Description |
 |--------|---------|--------|--------------------------------------------------|
-| `push_to_main.sh` | Push to Git | **Local** | Commit changes and push to main branch |
-| `push_and_deploy.sh` | Full Deploy | **Local** | Push to git + deploy to VPS in one go |
+| `scripts/push_to_main.sh` | Push to Git | **Local** | Commit changes and push to main branch |
+| `scripts/push_and_deploy.sh` | Full Deploy | **Local** | Push to git + deploy to VPS in one go |
 | `deploy_to_vps.sh` | VPS Deploy | **VPS** | Pull latest and rebuild on VPS |
 | `scripts/backup.sh` | Database Backup | **VPS** | Creates and manages database backups |
 | `scripts/restore.sh` | Database Restore | **VPS** | Restores database from a backup file |
-| `devline_release.sh` | Dev Release | **Local** | Commit to devline1 -> Merge Main -> Tag Release |
+| `scripts/setup_ssl.sh` | SSL Setup | **VPS** | Configures Nginx and Let's Encrypt SSL |
+| `scripts/devline_release.sh` | Dev Release | **Local** | Commit to devline1 -> Merge Main -> Tag Release |
 
 ---
 
@@ -19,14 +20,14 @@
 
 **On your local machine:**
 ```bash
-chmod +x push_and_deploy.sh
+chmod +x scripts/push_and_deploy.sh
 
 # Edit configuration (first time only)
-nano push_and_deploy.sh
+nano scripts/push_and_deploy.sh
 # Set: VPS_HOST, VPS_USER
 
 # Run it
-./push_and_deploy.sh
+./scripts/push_and_deploy.sh
 ```
 
 This will:

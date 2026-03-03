@@ -1,97 +1,193 @@
 #!/usr/bin/env bash
-set -euo pipefail
+#
+# Complete Git Push to Main - Run this on your LOCAL machine
+#
+set -e
 
-# Push current branch (or specified branch) into `main` on origin safely.
-# After merge this script will build a release artifact and create a GitHub Release
-# using the `gh` CLI. Usage: ./scripts/push_to_main.sh [branch] [remote]
+# Ensure we are running from the project root
+cd "$(dirname "$0")/.."
 
-BRANCH=${1:-$(git rev-parse --abbrev-ref HEAD)}
-ORIGIN=${2:-origin}
+echo "📦 JeebsAI - Commit and Push to Main"
+echo "====================================="
+echo ""
 
-echo "Preparing to push branch '$BRANCH' into $ORIGIN/main"
+# Colors
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m'
 
-if [ "$BRANCH" = "main" ]; then
-  echo "On 'main' already: fetching and pushing local main to $ORIGIN/main"
-  git fetch "$ORIGIN" main
-  git pull --ff-only "$ORIGIN" main
-  git push "$ORIGIN" main
-  echo "Pushed main to $ORIGIN/main"
-  exit 0
+info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+warn() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
+error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Check if we're in a git repository
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+    error "Not a git repository. Please run 'git init' first."
+    exit 1
 fi
 
-# Ensure working tree clean
-if [ -n "$(git status --porcelain)" ]; then
-  echo "Working tree is dirty. Commit or stash changes first." >&2
-  git status --porcelain
-  exit 2
+# Show current branch
+CURRENT_BRANCH=$(git branch --show-current)
+info "Current branch: $CURRENT_BRANCH"
+
+# Check if we need to switch to main
+if [ "$CURRENT_BRANCH" != "main" ] && [ "$CURRENT_BRANCH" != "master" ]; then
+    warn "You are on branch '$CURRENT_BRANCH'"
+    read -p "Switch to main branch? (y/n) " -n 1 -r
+    echo ""
+
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        # Check if main exists
+        if git show-ref --verify --quiet refs/heads/main; then
+            git checkout main
+        elif git show-ref --verify --quiet refs/heads/master; then
+            git checkout master
+        else
+            error "Neither 'main' nor 'master' branch exists"
+            exit 1
+        fi
+        success "Switched to main branch"
+    else
+        error "Deployment requires main branch. Exiting."
+        exit 1
+    fi
 fi
 
-orig_branch=$(git rev-parse --abbrev-ref HEAD)
+echo ""
 
-# Push branch to origin first (so origin has branch to merge)
-echo "Pushing branch '$BRANCH' to $ORIGIN"
-git push "$ORIGIN" "$BRANCH"
+# Show git status
+info "Current git status:"
+echo ""
+git status
+echo ""
 
-# Switch to main and update
-git fetch "$ORIGIN" main
-git checkout main
-git pull --ff-only "$ORIGIN" main || true
+# Count uncommitted changes
+CHANGES=$(git status --porcelain | wc -l)
 
-# Try to merge the branch into main. If conflicts occur, abort and restore.
-if git merge --no-ff --no-edit "$ORIGIN/$BRANCH"; then
-  echo "Merge succeeded. Pushing main to $ORIGIN"
-  git push "$ORIGIN" main
+if [ "$CHANGES" -eq 0 ]; then
+    warn "No changes to commit"
+    read -p "Push existing commits anyway? (y/n) " -n 1 -r
+    echo ""
 
-  # After pushing main, create a release using gh CLI.
-  # Determine tag from VERSION file if present, else use short commit+timestamp.
-  if [ -f VERSION ]; then
-    TAG=$(cat VERSION | tr -d " \n\r")
-  else
-    TAG="$(git rev-parse --short HEAD)-$(date +%s)"
-  fi
-
-  # Ensure we have a clean build artifact
-  if [ -f Cargo.toml ]; then
-    echo "Building release artifact (cargo build --release)"
-    cargo build --release
-    ARTIFACT=target/release/jeebs
-    if [ -f "$ARTIFACT" ]; then
-      ARCHIVE="jeebs-${TAG}.tar.gz"
-      tar -czf "$ARCHIVE" -C "$(dirname "$ARTIFACT")" "$(basename "$ARTIFACT")" VERSION || true
-      echo "Created artifact $ARCHIVE"
-    else
-      echo "Warning: build artifact not found at $ARTIFACT" >&2
-      ARCHIVE=""
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        info "Exiting without pushing"
+        exit 0
     fi
-  else
-    echo "No Cargo.toml found; creating source archive"
-    ARCHIVE="jeebs-src-${TAG}.tar.gz"
-    git archive --format=tar.gz -o "$ARCHIVE" HEAD
-  fi
-
-  if command -v gh >/dev/null 2>&1; then
-    echo "Creating GitHub release $TAG"
-    # If release tag already exists, create a unique tag suffix
-    if gh release view "$TAG" >/dev/null 2>&1; then
-      TAG="${TAG}-$(date +%s)"
-      echo "Tag existed; using new tag $TAG"
-    fi
-    if [ -n "${ARCHIVE}" ] && [ -f "${ARCHIVE}" ]; then
-      gh release create "$TAG" "$ARCHIVE" -t "$TAG" -n "Release $TAG"
-    else
-      gh release create "$TAG" -t "$TAG" -n "Release $TAG"
-    fi
-    echo "Release created: $TAG"
-  else
-    echo "gh CLI not installed or not authenticated; skipping GitHub Release creation." >&2
-  fi
-
-  echo "Merge and push complete. Returning to '$orig_branch'"
-  git checkout "$orig_branch"
-  exit 0
 else
-  echo "Merge failed due to conflicts; aborting merge and restoring branch." >&2
-  git merge --abort || true
-  git checkout "$orig_branch"
-  exit 3
+    info "Found $CHANGES uncommitted change(s)"
+    echo ""
+
+    read -p "Add and commit all changes? (y/n) " -n 1 -r
+    echo ""
+
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        # Show what will be added
+        info "Files to be added:"
+        git status --short
+        echo ""
+
+        # Add all changes
+        info "Adding all changes..."
+        git add .
+
+        # Get commit message
+        echo ""
+        read -p "Enter commit message (or press Enter for default): " commit_message
+
+        if [ -z "$commit_message" ]; then
+            commit_message="Deploy: Add learning systems, knowledge retrieval, and proactive proposals - $(date '+%Y-%m-%d %H:%M:%S')"
+        fi
+
+        # Commit
+        info "Committing with message: $commit_message"
+        git commit -m "$commit_message"
+
+        success "✅ Changes committed!"
+        echo ""
+    else
+        warn "Skipping commit. Only existing commits will be pushed."
+        echo ""
+    fi
 fi
+
+# Check for unpushed commits
+UNPUSHED=$(git log origin/$(git branch --show-current)..HEAD --oneline 2>/dev/null | wc -l || echo "0")
+
+if [ "$UNPUSHED" -eq 0 ]; then
+    warn "No commits to push"
+    info "Local and remote are in sync"
+    exit 0
+else
+    info "Found $UNPUSHED commit(s) to push"
+    echo ""
+
+    info "Commits to be pushed:"
+    git log origin/$(git branch --show-current)..HEAD --oneline --decorate
+    echo ""
+fi
+
+# Confirm push
+read -p "Push to origin/main? (y/n) " -n 1 -r
+echo ""
+
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    warn "Push cancelled"
+    exit 0
+fi
+
+# Push to main
+info "Pushing to origin/main..."
+echo ""
+
+git push origin main
+
+echo ""
+success "=========================================="
+success "🎉 Successfully pushed to main!"
+success "=========================================="
+echo ""
+
+info "Next steps:"
+echo "  1. To deploy to VPS, run: ./scripts/push_and_deploy.sh"
+echo "  2. Or SSH to VPS and run: cd /root/JeebsAI && sudo ./deploy_to_vps.sh"
+echo ""
+
+# Offer to create a tag
+read -p "Create a release tag? (y/n) " -n 1 -r
+echo ""
+
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo ""
+    read -p "Enter tag name (e.g., v2.0.0): " tag_name
+
+    if [ -n "$tag_name" ]; then
+        read -p "Enter tag message (or press Enter to skip): " tag_message
+
+        if [ -n "$tag_message" ]; then
+            git tag -a "$tag_name" -m "$tag_message"
+        else
+            git tag "$tag_name"
+        fi
+
+        git push origin "$tag_name"
+        success "✅ Tag $tag_name created and pushed!"
+    fi
+fi
+
+echo ""
+success "All done! 🚀"
+echo ""
