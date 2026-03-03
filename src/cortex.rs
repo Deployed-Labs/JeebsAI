@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{Row, SqlitePool};
 use crate::state::AppState;
+use chrono::Local;
+use uuid::Uuid;
 
 // --- Helper Structs & Functions required by admin/training.rs ---
 
@@ -165,14 +167,96 @@ pub async fn get_learning_statistics(data: web::Data<AppState>) -> impl Responde
     }
 }
 
+#[get("/api/brain/logic-graph")]
+pub async fn logic_graph_endpoint() -> impl Responder {
+    HttpResponse::Ok().json(json!({"nodes": [], "edges": []}))
+}
+
+#[get("/api/brain/latest-thought")]
+pub async fn get_latest_thought_endpoint() -> impl Responder {
+    HttpResponse::Ok().json(json!({"thought": "Thinking..."}))
+}
+
+#[post("/api/brain/template-proposals/generate")]
+pub async fn generate_template_proposals_endpoint() -> impl Responder {
+    HttpResponse::Ok().json(json!({"success": true}))
+}
+
+#[get("/api/brain/template-proposals")]
+pub async fn get_template_proposals_endpoint() -> impl Responder {
+    HttpResponse::Ok().json(json!({"proposals": []}))
+}
+
+#[post("/api/brain/template-proposals/update-status")]
+pub async fn update_proposal_status_endpoint() -> impl Responder {
+    HttpResponse::Ok().json(json!({"success": true}))
+}
+
+#[get("/api/brain/template-proposals/statistics")]
+pub async fn get_proposal_statistics_endpoint() -> impl Responder {
+    HttpResponse::Ok().json(json!({"stats": {}}))
+}
+
+#[post("/api/learning/start-deep-learning")]
+pub async fn start_deep_learning() -> impl Responder {
+    HttpResponse::Ok().json(json!({"success": true}))
+}
+
+#[post("/api/learning/add-fact")]
+pub async fn add_learned_fact() -> impl Responder {
+    HttpResponse::Ok().json(json!({"success": true}))
+}
+
+#[post("/api/learning/add-problem")]
+pub async fn add_practice_problem() -> impl Responder {
+    HttpResponse::Ok().json(json!({"success": true}))
+}
+
+#[post("/api/learning/run-extended")]
+pub async fn run_extended_learning() -> impl Responder {
+    HttpResponse::Ok().json(json!({"success": true}))
+}
+
+#[get("/api/learning/extended-run/{id}")]
+pub async fn get_extended_run() -> impl Responder {
+    HttpResponse::Ok().json(json!({"success": true}))
+}
+
+#[get("/api/learning/extended-runs")]
+pub async fn list_extended_runs() -> impl Responder {
+    HttpResponse::Ok().json(json!({"runs": []}))
+}
+
+#[post("/api/learning/cancel-extended/{id}")]
+pub async fn cancel_extended_run() -> impl Responder {
+    HttpResponse::Ok().json(json!({"success": true}))
+}
+
+#[get("/api/learning/summary")]
+pub async fn get_learning_summary_endpoint() -> impl Responder {
+    HttpResponse::Ok().json(json!({"summary": "Learning..."}))
+}
+
+#[get("/api/brain/current-dream")]
+pub async fn get_current_dream_endpoint() -> impl Responder {
+    HttpResponse::Ok().json(json!({"dream": "Dreaming..."}))
+}
+
 // --- Core Cortex Logic & Helpers ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalDoc {
+    pub title: String,
+    pub url: String,
+    pub summary: String,
+}
 
 pub struct Cortex;
 
 impl Cortex {
-    pub async fn think(input: String, data: &web::Data<AppState>) -> String {
+    pub async fn think(input: &str, data: &web::Data<AppState>) -> String {
         // Search across all topics ("*") for relevant facts based on the input query
-        let facts = crate::deep_learning::get_relevant_facts_for_chat(&data.db, "*", &input)
+        let facts = crate::deep_learning::get_relevant_facts_for_chat(&data.db, "*", input)
             .await
             .unwrap_or_default();
 
@@ -186,17 +270,79 @@ impl Cortex {
         }
         response
     }
+
+    pub async fn think_for_user(input: &str, data: &web::Data<AppState>, _user_id: &str, _username: Option<&str>) -> String {
+        Self::think(input, data).await
+    }
 }
 
 pub async fn collect_training_topics(_db: &SqlitePool, _limit: u32) -> Vec<String> {
     vec!["general".to_string()]
 }
 
-pub async fn query_wikipedia_docs(_client: &reqwest::Client, _topic: &str, _limit: u32) -> Result<Vec<String>, String> {
-    Ok(vec![])
+pub async fn query_wikipedia_docs(client: &reqwest::Client, topic: &str, limit: u32) -> Result<Vec<ExternalDoc>, String> {
+    let params = [
+        ("action", "opensearch"),
+        ("search", topic),
+        ("limit", &limit.to_string()),
+        ("namespace", "0"),
+        ("format", "json"),
+    ];
+
+    let resp = client.get("https://en.wikipedia.org/w/api.php")
+        .query(&params)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !resp.status().is_success() {
+        return Err(format!("Wikipedia API returned status: {}", resp.status()));
+    }
+
+    let json: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+
+    let mut docs = Vec::new();
+    if let Some(array) = json.as_array() {
+        if array.len() >= 4 {
+            let titles = array[1].as_array().unwrap_or(&vec![]);
+            let summaries = array[2].as_array().unwrap_or(&vec![]);
+            let urls = array[3].as_array().unwrap_or(&vec![]);
+
+            for i in 0..titles.len() {
+                if i < summaries.len() && i < urls.len() {
+                    docs.push(ExternalDoc {
+                        title: titles[i].as_str().unwrap_or("").to_string(),
+                        summary: summaries[i].as_str().unwrap_or("").to_string(),
+                        url: urls[i].as_str().unwrap_or("").to_string(),
+                    });
+                }
+            }
+        }
+    }
+    Ok(docs)
 }
 
-pub async fn store_external_learning_doc(_db: &SqlitePool, _doc: &str) -> Result<(), String> {
+pub async fn store_external_learning_doc(db: &SqlitePool, doc: &ExternalDoc) -> Result<(), String> {
+    let node_id = format!("wiki:{}", Uuid::new_v4());
+    let data = json!({
+        "type": "external_doc",
+        "source": "wikipedia",
+        "url": doc.url,
+        "title": doc.title,
+        "summary": doc.summary,
+        "crawled_at": Local::now().to_rfc3339()
+    });
+
+    sqlx::query("INSERT OR REPLACE INTO brain_nodes (id, label, summary, data, created_at) VALUES (?, ?, ?, ?, ?)")
+        .bind(&node_id)
+        .bind(&doc.title)
+        .bind(&doc.summary)
+        .bind(serde_json::to_vec(&data).unwrap_or_default())
+        .bind(Local::now().to_rfc3339())
+        .execute(db)
+        .await
+        .map_err(|e| e.to_string())?;
+    
     Ok(())
 }
 
