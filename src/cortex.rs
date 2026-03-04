@@ -584,6 +584,52 @@ impl Cortex {
             .take(3)
             .collect()
     }
+
+    /// Generate follow-up suggestions to guide the conversation
+    pub fn generate_follow_up_suggestions(query: &str, intent: &str) -> Vec<String> {
+        let keywords = Self::extract_keywords(query);
+        let primary_keyword = keywords.first().cloned().unwrap_or_else(|| "that".to_string());
+
+        let suggestions = match intent {
+            "reasoning" => vec![
+                format!("What examples of {} exist in real life?", primary_keyword),
+                format!("How does {} relate to other concepts?", primary_keyword),
+                format!("Can you explain the causes of {}?", primary_keyword),
+            ],
+            "explain" => vec![
+                format!("Can you give examples of {}?", primary_keyword),
+                format!("How does {} work in practice?", primary_keyword),
+                format!("What are common misconceptions about {}?", primary_keyword),
+            ],
+            "example" => vec![
+                format!("Why are these examples important for understanding {}?", primary_keyword),
+                format!("How do these examples differ from each other?"),
+                format!("Can you explain the reasoning behind the commonalities?"),
+            ],
+            "instruct" => vec![
+                format!("What tools do I need for {}?", primary_keyword),
+                format!("What are common mistakes when doing {}?", primary_keyword),
+                format!("How can I practice {}?", primary_keyword),
+            ],
+            "compare" => vec![
+                format!("What are the advantages of one over the other?"),
+                format!("In what situations would you choose each?"),
+                format!("How do they perform in real-world scenarios?"),
+            ],
+            "explore" => vec![
+                format!("What are the emerging trends in {}?", primary_keyword),
+                format!("How is {} evolving?", primary_keyword),
+                format!("What are experts saying about {}?", primary_keyword),
+            ],
+            _ => vec![
+                format!("Can you explain {} in more detail?", primary_keyword),
+                format!("What's an example of {}?", primary_keyword),
+                format!("Why is {} important?", primary_keyword),
+            ],
+        };
+
+        suggestions.into_iter().take(3).collect()
+    }
 }
 
 pub async fn collect_training_topics(_db: &SqlitePool, _limit: u32) -> Vec<String> {

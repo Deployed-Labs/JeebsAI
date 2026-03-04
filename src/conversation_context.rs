@@ -6,10 +6,18 @@
 /// - Extracting user intent from context
 /// - Maintaining focus on current topic
 /// - Preventing context loss across turns
+/// - Tracking question-answer pairs for better dialogue
 
-use serde_json::{json, Value};
+use serde_json::json;
 use sqlx::SqlitePool;
-use std::collections::HashMap;
+
+#[derive(Debug, Clone)]
+pub struct ConversationPair {
+    pub question: String,
+    pub answer: String,
+    pub question_intent: String,
+    pub related_topics: Vec<String>,
+}
 
 #[derive(Debug, Clone)]
 pub struct ConversationContext {
@@ -20,6 +28,8 @@ pub struct ConversationContext {
     pub previous_topics: Vec<String>,
     pub user_intent: String,
     pub focus_level: f32,
+    pub conversation_pairs: Vec<ConversationPair>, // Track Q&A pairs for context
+    pub last_user_question: Option<String>,         // Remember the last question
 }
 
 #[derive(Debug, Clone)]
@@ -90,6 +100,16 @@ pub async fn load_conversation_context(
         current_topic
     );
 
+    // Extract conversation pairs (Q&A pairs) from recent messages for better dialogue understanding
+    let conversation_pairs = extract_conversation_pairs(&messages);
+
+    // Remember the last user question if one exists
+    let last_user_question = messages
+        .iter()
+        .rev()
+        .find(|m| m.role == "user")
+        .map(|m| m.content.clone());
+
     Ok(ConversationContext {
         session_id: session_id.to_string(),
         user_id: user_id.map(|s| s.to_string()),
@@ -98,6 +118,8 @@ pub async fn load_conversation_context(
         previous_topics: topics,
         user_intent: "ask".to_string(),
         focus_level: 0.8,
+        conversation_pairs,
+        last_user_question,
     })
 }
 
@@ -176,6 +198,31 @@ fn extract_topics(message: &str) -> Vec<String> {
         .take(5)
         .map(|w| w.to_lowercase())
         .collect::<Vec<_>>()
+}
+
+/// Extract question-answer pairs from conversation messages
+fn extract_conversation_pairs(messages: &[ConversationMessage]) -> Vec<ConversationPair> {
+    let mut pairs = Vec::new();
+
+    for i in 0..messages.len() {
+        // Find user messages (questions) and their following AI responses (answers)
+        if messages[i].role == "user" && i + 1 < messages.len() && messages[i + 1].role == "jeebs" {
+            let question = messages[i].content.clone();
+            let answer = messages[i + 1].content.clone();
+            let question_intent = analyze_user_message(&question).primary;
+            let related_topics = messages[i].topics_mentioned.clone();
+
+            pairs.push(ConversationPair {
+                question,
+                answer,
+                question_intent,
+                related_topics,
+            });
+        }
+    }
+
+    // Keep only the most recent 5 pairs for context efficiency
+    pairs.iter().rev().take(5).cloned().collect::<Vec<_>>().into_iter().rev().collect()
 }
 
 /// Check if word is common filler
