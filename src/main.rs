@@ -12,7 +12,7 @@ use jeebs::plugins::{
     TranslatePlugin, WeatherPlugin, WebsiteStatusPlugin,
 };
 use jeebs::{
-    admin, auth, brain_parsing_api, chat, chat_feedback, cortex, evolution, logging, user_chat, mcp_api, enhanced_chat, cdhsc_proposals, admin_dashboard, AppState,
+    admin, auth, brain_parsing_api, chat, chat_feedback, cortex, evolution, logging, user_chat, mcp_api, enhanced_chat, cdhsc_proposals, admin_dashboard, demo_data, AppState,
 };
 use jeebs::brain::coded_holographic_data_storage_container::CodedHolographicDataStorageContainer;
 use sqlx::{Row, SqlitePool};
@@ -100,6 +100,20 @@ async fn main() -> std::io::Result<()> {
         },
         _ => {
             println!("Initializing new CHDSC from brain nodes...");
+
+            // Check if brain_nodes is empty; if so, load demo facts
+            let existing_nodes: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM brain_nodes")
+                .fetch_one(&pool)
+                .await
+                .unwrap_or(0);
+
+            if existing_nodes == 0 {
+                println!("Brain is empty - loading demo facts for bootstrap...");
+                if let Err(e) = demo_data::insert_demo_facts(&pool).await {
+                    eprintln!("Warning: Failed to load demo facts: {}", e);
+                }
+            }
+
             let mut c = CodedHolographicDataStorageContainer::new();
             let old_nodes = jeebs::brain::search_knowledge(&pool, "").await;
             c.migrate_from_brain_nodes(old_nodes);
