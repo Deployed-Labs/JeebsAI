@@ -1,3 +1,25 @@
+.register-btn {
+    display: block;
+    width: 100%;
+    margin: 0.7rem 0 0.2rem 0;
+    padding: 0.8rem 1.1rem;
+    border-radius: 9px;
+    background: linear-gradient(90deg, #fff 60%, #e6f0fa 100%);
+    color: #256bb2;
+    font-size: 1.08rem;
+    font-weight: 700;
+    text-align: center;
+    text-decoration: none;
+    box-shadow: 0 2px 8px #3a8dde22;
+    transition: background 0.2s, color 0.2s, transform 0.1s;
+    border: none;
+    cursor: pointer;
+}
+.register-btn:hover {
+    background: #dbeafe;
+    color: #193a5e;
+    transform: translateY(-2px) scale(1.03);
+}
 
 
 body {

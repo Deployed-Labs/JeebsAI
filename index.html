@@ -18,13 +18,14 @@
             </div>
             <h1 class="title">JeebsAI</h1>
             <p class="subtitle">Conversational Intelligence, Reimagined</p>
-            <form class="login-form">
-                <input type="text" placeholder="Username" required>
-                <input type="password" placeholder="Password" required>
+            <form class="login-form" action="chat.html" method="get">
+                <input type="text" name="username" placeholder="Username" required autocomplete="username">
+                <input type="password" name="password" placeholder="Password" required autocomplete="current-password">
                 <button type="submit" class="login-btn">Login</button>
             </form>
             <div class="divider"><span>or</span></div>
-            <button class="alt-login-btn">Sign in with Google</button>
+            <a href="register.html" class="register-btn">Create an Account</a>
+            <button class="alt-login-btn" onclick="window.location.href='chat.html'">Continue as Guest</button>
         </div>
         <footer>
             <p>&copy; 2026 JeebsAI &mdash; All rights reserved.</p>
