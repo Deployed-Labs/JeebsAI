@@ -19,6 +19,10 @@
         </div>
         
         <div class="card">
+            <h3>Proposals</h3>
+            <div id="proposals-list" class="stack"></div>
+        </div>
+        <div class="card">
             <h3>Restricted Access</h3>
             <p>This content is visible only to Trainers, Mods, and Admins.</p>
         </div>
@@ -26,11 +30,11 @@
 
     <script src="/webui/auth.js"></script>
     <script src="/webui/nav.js"></script>
+    <script src="/webui/js/resources.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             // Ensure user is logged in and has Trainer privileges (includes Admin/Mod)
             await requireAuth('trainer');
-            
             JeebsNav.init('resources');
         });
     </script>
