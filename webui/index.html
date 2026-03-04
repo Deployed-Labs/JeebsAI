@@ -4,285 +4,874 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JeebsAI</title>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/webui/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #ffffff;
+            --bg2: #f8f9fa;
+            --text: #1a1a1a;
+            --text2: #666666;
+            --border: #e0e0e0;
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --success: #10b981;
+            --danger: #ef4444;
+        }
+        [data-theme="dark"] {
+            --bg: #0f172a;
+            --bg2: #1e293b;
+            --text: #f1f5f9;
+            --text2: #cbd5e1;
+            --border: #334155;
+            --primary: #6366f1;
+            --primary-hover: #818cf8;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            transition: background 0.3s ease, color 0.3s ease;
+            min-height: 100vh;
+        }
+        .hidden { display: none !important; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: translateX(0); } }
+
+        /* Login/Register */
+        .auth {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+            background: linear-gradient(135deg, var(--bg) 0%, var(--bg2) 100%);
+        }
+        .auth-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 48px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.08);
+        }
+        [data-theme="dark"] .auth-card { box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .auth-card h1 {
+            text-align: center;
+            margin-bottom: 12px;
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        .auth-card .subtitle {
+            text-align: center;
+            color: var(--text2);
+            margin-bottom: 32px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .form-group {
+            margin-bottom: 24px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+            letter-spacing: 0.3px;
+        }
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg);
+            color: var(--text);
+            font-family: inherit;
+            font-size: 14px;
+            transition: all 0.2s ease-in-out;
+        }
+        .form-group textarea {
+            resize: vertical;
+            min-height: 90px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+        .form-group input:disabled,
+        .form-group textarea:disabled {
+            background: var(--bg2);
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        .challenge-helper {
+            font-size: 12px;
+            color: var(--text2);
+            margin-top: 4px;
+            display: none;
+        }
+        .challenge-helper.active {
+            display: block;
+            color: var(--success);
+        }
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease-in-out;
+            font-family: inherit;
+        }
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        .btn-primary:hover:not(:disabled) {
+            background: var(--primary-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+        .btn-secondary {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            margin-top: 8px;
+        }
+        .btn-secondary:hover:not(:disabled) {
+            background: var(--border);
+            border-color: var(--primary);
+            transform: translateY(-1px);
+        }
+        .auth-footer {
+            text-align: center;
+            margin-top: 28px;
+            font-size: 14px;
+            color: var(--text2);
+        }
+        .auth-footer a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+            transition: opacity 0.2s ease;
+        }
+        .auth-footer a:hover {
+            opacity: 0.8;
+            text-decoration: underline;
+        }
+
+        /* Chat */
+        .chat {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .chat-header {
+            background: var(--bg2);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .chat-header-left {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .chat-header h2 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 700;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text2);
+        }
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+        }
+        .user-info.admin-badge {
+            color: var(--primary);
+            font-weight: 600;
+        }
+        .chat-buttons {
+            display: flex;
+            gap: 8px;
+        }
+        .chat-buttons button {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            padding: 8px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text);
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+        .chat-buttons button:hover {
+            background: var(--border);
+            transform: translateY(-1px);
+        }
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            animation: fadeIn 0.3s ease;
+        }
+        .message {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            word-wrap: break-word;
+            line-height: 1.5;
+            font-size: 14px;
+            animation: slideUp 0.3s ease;
+        }
+        .message.user {
+            align-self: flex-end;
+            background: var(--primary);
+            color: white;
+        }
+        .message.bot {
+            align-self: flex-start;
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            color: var(--text);
+        }
+        .message.admin {
+            align-self: flex-start;
+            background: rgba(99, 102, 241, 0.1);
+            border-left: 3px solid var(--primary);
+            color: var(--text);
+        }
+        .input-area {
+            background: var(--bg2);
+            border-top: 1px solid var(--border);
+            padding: 16px 24px;
+            display: flex;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+        #prompt {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg);
+            color: var(--text);
+            font-family: inherit;
+            resize: none;
+            max-height: 120px;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+        #prompt:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+        #prompt:disabled {
+            background: var(--bg2);
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        .send-btn {
+            padding: 10px 20px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            min-width: 60px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .send-btn:hover:not(:disabled) {
+            background: var(--primary-hover);
+            transform: translateY(-2px);
+        }
+        .send-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Admin panel */
+        .admin-panel {
+            background: var(--bg2);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 24px;
+            margin: 0;
+        }
+        .admin-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        [data-theme="dark"] .admin-card { box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        .admin-card h3 {
+            margin-bottom: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+        .admin-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 8px;
+        }
+        .admin-card button {
+            padding: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--bg2);
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .admin-card button:hover {
+            background: var(--border);
+            transform: translateY(-1px);
+        }
+
+        /* Notifications */
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            animation: slideUp 0.3s ease;
+            pointer-events: auto;
+            z-index: 1000;
+        }
+        .notification.success {
+            background: var(--success);
+            color: white;
+        }
+        .notification.error {
+            background: var(--danger);
+            color: white;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .auth-card {
+                padding: 32px 24px;
+            }
+            .auth-card h1 {
+                font-size: 28px;
+            }
+            .message {
+                max-width: 85%;
+                font-size: 13px;
+            }
+            .chat-header {
+                padding: 12px 16px;
+            }
+            .chat-header h2 {
+                font-size: 18px;
+            }
+            .messages {
+                padding: 16px;
+            }
+            .input-area {
+                padding: 12px 16px;
+                gap: 8px;
+            }
+            .chat-buttons button {
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+            .admin-buttons {
+                grid-template-columns: 1fr;
+            }
+        }
+        @media (max-width: 480px) {
+            .auth-card {
+                padding: 28px 20px;
+            }
+            .auth-card h1 {
+                font-size: 24px;
+            }
+            .form-group {
+                margin-bottom: 20px;
+            }
+            .message {
+                max-width: 90%;
+                padding: 10px 12px;
+                font-size: 12px;
+            }
+            .chat-header {
+                padding: 12px;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+            .chat-buttons {
+                width: 100%;
+                gap: 6px;
+            }
+            .chat-buttons button {
+                flex: 1;
+                padding: 6px 8px;
+                font-size: 11px;
+            }
+            .messages {
+                padding: 12px;
+                gap: 8px;
+            }
+            .input-area {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
 </head>
 <body>
-    <div id="root">
-        <!-- LOGIN PAGE -->
-        <div id="loginPage" class="page active">
-            <div class="container">
-                <div class="card">
-                    <h1>JeebsAI</h1>
-                    <p class="subtitle">Sign In</p>
 
-                    <form id="loginForm">
-                        <div class="form-group">
-                            <label>Username</label>
-                            <input type="text" id="username" required>
-                        </div>
+<div id="loginPage" class="auth">
+    <div class="auth-card">
+        <h1>JeebsAI</h1>
+        <p class="subtitle">Intelligent Chat Assistant</p>
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="user">Username</label>
+                <input type="text" id="user" required placeholder="Enter your username">
+            </div>
+            <div class="form-group">
+                <label for="challenge">PGP Challenge</label>
+                <button type="button" id="genBtn" class="btn btn-secondary">Generate Challenge</button>
+                <textarea id="challenge" readonly placeholder="Your challenge will appear here..."></textarea>
+                <div id="challengeHelper" class="challenge-helper">✓ Challenge generated</div>
+            </div>
+            <div class="form-group">
+                <label for="signed">Signed Message</label>
+                <textarea id="signed" required placeholder="Paste your signed PGP message here..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary" id="signInBtn">Sign In</button>
+        </form>
+        <div class="auth-footer">
+            Don't have an account? <a href="#" onclick="showRegister(); return false;">Create one</a>
+        </div>
+    </div>
+</div>
 
-                        <div class="form-group">
-                            <label>Challenge (Click Generate)</label>
-                            <button type="button" id="genBtn" class="btn-secondary">Generate Challenge</button>
-                            <textarea id="challenge" readonly></textarea>
-                        </div>
+<div id="registerPage" class="auth hidden">
+    <div class="auth-card">
+        <h1>JeebsAI</h1>
+        <p class="subtitle">Create Account</p>
+        <form id="registerForm">
+            <div class="form-group">
+                <label for="regUser">Username</label>
+                <input type="text" id="regUser" required placeholder="Choose a username">
+            </div>
+            <div class="form-group">
+                <label for="regEmail">Email (optional)</label>
+                <input type="email" id="regEmail" placeholder="your@email.com">
+            </div>
+            <div class="form-group">
+                <label for="regKey">PGP Public Key</label>
+                <textarea id="regKey" required placeholder="Paste your PGP public key here..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary" id="createBtn">Create Account</button>
+        </form>
+        <div class="auth-footer">
+            Already have account? <a href="#" onclick="showLogin(); return false;">Sign in</a>
+        </div>
+    </div>
+</div>
 
-                        <div class="form-group">
-                            <label>Signed Message</label>
-                            <textarea id="signed" placeholder="Paste your PGP signed message here" required></textarea>
-                        </div>
-
-                        <button type="submit" class="btn-primary">Sign In</button>
-                    </form>
-
-                    <p class="footer-text">
-                        Don't have an account? <a href="#" onclick="switchPage('registerPage')">Create one</a>
-                    </p>
-                </div>
+<div id="chatPage" class="chat hidden">
+    <div class="chat-header">
+        <div class="chat-header-left">
+            <h2>JeebsAI</h2>
+            <div id="userLabel" class="user-info">
+                <span class="status-indicator"></span>
+                <span>Connected</span>
             </div>
         </div>
-
-        <!-- REGISTER PAGE -->
-        <div id="registerPage" class="page">
-            <div class="container">
-                <div class="card">
-                    <h1>JeebsAI</h1>
-                    <p class="subtitle">Create Account</p>
-
-                    <form id="registerForm">
-                        <div class="form-group">
-                            <label>Username</label>
-                            <input type="text" id="regUsername" placeholder="3-32 characters" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Email (Optional)</label>
-                            <input type="email" id="regEmail">
-                        </div>
-
-                        <div class="form-group">
-                            <label>PGP Public Key</label>
-                            <textarea id="regKey" placeholder="-----BEGIN PGP PUBLIC KEY BLOCK-----" required></textarea>
-                        </div>
-
-                        <button type="submit" class="btn-primary">Create Account</button>
-                    </form>
-
-                    <p class="footer-text">
-                        Already have an account? <a href="#" onclick="switchPage('loginPage')">Sign in</a>
-                    </p>
-                </div>
-            </div>
+        <div class="chat-buttons">
+            <button onclick="toggleTheme()" title="Toggle theme">🌙 Theme</button>
+            <button onclick="copyToken()" title="Copy authentication token">📋 Token</button>
+            <button onclick="logout()" title="Logout">🚪 Logout</button>
         </div>
-
-        <!-- CHAT PAGE -->
-        <div id="chatPage" class="page">
-            <div class="chat-container">
-                <div class="chat-header">
-                    <div class="header-top">
-                        <h2>JeebsAI</h2>
-                        <div class="header-buttons">
-                            <button id="themeBtn" class="icon-btn" title="Toggle Theme">🌙</button>
-                            <button id="copyBtn" class="icon-btn" title="Copy Token">📋</button>
-                            <button id="logoutBtn" class="icon-btn" title="Logout">🚪</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="chat-messages" id="messages"></div>
-
-                <div class="chat-footer">
-                    <form id="chatForm">
-                        <textarea id="prompt" placeholder="Ask me anything..." rows="2"></textarea>
-                        <button type="submit" class="btn-primary">Send</button>
-                    </form>
-                </div>
+    </div>
+    <div id="adminPanel" class="admin-panel hidden">
+        <div class="admin-card">
+            <h3>👑 Admin Controls</h3>
+            <div class="admin-buttons">
+                <button onclick="adminAction('stats')">System Stats</button>
+                <button onclick="adminAction('users')">List Users</button>
+                <button onclick="adminAction('logs')">View Logs</button>
             </div>
         </div>
     </div>
+    <div class="messages" id="messages"></div>
+    <div class="input-area">
+        <textarea id="prompt" placeholder="Ask anything..." rows="1"></textarea>
+        <button class="send-btn" onclick="sendMessage()" id="sendBtn">Send</button>
+    </div>
+</div>
 
-    <script src="/webui/auth.js"></script>
-    <script>
-        const state = {
-            loggedIn: false,
-            username: "",
-            token: "",
-            isDark: localStorage.getItem('theme') === 'dark'
-        };
+<script src="/webui/auth.js"></script>
+<script>
+const state = {
+    user: '',
+    token: '',
+    isAdmin: false,
+    isDark: localStorage.getItem('theme') === 'dark'
+};
 
-        // Theme
-        if (state.isDark) {
-            document.body.setAttribute('data-theme', 'dark');
-            document.getElementById('themeBtn').textContent = '☀️';
+// Notification system
+function showNotification(message, type = 'success', duration = 3000) {
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        notification.style.transition = 'opacity 0.3s ease';
+        setTimeout(() => notification.remove(), 300);
+    }, duration);
+}
+
+// Theme
+if (state.isDark) document.body.setAttribute('data-theme', 'dark');
+function toggleTheme() {
+    state.isDark = !state.isDark;
+    document.body.setAttribute('data-theme', state.isDark ? 'dark' : 'light');
+    localStorage.setItem('theme', state.isDark ? 'dark' : 'light');
+}
+
+// Page switching
+function showLogin() {
+    document.getElementById('loginPage').classList.remove('hidden');
+    document.getElementById('registerPage').classList.add('hidden');
+    setTimeout(() => document.getElementById('user').focus(), 100);
+}
+
+function showRegister() {
+    document.getElementById('loginPage').classList.add('hidden');
+    document.getElementById('registerPage').classList.remove('hidden');
+    setTimeout(() => document.getElementById('regUser').focus(), 100);
+}
+
+function showChat() {
+    document.getElementById('loginPage').classList.add('hidden');
+    document.getElementById('registerPage').classList.add('hidden');
+    document.getElementById('chatPage').classList.remove('hidden');
+    setTimeout(() => document.getElementById('prompt').focus(), 100);
+}
+
+// Generate challenge
+document.getElementById('genBtn').addEventListener('click', (e) => {
+    e.preventDefault();
+    const user = document.getElementById('user').value || 'user';
+    const ts = Math.floor(Date.now() / 1000);
+    const challenge = `LOGIN:${user}:${ts}`;
+    document.getElementById('challenge').value = challenge;
+
+    // Show success indicator
+    const helper = document.getElementById('challengeHelper');
+    helper.classList.add('active');
+
+    showNotification('Challenge generated successfully', 'success', 2000);
+});
+
+// Login
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const user = document.getElementById('user').value;
+    const signed = document.getElementById('signed').value;
+    const btn = document.getElementById('signInBtn');
+
+    if (!user || !signed) {
+        showNotification('Please fill all fields', 'error');
+        return;
+    }
+
+    try {
+        btn.disabled = true;
+        btn.textContent = 'Signing in...';
+
+        const res = await fetch('/api/login_pgp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: user, signed_message: signed })
+        });
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || 'Login failed');
+
+        state.user = user;
+        state.token = data.token || '';
+        if (state.token) jeebsSetToken(state.token);
+
+        state.isAdmin = user === '1090mb' || data.is_admin;
+
+        // Update user label
+        const userLabel = document.getElementById('userLabel');
+        if (state.isAdmin) {
+            userLabel.innerHTML = '<span class="status-indicator"></span><span class="admin-badge">👑 Admin</span>';
+            userLabel.classList.add('admin-badge');
+            showAdminPanel();
+        } else {
+            userLabel.innerHTML = '<span class="status-indicator"></span><span>Connected</span>';
         }
 
-        document.getElementById('themeBtn')?.addEventListener('click', () => {
-            state.isDark = !state.isDark;
-            document.body.setAttribute('data-theme', state.isDark ? 'dark' : 'light');
-            localStorage.setItem('theme', state.isDark ? 'dark' : 'light');
-            document.getElementById('themeBtn').textContent = state.isDark ? '☀️' : '🌙';
+        showNotification('Logged in successfully', 'success');
+        showChat();
+        loadHistory();
+    } catch (err) {
+        showNotification('Login error: ' + err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Sign In';
+    }
+});
+
+// Register
+document.getElementById('registerForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const user = document.getElementById('regUser').value;
+    const email = document.getElementById('regEmail').value;
+    const key = document.getElementById('regKey').value;
+    const btn = document.getElementById('createBtn');
+
+    if (!user || !key) {
+        showNotification('Username and PGP key are required', 'error');
+        return;
+    }
+
+    try {
+        btn.disabled = true;
+        btn.textContent = 'Creating account...';
+
+        const res = await fetch('/api/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: user, email, pgp_public_key: key })
         });
+        if (!res.ok) throw new Error('Registration failed');
 
-        // Page switching
-        function switchPage(page) {
-            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-            document.getElementById(page).classList.add('active');
-        }
-
-        // Generate challenge
-        document.getElementById('genBtn')?.addEventListener('click', (e) => {
-            e.preventDefault();
-            const user = document.getElementById('username').value || 'user';
-            const ts = Math.floor(Date.now() / 1000);
-            document.getElementById('challenge').value = `LOGIN:${user}:${ts}`;
-        });
-
-        // Login
-        document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const username = document.getElementById('username').value;
-            const signed = document.getElementById('signed').value;
-
-            try {
-                const res = await fetch('/api/login_pgp', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, signed_message: signed })
-                });
-
-                if (!res.ok) throw new Error('Login failed');
-                const data = await res.json();
-
-                state.loggedIn = true;
-                state.username = username;
-                state.token = data.token || '';
-                if (state.token) jeebsSetToken(state.token);
-
-                switchPage('chatPage');
-                loadChat();
-            } catch (err) {
-                alert('Login failed: ' + err.message);
-            }
-        });
-
-        // Register
-        document.getElementById('registerForm')?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const username = document.getElementById('regUsername').value;
-            const email = document.getElementById('regEmail').value;
-            const pgp_public_key = document.getElementById('regKey').value;
-
-            try {
-                const res = await fetch('/api/register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, email, pgp_public_key })
-                });
-
-                if (!res.ok) throw new Error('Registration failed');
-
-                document.getElementById('username').value = username;
-                switchPage('loginPage');
-                alert('Account created! Now sign in.');
-            } catch (err) {
-                alert('Registration failed: ' + err.message);
-            }
-        });
-
-        // Chat
-        async function loadChat() {
-            try {
-                const res = await fetch('/api/chat/history?limit=50', {
-                    headers: state.token ? { 'Authorization': `Bearer ${state.token}` } : {}
-                });
-                const history = await res.json();
-                const msgs = document.getElementById('messages');
-                msgs.innerHTML = '';
-                history.forEach(msg => {
-                    const div = document.createElement('div');
-                    div.className = `message ${msg.role}`;
-                    div.textContent = msg.message;
-                    msgs.appendChild(div);
-                });
-            } catch (e) {
-                console.log('Chat history error:', e);
-            }
-        }
-
-        document.getElementById('chatForm')?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const prompt = document.getElementById('prompt').value;
-            if (!prompt) return;
-
-            const msgs = document.getElementById('messages');
-            const userMsg = document.createElement('div');
-            userMsg.className = 'message user';
-            userMsg.textContent = prompt;
-            msgs.appendChild(userMsg);
-            document.getElementById('prompt').value = '';
-
-            try {
-                const res = await fetch('/api/jeebs', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...(state.token ? { 'Authorization': `Bearer ${state.token}` } : {})
-                    },
-                    body: JSON.stringify({ prompt })
-                });
-                const data = await res.json();
-
-                const botMsg = document.createElement('div');
-                botMsg.className = 'message bot';
-                botMsg.textContent = data.response || 'No response';
-                msgs.appendChild(botMsg);
-                msgs.scrollTop = msgs.scrollHeight;
-            } catch (err) {
-                const errMsg = document.createElement('div');
-                errMsg.className = 'message bot error';
-                errMsg.textContent = 'Error: ' + err.message;
-                msgs.appendChild(errMsg);
-            }
-        });
-
-        document.getElementById('copyBtn')?.addEventListener('click', () => {
-            if (state.token) {
-                navigator.clipboard.writeText(state.token);
-                alert('Token copied!');
-            }
-        });
-
-        document.getElementById('logoutBtn')?.addEventListener('click', async () => {
-            try {
-                await fetch('/api/logout', { method: 'POST' });
-            } catch (e) { }
-            state.loggedIn = false;
-            state.username = '';
-            state.token = '';
-            jeebsClearToken();
-            switchPage('loginPage');
+        showNotification('Account created! Redirecting to login...', 'success');
+        setTimeout(() => {
+            showLogin();
+            document.getElementById('user').value = user;
             document.getElementById('loginForm').reset();
+        }, 1500);
+    } catch (err) {
+        showNotification('Registration error: ' + err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Create Account';
+    }
+});
+
+// Chat
+function addMessage(text, isUser, isAdmin = false) {
+    const msg = document.createElement('div');
+    if (isAdmin) {
+        msg.className = 'message admin';
+    } else {
+        msg.className = isUser ? 'message user' : 'message bot';
+    }
+    msg.textContent = text;
+    document.getElementById('messages').appendChild(msg);
+    document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+}
+
+async function loadHistory() {
+    try {
+        const res = await fetch('/api/chat/history?limit=30', {
+            headers: state.token ? { 'Authorization': `Bearer ${state.token}` } : {}
         });
-
-        // Check if already logged in
-        async function checkAuth() {
-            try {
-                const res = await fetch('/api/auth/status');
-                const data = await res.json();
-                if (data.logged_in) {
-                    state.loggedIn = true;
-                    state.username = data.username;
-                    state.token = data.token || '';
-                    switchPage('chatPage');
-                    loadChat();
-                }
-            } catch (e) {
-                console.log('Auth check failed');
-            }
+        const history = await res.json();
+        document.getElementById('messages').innerHTML = '';
+        if (Array.isArray(history)) {
+            history.forEach(msg => {
+                addMessage(msg.message, msg.role === 'user');
+            });
         }
+    } catch (e) {
+        console.log('History error:', e);
+    }
+}
 
-        checkAuth();
-    </script>
+async function sendMessage() {
+    const text = document.getElementById('prompt').value.trim();
+    if (!text) return;
+
+    addMessage(text, true);
+    document.getElementById('prompt').value = '';
+
+    const btn = document.getElementById('sendBtn');
+    const prompt = document.getElementById('prompt');
+    btn.disabled = true;
+    prompt.disabled = true;
+
+    try {
+        const res = await fetch('/api/jeebs', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(state.token ? { 'Authorization': `Bearer ${state.token}` } : {})
+            },
+            body: JSON.stringify({ prompt: text })
+        });
+        const data = await res.json();
+        addMessage(data.response || 'No response', false);
+    } catch (err) {
+        addMessage('Error: ' + err.message, false);
+    } finally {
+        btn.disabled = false;
+        prompt.disabled = false;
+        prompt.focus();
+    }
+}
+
+function copyToken() {
+    if (state.token) {
+        navigator.clipboard.writeText(state.token).then(() => {
+            showNotification('Token copied to clipboard', 'success', 2000);
+        }).catch(() => {
+            showNotification('Failed to copy token', 'error');
+        });
+    } else {
+        showNotification('No token available', 'error');
+    }
+}
+
+function logout() {
+    if (confirm('Are you sure you want to logout?')) {
+        fetch('/api/logout', { method: 'POST' }).catch(() => {});
+        state.user = '';
+        state.token = '';
+        state.isAdmin = false;
+        jeebsClearToken();
+        document.getElementById('messages').innerHTML = '';
+        document.getElementById('loginForm').reset();
+        document.getElementById('registerForm').reset();
+        showLogin();
+        showNotification('Logged out successfully', 'success');
+    }
+}
+
+// Admin panel
+function showAdminPanel() {
+    if (!state.isAdmin) return;
+    const panel = document.getElementById('adminPanel');
+    panel.classList.remove('hidden');
+}
+
+async function adminAction(action) {
+    try {
+        let url = '';
+        if (action === 'stats') url = '/api/admin/stats';
+        if (action === 'users') url = '/api/admin/users';
+        if (action === 'logs') url = '/api/admin/logs';
+
+        if (!url) return;
+
+        const res = await fetch(url, {
+            headers: state.token ? { 'Authorization': `Bearer ${state.token}` } : {}
+        });
+        const data = await res.json();
+
+        // Format JSON nicely
+        const formatted = JSON.stringify(data, null, 2);
+        addMessage(`[Admin ${action.toUpperCase()}]\n${formatted}`, false, true);
+    } catch (err) {
+        addMessage(`Admin error: ${err.message}`, false, true);
+    }
+}
+
+// Check auth on load
+async function checkAuth() {
+    try {
+        const res = await fetch('/api/auth/status');
+        const data = await res.json();
+        if (data.logged_in) {
+            state.user = data.username;
+            state.token = data.token || '';
+            state.isAdmin = data.is_admin || state.user === '1090mb';
+            if (state.token) jeebsSetToken(state.token);
+
+            // Update user label
+            const userLabel = document.getElementById('userLabel');
+            if (state.isAdmin) {
+                userLabel.innerHTML = '<span class="status-indicator"></span><span class="admin-badge">👑 Admin</span>';
+                userLabel.classList.add('admin-badge');
+                showAdminPanel();
+            }
+
+            showChat();
+            loadHistory();
+        }
+    } catch (e) {
+        console.log('Auth check:', e);
+    }
+}
+
+// Keyboard send
+document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.shiftKey) && e.key === 'Enter') {
+        const promptEl = document.getElementById('prompt');
+        if (promptEl && document.activeElement === promptEl) {
+            e.preventDefault();
+            sendMessage();
+        }
+    }
+});
+
+// Auto-expand textarea
+document.getElementById('prompt').addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+});
+
+checkAuth();
+</script>
+
 </body>
 </html>
