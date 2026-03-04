@@ -193,12 +193,6 @@
                                     </div>
                                 </div>
                                 <div class="chat-actions">
-                                    <a id="adminPanelBtn" href="/webui/admin_dashboard.html" class="action-btn" title="Admin Panel" style="display: none; color: inherit; text-decoration: none;">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <circle cx="12" cy="12" r="1"></circle>
-                                            <path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24"></path>
-                                        </svg>
-                                    </a>
                                     <button id="copyTokenBtn" class="action-btn" title="Copy Token">
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                             stroke-width="2">
@@ -379,15 +373,12 @@
                         chatMeta.textContent = "Guest User (Unregistered)";
                         tokenBox.textContent = "Please register for full access.";
                         stopSessionPing();
-                        document.getElementById("adminPanelBtn").style.display = "none";
                     } else {
                         chatMeta.textContent = `${state.username}${isRootAdminSession() ? " (super-admin)" : state.isAdmin ? " (admin)" : ""}`;
                         tokenBox.textContent = state.token
                             ? `Token: ${state.token}`
                             : "Token missing from session response.";
                         startSessionPing();
-                        // Show admin panel button for 1090mb only
-                        document.getElementById("adminPanelBtn").style.display = isRootAdminSession() ? "inline-flex" : "none";
                     }
 
                     promptInput.focus();
