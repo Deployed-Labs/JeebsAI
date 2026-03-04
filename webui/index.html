@@ -73,6 +73,13 @@
                                         </div>
                                     </div>
 
+                                    <div class="form-options">
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" id="rememberMe" />
+                                            <span>Remember this device</span>
+                                        </label>
+                                    </div>
+
                                     <button type="submit" class="btn-primary btn-large">
                                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <path d="M15 3H9a6 6 0 0 0-6 6v12a6 6 0 0 0 6 6h6a6 6 0 0 0 6-6V9a6 6 0 0 0-6-6z"></path>
@@ -80,97 +87,10 @@
                                         </svg>
                                         Sign In Securely
                                     </button>
-
-                                    <div class="form-divider">or</div>
-
-                                    <button type="button" id="switchToRegister" class="btn-secondary btn-large">
-                                        Create New Account
-                                    </button>
-
-                                    <div class="form-options">
-                                        <label class="checkbox-label">
-                                            <input type="checkbox" id="rememberMe" />
-                                            <span>Remember this device</span>
-                                        </label>
-                                    </div>
                                 </form>
 
                                 <div class="auth-footer">
                                     <p>Using PGP cryptographic authentication for enhanced security</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div id="registerView" class="view">
-                            <div class="auth-container">
-                                <div class="auth-header">
-                                    <div class="auth-logo">
-                                        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2" />
-                                            <circle cx="16" cy="16" r="6" fill="currentColor" opacity=".6" />
-                                            <path d="M16 2v8M16 22v8M2 16h8M22 16h8" stroke="currentColor" stroke-width="1.5" opacity=".4" />
-                                        </svg>
-                                    </div>
-                                    <h1>Join JeebsAI</h1>
-                                    <p class="auth-subtitle">Create your secure account</p>
-                                </div>
-
-                                <form id="registerForm" class="auth-form">
-                                    <div class="form-section">
-                                        <h2>PGP-Based Registration</h2>
-                                        <p class="form-description">Cryptographically secure account creation</p>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="regUsername">Username</label>
-                                        <input id="regUsername" name="username" required
-                                            placeholder="choose.a.username" autocomplete="username"
-                                            pattern="^[a-zA-Z0-9_\-]{3,32}$" title="3-32 characters: letters, numbers, dash, underscore" />
-                                        <span class="form-hint">3-32 characters: letters, numbers, dash, underscore</span>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="regEmail">Email Address (optional)</label>
-                                        <input id="regEmail" name="email" type="email"
-                                            placeholder="your@email.com" autocomplete="email" />
-                                        <span class="form-hint">For account recovery purposes only</span>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="publicKey">Your PGP Public Key</label>
-                                        <textarea id="publicKey" name="pgp_public_key" required
-                                            placeholder="-----BEGIN PGP PUBLIC KEY BLOCK-----&#10;...&#10;-----END PGP PUBLIC KEY BLOCK-----"
-                                            class="form-textarea-large"></textarea>
-                                        <span class="form-hint">Paste your ASCII-armored PGP public key. This is used to verify your identity during login.</span>
-                                    </div>
-
-                                    <div class="pgp-info-box">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <circle cx="12" cy="12" r="10"></circle>
-                                            <line x1="12" y1="16" x2="12" y2="12"></line>
-                                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                                        </svg>
-                                        <div>
-                                            <strong>How PGP Authentication Works</strong>
-                                            <p>During login, you'll receive a challenge to sign with your private key. This proves ownership of the public key without exposing your private key.</p>
-                                        </div>
-                                    </div>
-
-                                    <button type="submit" class="btn-primary btn-large">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M12 5v14M5 12h14"></path>
-                                        </svg>
-                                        Create Account
-                                    </button>
-
-                                    <div class="form-divider">or</div>
-
-                                    <button type="button" id="switchToLogin" class="btn-secondary btn-large">
-                                        Back to Sign In
-                                    </button>
-                                </form>
-
-                                <div class="auth-footer">
-                                    <p>Your private PGP key never leaves your device. Keep it safe!</p>
                                 </div>
                             </div>
                         </div>
@@ -359,13 +279,6 @@
                     toast._timer = setTimeout(() => { toast.style.opacity = "0"; }, 3000);
                 }
 
-                /* ── View Switching ────────────────────────────────── */
-                function setView(view) {
-                    document.querySelectorAll("#authViews .view").forEach((node) => {
-                        node.classList.toggle("active", node.id === `${view}View`);
-                    });
-                }
-
                 /* ── Render Auth State ─────────────────────────────── */
                 function renderAuthState() {
                     const authViews = document.getElementById("authViews");
@@ -552,9 +465,6 @@
                 }
 
                 /* ── Event Listeners ───────────────────────────────── */
-                document.getElementById("switchToRegister").addEventListener("click", () => setView("register"));
-                document.getElementById("switchToLogin").addEventListener("click", () => setView("login"));
-
                 document.getElementById("loginUsername").addEventListener("input", updateUnsignedMessage);
                 document.getElementById("generateChallengeBtn").addEventListener("click", () => {
                     updateUnsignedMessage();
@@ -566,37 +476,6 @@
                         setStatus("Challenge copied.", "good");
                     } catch {
                         setStatus("Clipboard access failed. Copy manually.", "bad");
-                    }
-                });
-
-                /* ── Register Form ─────────────────────────────────── */
-                document.getElementById("registerForm").addEventListener("submit", async (event) => {
-                    event.preventDefault();
-                    const username = document.getElementById("regUsername").value.trim();
-                    const email = document.getElementById("regEmail").value.trim();
-                    const pgpPublicKey = document.getElementById("publicKey").value.trim();
-
-                    // Validate inputs
-                    if (!username.match(/^[a-zA-Z0-9_\-]{3,32}$/)) {
-                        setStatus("Username must be 3-32 characters (letters, numbers, -, _).", "bad");
-                        return;
-                    }
-                    if (!pgpPublicKey.startsWith("-----BEGIN PGP PUBLIC KEY BLOCK-----")) {
-                        setStatus("Invalid PGP public key format.", "bad");
-                        return;
-                    }
-
-                    try {
-                        await requestJson("/api/register", {
-                            method: "POST",
-                            body: JSON.stringify({ username, email, pgp_public_key: pgpPublicKey }),
-                        });
-                        document.getElementById("loginUsername").value = username;
-                        updateUnsignedMessage();
-                        setView("login");
-                        setStatus("Registration complete. Sign the challenge and log in.", "good");
-                    } catch (error) {
-                        setStatus(`Registration failed: ${error.message}`, "bad");
                     }
                 });
 
@@ -739,11 +618,6 @@
                     renderAuthState();
                     setStatus("Logged out.", "good");
                 });
-
-                /* ── Hash-based view switching ─────────────────────── */
-                if (window.location.hash === "#register") {
-                    setView("register");
-                }
 
                 /* ── Init ──────────────────────────────────────────── */
                 async function initializeApp() {
