@@ -2482,3 +2482,61 @@ input[type="checkbox"] {
 .input-hints small {
     font-weight: 500;
 }
+
+/* ═════════════════════════════════════════════════════════
+   DARK THEME
+   ═════════════════════════════════════════════════════════ */
+[data-theme="dark"] {
+    --bg-0: #0a0e14;
+    --bg-1: #0f1419;
+    --bg-2: #1a1f2e;
+    --bg-3: #252d3d;
+    --panel: #151b27;
+    --panel-2: #1a2332;
+    --panel-hover: #202a3c;
+    --text: #e0e0e0;
+    --text-secondary: #a0a0a0;
+    --muted: #606060;
+    --accent: #3b82f6;
+    --accent-glow: rgba(59,130,246,0.15);
+    --accent-2: #60a5fa;
+    --accent-2-glow: rgba(96,165,250,0.15);
+    --good: #10b981;
+    --good-glow: rgba(16,185,129,0.15);
+    --bad: #ef4444;
+    --bad-glow: rgba(239,68,68,0.15);
+    --warning: #f59e0b;
+    --border: #2a3142;
+    --border-strong: #3a4558;
+    --line: #2a3142;
+    --shadow: rgba(0,0,0,0.3);
+}
+
+/* ═════════════════════════════════════════════════════════
+   NEON THEME
+   ═════════════════════════════════════════════════════════ */
+[data-theme="neon"] {
+    --bg-0: #0a0a0a;
+    --bg-1: #0f0f0f;
+    --bg-2: #1a1a1a;
+    --bg-3: #2a2a2a;
+    --panel: #121212;
+    --panel-2: #1a1a1a;
+    --panel-hover: #202020;
+    --text: #00ff00;
+    --text-secondary: #00cc00;
+    --muted: #006600;
+    --accent: #ff00ff;
+    --accent-glow: rgba(255,0,255,0.2);
+    --accent-2: #00ffff;
+    --accent-2-glow: rgba(0,255,255,0.2);
+    --good: #00ff00;
+    --good-glow: rgba(0,255,0,0.2);
+    --bad: #ff0000;
+    --bad-glow: rgba(255,0,0,0.2);
+    --warning: #ffff00;
+    --border: #333333;
+    --border-strong: #555555;
+    --line: #333333;
+    --shadow: rgba(0,0,0,0.5);
+}
