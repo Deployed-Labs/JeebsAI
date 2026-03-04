@@ -464,6 +464,236 @@
                 flex-wrap: wrap;
             }
         }
+
+        /* Sidebar Panels */
+        .sidebar-panels {
+            position: fixed; right: 0; top: 80px; bottom: 60px; width: 300px;
+            border-left: 1px solid var(--border);
+            background: var(--bg2);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+        }
+
+        .sidebar-panel {
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .panel-header {
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            user-select: none;
+        }
+
+        .panel-header:hover {
+            background: rgba(99, 102, 241, 0.05);
+        }
+
+        .panel-header h4 {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .panel-toggle {
+            background: none;
+            border: none;
+            color: var(--text);
+            font-size: 16px;
+            cursor: pointer;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .panel-content {
+            padding: 8px 0;
+            max-height: 400px;
+            overflow-y: auto;
+            display: block;
+        }
+
+        .sidebar-panel.collapsed .panel-content {
+            display: none;
+        }
+
+        .monitor-item {
+            padding: 8px 16px;
+            border-bottom: 1px solid var(--border);
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .monitor-item-label {
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 4px;
+        }
+
+        .monitor-item-value {
+            color: var(--text2);
+            word-break: break-word;
+        }
+
+        .event-feed {
+            max-height: 350px;
+            overflow-y: auto;
+        }
+
+        .event-item {
+            padding: 8px 16px;
+            border-bottom: 1px solid var(--border);
+            font-size: 11px;
+            line-height: 1.4;
+        }
+
+        .event-timestamp {
+            color: var(--text2);
+            font-size: 10px;
+            margin-bottom: 2px;
+        }
+
+        .event-type {
+            display: inline-block;
+            padding: 2px 6px;
+            background: rgba(99, 102, 241, 0.1);
+            border-radius: 3px;
+            font-weight: 600;
+            margin-right: 6px;
+        }
+
+        .badge {
+            background: var(--danger);
+            color: white;
+            border-radius: 12px;
+            padding: 2px 8px;
+            font-size: 11px;
+            margin-left: 8px;
+            font-weight: 600;
+        }
+
+        .proposal-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            font-size: 12px;
+        }
+
+        .proposal-title {
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text);
+        }
+
+        .proposal-meta {
+            font-size: 11px;
+            color: var(--text2);
+            margin-bottom: 8px;
+        }
+
+        .proposal-buttons {
+            display: flex;
+            gap: 6px;
+        }
+
+        .proposal-buttons button {
+            flex: 1;
+            padding: 6px 8px;
+            font-size: 11px;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            color: var(--text);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .proposal-buttons button:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .proposal-buttons button.danger {
+            color: var(--danger);
+            border-color: var(--danger);
+        }
+
+        .proposal-buttons button.danger:hover {
+            background: var(--danger);
+            color: white;
+        }
+
+        .learning-stat {
+            padding: 8px 16px;
+            border-bottom: 1px solid var(--border);
+            font-size: 12px;
+        }
+
+        .learning-stat-label {
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+
+        .learning-stat-value {
+            color: var(--primary);
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 4px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--primary);
+            transition: width 0.3s ease;
+        }
+
+        /* Adjust chat layout with sidebar */
+        .chat {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat .messages {
+            margin-right: 300px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .chat .input-area {
+            margin-right: 300px;
+        }
+
+        @media (max-width: 1024px) {
+            .sidebar-panels {
+                display: none;
+            }
+
+            .chat .messages {
+                margin-right: 0;
+            }
+
+            .chat .input-area {
+                margin-right: 0;
+            }
+        }
     </style>
 </head>
 <body>
@@ -550,16 +780,61 @@
         <textarea id="prompt" placeholder="Ask anything..." rows="1"></textarea>
         <button class="send-btn" onclick="sendMessage()" id="sendBtn">Send</button>
     </div>
+    <div class="sidebar-panels">
+        <div class="sidebar-panel" id="monitorPanel">
+            <div class="panel-header" onclick="togglePanel('monitorPanel')">
+                <h4>📊 Live Monitor</h4>
+                <button class="panel-toggle" onclick="event.stopPropagation()">−</button>
+            </div>
+            <div class="panel-content">
+                <div id="currentThought" class="monitor-item"></div>
+                <div id="currentStatus" class="monitor-item"></div>
+                <div id="jeebs-mood" class="monitor-item"></div>
+                <div id="eventFeed" class="event-feed"></div>
+            </div>
+        </div>
+
+        <div class="sidebar-panel" id="learningPanel">
+            <div class="panel-header" onclick="togglePanel('learningPanel')">
+                <h4>📚 Learning</h4>
+                <button class="panel-toggle" onclick="event.stopPropagation()">−</button>
+            </div>
+            <div class="panel-content" id="learningContent"></div>
+        </div>
+
+        <div class="sidebar-panel" id="proposalsPanel">
+            <div class="panel-header" onclick="togglePanel('proposalsPanel')">
+                <h4>🧠 Proposals <span class="badge" id="proposalBadge"></span></h4>
+                <button class="panel-toggle" onclick="event.stopPropagation()">−</button>
+            </div>
+            <div class="panel-content" id="proposalsContent"></div>
+        </div>
+    </div>
 </div>
 
 <script src="/webui/auth.js"></script>
 <script>
+const JEEBS_TOKEN_KEY = "jeebs_auth_token";
+
 const state = {
     user: '',
     token: '',
     isAdmin: false,
     isDark: localStorage.getItem('theme') === 'dark'
 };
+
+// Token management
+function jeebsGetToken() {
+    return localStorage.getItem(JEEBS_TOKEN_KEY) || "";
+}
+
+function jeebsSetToken(token) {
+    if (token) localStorage.setItem(JEEBS_TOKEN_KEY, token);
+}
+
+function jeebsClearToken() {
+    localStorage.removeItem(JEEBS_TOKEN_KEY);
+}
 
 // Notification system
 function showNotification(message, type = 'success', duration = 3000) {
@@ -601,6 +876,7 @@ function showChat() {
     document.getElementById('registerPage').classList.add('hidden');
     document.getElementById('chatPage').classList.remove('hidden');
     setTimeout(() => document.getElementById('prompt').focus(), 100);
+    setTimeout(() => startSidebarAutoRefresh(), 500);
 }
 
 // Generate challenge
@@ -851,6 +1127,224 @@ async function checkAuth() {
     } catch (e) {
         console.log('Auth check:', e);
     }
+}
+
+// Toggle panel collapse/expand
+function togglePanel(panelId) {
+    const panel = document.getElementById(panelId);
+    panel.classList.toggle('collapsed');
+}
+
+// Load and refresh live monitor data
+async function loadLiveMonitor() {
+    try {
+        const thought = await fetch('/api/brain/latest-thought').then(r => r.json());
+        const status = await fetch('/api/brain/current-status').then(r => r.json());
+        const mood = await fetch('/api/jeebs_mood').then(r => r.text());
+        const events = await fetch('/api/logs/unified-feed').then(r => r.json());
+
+        // Update current thought
+        const thoughtEl = document.getElementById('currentThought');
+        if (thought && thought.thought) {
+            thoughtEl.innerHTML = `<div class="monitor-item"><div class="monitor-item-label">🧠 Current Thought</div><div class="monitor-item-value">${escapeHtml(thought.thought.substring(0, 100))}</div></div>`;
+        }
+
+        // Update current status
+        const statusEl = document.getElementById('currentStatus');
+        if (status) {
+            const now = status.now || 'N/A';
+            const next = status.next || 'N/A';
+            statusEl.innerHTML = `<div class="monitor-item"><div class="monitor-item-label">📍 Status</div><div class="monitor-item-value">Now: ${escapeHtml(now)}<br/>Next: ${escapeHtml(next)}</div></div>`;
+        }
+
+        // Update mood
+        const moodEl = document.getElementById('jeebs-mood');
+        if (mood) {
+            moodEl.innerHTML = `<div class="monitor-item"><div class="monitor-item-label">🎭 Mood</div><div class="monitor-item-value">${escapeHtml(mood.substring(0, 100))}</div></div>`;
+        }
+
+        // Update event feed
+        const feedEl = document.getElementById('eventFeed');
+        if (events && Array.isArray(events)) {
+            feedEl.innerHTML = events.slice(0, 10).map(e => {
+                const typeIcon = {
+                    'thinking': '🧠', 'learning': '📚', 'search': '🔍', 'chat': '💬', 'error': '⚠️'
+                }[e.type] || '📝';
+                const time = new Date(e.timestamp || Date.now()).toLocaleTimeString();
+                return `<div class="event-item"><div class="event-timestamp">${time}</div><span class="event-type">${typeIcon}</span>${escapeHtml(e.message || e.summary || '')}</div>`;
+            }).join('');
+        }
+    } catch (err) {
+        console.log('Live monitor error:', err);
+    }
+}
+
+// Load learning stats
+async function loadLearningPanel() {
+    try {
+        const stats = await fetch('/api/brain/learning-stats').then(r => r.json());
+        const evolution = await fetch('/api/evolution/stats').then(r => r.json());
+        const graph = await fetch('/api/brain/logic_graph').then(r => r.json());
+
+        const contentEl = document.getElementById('learningContent');
+        let html = '';
+
+        if (stats) {
+            const conf = Math.round((stats.confidence_level || 0) * 100);
+            html += `<div class="learning-stat">
+                <div class="learning-stat-label">Sessions</div>
+                <div class="learning-stat-value">${stats.total_sessions || 0}</div>
+            </div>
+            <div class="learning-stat">
+                <div class="learning-stat-label">Facts Learned</div>
+                <div class="learning-stat-value">${stats.total_facts || 0}</div>
+            </div>
+            <div class="learning-stat">
+                <div class="learning-stat-label">Confidence</div>
+                <div class="learning-stat-value">${conf}%</div>
+                <div class="progress-bar"><div class="progress-fill" style="width: ${conf}%"></div></div>
+            </div>`;
+        }
+
+        if (evolution) {
+            html += `<div class="learning-stat">
+                <div class="learning-stat-label">Brain Nodes</div>
+                <div class="learning-stat-value">${evolution.total_brain_nodes || 0}</div>
+            </div>
+            <div class="learning-stat">
+                <div class="learning-stat-label">Links</div>
+                <div class="learning-stat-value">${evolution.total_links || 0}</div>
+            </div>
+            <div class="learning-stat">
+                <div class="learning-stat-label">Entropy</div>
+                <div class="learning-stat-value">${(evolution.entropy || 0).toFixed(2)}</div>
+            </div>`;
+        }
+
+        if (graph) {
+            html += `<div class="learning-stat">
+                <div class="learning-stat-label">Graph Stats</div>
+                <div class="learning-stat-value">Nodes: ${(graph.nodes || []).length}<br/>Edges: ${(graph.edges || []).length}</div>
+            </div>`;
+        }
+
+        contentEl.innerHTML = html || '<div class="monitor-item">No learning data available</div>';
+    } catch (err) {
+        console.log('Learning panel error:', err);
+        document.getElementById('learningContent').innerHTML = '<div class="monitor-item">Failed to load</div>';
+    }
+}
+
+// Load proposals
+async function loadProposalsPanel() {
+    try {
+        const proposals = await fetch('/api/brain/proposals?status=pending').then(r => r.json());
+        const contentEl = document.getElementById('proposalsContent');
+        const badgeEl = document.getElementById('proposalBadge');
+
+        if (!proposals || proposals.length === 0) {
+            badgeEl.textContent = '';
+            contentEl.innerHTML = '<div class="monitor-item">No pending proposals</div>';
+            return;
+        }
+
+        badgeEl.textContent = proposals.length;
+        contentEl.innerHTML = proposals.map(p => {
+            const isAdmin = state.user === '1090mb';
+            let buttons = `<div class="proposal-buttons">`;
+            if (isAdmin) {
+                buttons += `<button onclick="approveProposal('${p.id}')">✓ Approve</button><button class="danger" onclick="denyProposal('${p.id}')">✗ Deny</button>`;
+            } else {
+                buttons += `<button onclick="voteProposal('${p.id}')">👍 Vote</button>`;
+            }
+            buttons += `</div>`;
+
+            return `<div class="proposal-item">
+                <div class="proposal-title">${escapeHtml(p.title || 'Untitled')}</div>
+                <div class="proposal-meta">Type: ${p.type || 'unknown'} | Votes: ${p.votes || 0}</div>
+                ${buttons}
+            </div>`;
+        }).join('');
+    } catch (err) {
+        console.log('Proposals panel error:', err);
+        document.getElementById('proposalsContent').innerHTML = '<div class="monitor-item">Failed to load</div>';
+    }
+}
+
+// Approve proposal
+async function approveProposal(proposalId) {
+    if (!confirm('Approve this proposal?')) return;
+    try {
+        const res = await fetch(`/api/brain/proposals/${proposalId}/approve`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${state.token}` }
+        });
+        if (res.ok) {
+            showNotification('Proposal approved!', 'success');
+            loadProposalsPanel();
+        }
+    } catch (err) {
+        showNotification('Failed to approve proposal', 'error');
+    }
+}
+
+// Deny proposal
+async function denyProposal(proposalId) {
+    if (!confirm('Deny this proposal?')) return;
+    try {
+        const res = await fetch(`/api/brain/proposals/${proposalId}/deny`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${state.token}` }
+        });
+        if (res.ok) {
+            showNotification('Proposal denied', 'success');
+            loadProposalsPanel();
+        }
+    } catch (err) {
+        showNotification('Failed to deny proposal', 'error');
+    }
+}
+
+// Vote on proposal
+async function voteProposal(proposalId) {
+    try {
+        const res = await fetch(`/api/evolution/vote/${proposalId}`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${state.token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ vote: 'up' })
+        });
+        if (res.ok) {
+            showNotification('Vote recorded!', 'success');
+            loadProposalsPanel();
+        }
+    } catch (err) {
+        showNotification('Failed to vote', 'error');
+    }
+}
+
+// Escape HTML for safety
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Start auto-refresh of sidebar panels
+function startSidebarAutoRefresh() {
+    loadLiveMonitor();
+    loadLearningPanel();
+    loadProposalsPanel();
+
+    // Auto-refresh every 2.5 seconds
+    setInterval(() => {
+        loadLiveMonitor();
+    }, 2500);
+
+    // Refresh learning and proposals every 10 seconds
+    setInterval(() => {
+        loadLearningPanel();
+        loadProposalsPanel();
+    }, 10000);
 }
 
 // Keyboard send
