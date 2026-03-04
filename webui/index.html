@@ -1,732 +1,288 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-    <title>JeebsAI - Intelligent Chat Assistant</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link
-        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-        rel="stylesheet" />
-    <link rel="stylesheet" href="/webui/style.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JeebsAI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/webui/style.css">
 </head>
-
-<body data-theme="light">
-    <div id="app">
-        <!-- Login Page -->
-        <div id="loginPage" class="auth-page active">
-            <div class="auth-card">
-                <div class="auth-header">
-                    <div class="auth-logo">
-                        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2" />
-                            <circle cx="16" cy="16" r="6" fill="currentColor" opacity=".6" />
-                            <path d="M16 2v8M16 22v8M2 16h8M22 16h8" stroke="currentColor" stroke-width="1.5" opacity=".4" />
-                        </svg>
-                    </div>
+<body>
+    <div id="root">
+        <!-- LOGIN PAGE -->
+        <div id="loginPage" class="page active">
+            <div class="container">
+                <div class="card">
                     <h1>JeebsAI</h1>
-                    <p class="auth-subtitle">Intelligent Chat Assistant</p>
-                </div>
+                    <p class="subtitle">Sign In</p>
 
-                <form id="loginForm" class="auth-form">
-                    <div class="form-section">
-                        <h2>Sign In</h2>
-                        <p class="form-description">Secure PGP authentication</p>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="loginUsername">Username</label>
-                        <input id="loginUsername" name="username" type="text" required
-                            placeholder="Enter your username" />
-                    </div>
-
-                    <div class="pgp-workflow">
-                        <div class="workflow-step">
-                            <div class="step-label">Step 1: Generate Challenge</div>
-                            <button type="button" id="generateChallengeBtn" class="btn-workflow">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 2.2"></path>
-                                </svg>
-                                Generate Challenge
-                            </button>
-                            <textarea id="unsignedMessage" readonly class="challenge-text"
-                                placeholder="Challenge will appear here..."></textarea>
-                            <button type="button" id="copyChallengeBtn" class="btn-copy-challenge">
-                                Copy to Clipboard
-                            </button>
+                    <form id="loginForm">
+                        <div class="form-group">
+                            <label>Username</label>
+                            <input type="text" id="username" required>
                         </div>
 
-                        <div class="workflow-step">
-                            <div class="step-label">Step 2: Sign with PGP Key</div>
-                            <p class="step-hint">Sign the challenge with your private PGP key using your preferred tool</p>
+                        <div class="form-group">
+                            <label>Challenge (Click Generate)</label>
+                            <button type="button" id="genBtn" class="btn-secondary">Generate Challenge</button>
+                            <textarea id="challenge" readonly></textarea>
                         </div>
 
-                        <div class="workflow-step">
-                            <div class="step-label">Step 3: Paste Signed Message</div>
-                            <textarea id="signedMessage" name="signed_message" required
-                                placeholder="Paste your signed PGP message here..." class="form-textarea"></textarea>
+                        <div class="form-group">
+                            <label>Signed Message</label>
+                            <textarea id="signed" placeholder="Paste your PGP signed message here" required></textarea>
                         </div>
-                    </div>
 
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="rememberMe" />
-                        <span>Remember this device</span>
-                    </label>
-
-                    <button type="submit" class="btn-primary btn-large">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M15 3H9a6 6 0 0 0-6 6v12a6 6 0 0 0 6 6h6a6 6 0 0 0 6-6V9a6 6 0 0 0-6-6z"></path>
-                            <path d="M10 14l2 2 4-4"></path>
-                        </svg>
-                        Sign In
-                    </button>
-                </form>
-
-                <div class="auth-footer">
-                    <p>Don't have an account? <a href="#" id="showRegister">Create one</a></p>
-                    <p class="security-note">Your private key never leaves your device</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Register Page -->
-        <div id="registerPage" class="auth-page">
-            <div class="auth-card">
-                <div class="auth-header">
-                    <div class="auth-logo">
-                        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2" />
-                            <circle cx="16" cy="16" r="6" fill="currentColor" opacity=".6" />
-                            <path d="M16 2v8M16 22v8M2 16h8M22 16h8" stroke="currentColor" stroke-width="1.5" opacity=".4" />
-                        </svg>
-                    </div>
-                    <h1>Join JeebsAI</h1>
-                    <p class="auth-subtitle">Create your account</p>
-                </div>
-
-                <form id="registerForm" class="auth-form">
-                    <div class="form-section">
-                        <h2>Create Account</h2>
-                        <p class="form-description">Secure PGP-based registration</p>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="regUsername">Username</label>
-                        <input id="regUsername" name="username" type="text" required
-                            placeholder="Choose a username"
-                            pattern="^[a-zA-Z0-9_\-]{3,32}$" title="3-32 characters: letters, numbers, dash, underscore" />
-                        <span class="form-hint">3-32 characters (letters, numbers, dash, underscore)</span>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="regEmail">Email (optional)</label>
-                        <input id="regEmail" name="email" type="email"
-                            placeholder="your@email.com" />
-                        <span class="form-hint">For account recovery</span>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="publicKey">PGP Public Key</label>
-                        <textarea id="publicKey" name="pgp_public_key" required
-                            placeholder="-----BEGIN PGP PUBLIC KEY BLOCK-----&#10;...&#10;-----END PGP PUBLIC KEY BLOCK-----"
-                            class="form-textarea-large"></textarea>
-                        <span class="form-hint">Paste your ASCII-armored PGP public key</span>
-                    </div>
-
-                    <div class="pgp-info-box">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <line x1="12" y1="16" x2="12" y2="12"></line>
-                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                        </svg>
-                        <div>
-                            <strong>How It Works</strong>
-                            <p>During login, you'll sign a challenge with your private key to prove ownership without exposing it.</p>
-                        </div>
-                    </div>
-
-                    <button type="submit" class="btn-primary btn-large">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M12 5v14M5 12h14"></path>
-                        </svg>
-                        Create Account
-                    </button>
-                </form>
-
-                <div class="auth-footer">
-                    <p>Already have an account? <a href="#" id="showLogin">Sign in</a></p>
-                    <p class="security-note">Your private key never leaves your device</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Chat Page -->
-        <div id="chatPage" class="chat-page">
-            <section class="chat-panel">
-                <div class="chat-header">
-                    <div class="chat-top-section">
-                        <div class="chat-info">
-                            <div class="chat-avatar">
-                                <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2" />
-                                    <circle cx="16" cy="16" r="6" fill="currentColor" opacity=".6" />
-                                    <path d="M16 2v8M16 22v8M2 16h8M22 16h8" stroke="currentColor"
-                                        stroke-width="1.5" opacity=".4" />
-                                </svg>
-                            </div>
-                            <div class="chat-details">
-                                <h3>JeebsAI <span class="status-indicator online"></span></h3>
-                                <div class="chat-meta" id="chatMeta">Intelligent Assistant</div>
-                            </div>
-                        </div>
-                        <div class="chat-actions">
-                            <button id="themeToggleBtn" class="action-btn" title="Toggle Dark Mode">
-                                <svg id="themeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-                                </svg>
-                            </button>
-                            <button id="copyTokenBtn" class="action-btn" title="Copy Token">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                                </svg>
-                            </button>
-                            <button id="logoutBtn" class="action-btn" title="Logout">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                                    <polyline points="16,17 21,12 16,7"></polyline>
-                                    <line x1="21" y1="12" x2="9" y2="12"></line>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="chat-brain-info" id="brainInfo">
-                        <div class="brain-stat">
-                            <span class="stat-label">Brain Entropy</span>
-                            <span class="stat-value" id="entropyValue">--</span>
-                        </div>
-                        <div class="brain-stat">
-                            <span class="stat-label">Knowledge</span>
-                            <span class="stat-value" id="nodeCountValue">--</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="chat-messages" id="chatFeed"></div>
-                <div class="chat-input">
-                    <form id="chatForm" class="message-form">
-                        <div class="input-wrapper">
-                            <textarea id="promptInput" autocomplete="off"
-                                placeholder="Ask me anything... (Shift+Enter to send)" rows="1"></textarea>
-                        </div>
-                        <button class="send-btn" type="submit" title="Send (Shift+Enter or Ctrl+Enter)">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <line x1="22" y1="2" x2="11" y2="13"></line>
-                                <polygon points="22,2 15,22 11,13 2,9"></polygon>
-                            </svg>
-                        </button>
+                        <button type="submit" class="btn-primary">Sign In</button>
                     </form>
-                    <div class="input-hints">
-                        <small>💡 Shift+Enter to send • Learning enabled</small>
+
+                    <p class="footer-text">
+                        Don't have an account? <a href="#" onclick="switchPage('registerPage')">Create one</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- REGISTER PAGE -->
+        <div id="registerPage" class="page">
+            <div class="container">
+                <div class="card">
+                    <h1>JeebsAI</h1>
+                    <p class="subtitle">Create Account</p>
+
+                    <form id="registerForm">
+                        <div class="form-group">
+                            <label>Username</label>
+                            <input type="text" id="regUsername" placeholder="3-32 characters" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Email (Optional)</label>
+                            <input type="email" id="regEmail">
+                        </div>
+
+                        <div class="form-group">
+                            <label>PGP Public Key</label>
+                            <textarea id="regKey" placeholder="-----BEGIN PGP PUBLIC KEY BLOCK-----" required></textarea>
+                        </div>
+
+                        <button type="submit" class="btn-primary">Create Account</button>
+                    </form>
+
+                    <p class="footer-text">
+                        Already have an account? <a href="#" onclick="switchPage('loginPage')">Sign in</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- CHAT PAGE -->
+        <div id="chatPage" class="page">
+            <div class="chat-container">
+                <div class="chat-header">
+                    <div class="header-top">
+                        <h2>JeebsAI</h2>
+                        <div class="header-buttons">
+                            <button id="themeBtn" class="icon-btn" title="Toggle Theme">🌙</button>
+                            <button id="copyBtn" class="icon-btn" title="Copy Token">📋</button>
+                            <button id="logoutBtn" class="icon-btn" title="Logout">🚪</button>
+                        </div>
                     </div>
                 </div>
-            </section>
+
+                <div class="chat-messages" id="messages"></div>
+
+                <div class="chat-footer">
+                    <form id="chatForm">
+                        <textarea id="prompt" placeholder="Ask me anything..." rows="2"></textarea>
+                        <button type="submit" class="btn-primary">Send</button>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 
     <script src="/webui/auth.js"></script>
     <script>
-        /* ── Page Navigation ───────────────────────────────────── */
-        function showPage(pageName) {
-            document.querySelectorAll('.auth-page, .chat-page').forEach(page => {
-                page.classList.remove('active');
-            });
-            document.getElementById(pageName).classList.add('active');
-        }
-
-        document.getElementById('showRegister').addEventListener('click', (e) => {
-            e.preventDefault();
-            showPage('registerPage');
-        });
-
-        document.getElementById('showLogin').addEventListener('click', (e) => {
-            e.preventDefault();
-            showPage('loginPage');
-        });
-
-        /* ── State Management ──────────────────────────────────── */
         const state = {
             loggedIn: false,
             username: "",
-            isAdmin: false,
-            isTrainer: false,
-            token: ""
+            token: "",
+            isDark: localStorage.getItem('theme') === 'dark'
         };
 
-        const chatPanel = document.getElementById("chatPanel");
-        const chatMeta = document.getElementById("chatMeta");
-        const promptInput = document.getElementById("promptInput");
-        const chatFeed = document.getElementById("chatFeed");
-
-        /* ── Helper Functions ──────────────────────────────────── */
-        function setStatus(msg, type) {
-            let toast = document.getElementById("statusToast");
-            if (!toast) {
-                toast = document.createElement("div");
-                toast.id = "statusToast";
-                toast.style.cssText = "position:fixed;bottom:60px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:8px;font-size:0.9rem;z-index:10000;transition:opacity 0.3s;pointer-events:none;";
-                document.body.appendChild(toast);
-            }
-            toast.textContent = msg;
-            toast.style.background = type === "good" ? "rgba(80,200,120,0.9)" : "rgba(220,80,80,0.9)";
-            toast.style.color = "#fff";
-            toast.style.opacity = "1";
-            clearTimeout(toast._timer);
-            toast._timer = setTimeout(() => { toast.style.opacity = "0"; }, 3000);
+        // Theme
+        if (state.isDark) {
+            document.body.setAttribute('data-theme', 'dark');
+            document.getElementById('themeBtn').textContent = '☀️';
         }
 
-        function updateUnsignedMessage() {
-            const username = document.getElementById("loginUsername").value.trim();
+        document.getElementById('themeBtn')?.addEventListener('click', () => {
+            state.isDark = !state.isDark;
+            document.body.setAttribute('data-theme', state.isDark ? 'dark' : 'light');
+            localStorage.setItem('theme', state.isDark ? 'dark' : 'light');
+            document.getElementById('themeBtn').textContent = state.isDark ? '☀️' : '🌙';
+        });
+
+        // Page switching
+        function switchPage(page) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(page).classList.add('active');
+        }
+
+        // Generate challenge
+        document.getElementById('genBtn')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            const user = document.getElementById('username').value || 'user';
             const ts = Math.floor(Date.now() / 1000);
-            const value = `LOGIN:${username || "username"}:${ts}`;
-            document.getElementById("unsignedMessage").value = value;
-        }
-
-        async function requestJson(url, options = {}) {
-            const headers = new Headers(options.headers || {});
-            if (options.body && !headers.has("Content-Type")) {
-                headers.set("Content-Type", "application/json");
-            }
-            if (state.token && !headers.has("Authorization")) {
-                headers.set("Authorization", `Bearer ${state.token}`);
-            }
-
-            const response = await safeFetch(url, {
-                ...options,
-                headers,
-                credentials: "same-origin",
-            });
-
-            let payload = {};
-            try {
-                payload = await response.json();
-            } catch {
-                payload = {};
-            }
-
-            if (!response.ok) {
-                throw new Error(payload.error || `Request failed (${response.status})`);
-            }
-
-            return payload;
-        }
-
-        function appendMessage(who, text, thought = null) {
-            const bubble = document.createElement("div");
-            bubble.className = `bubble ${who}`;
-
-            if (who === "jeebs" && thought) {
-                const details = document.createElement("details");
-                details.className = "thought-process";
-                const summary = document.createElement("summary");
-                summary.className = "thought-summary";
-                summary.innerHTML = "<span>🧠 Thought Process</span>";
-                const content = document.createElement("div");
-                content.className = "thought-content";
-                content.textContent = thought.internal_monologue;
-                details.appendChild(summary);
-                details.appendChild(content);
-                bubble.appendChild(details);
-            }
-
-            const label = document.createElement("small");
-            label.textContent = who === "user" ? "You" : "JeebsAI";
-            const body = document.createElement("div");
-            body.textContent = text;
-            bubble.append(label, body);
-
-            if (who === "jeebs" && thought && thought.new_concepts && thought.new_concepts.length > 0) {
-                const chipsDiv = document.createElement("div");
-                chipsDiv.className = "suggestion-chips";
-                thought.new_concepts.forEach(concept => {
-                    const chip = document.createElement("button");
-                    chip.className = "chip";
-                    chip.textContent = `Ask about ${concept}`;
-                    chip.onclick = () => {
-                        promptInput.value = `What can you tell me about ${concept}?`;
-                        document.getElementById("chatForm").dispatchEvent(new Event('submit'));
-                    };
-                    chipsDiv.appendChild(chip);
-                });
-                bubble.appendChild(chipsDiv);
-            }
-
-            chatFeed.appendChild(bubble);
-            chatFeed.scrollTop = chatFeed.scrollHeight;
-        }
-
-        function showTyping() {
-            const indicator = document.createElement("div");
-            indicator.className = "typing-indicator";
-            indicator.id = "typingIndicator";
-            indicator.innerHTML = '<span>JeebsAI is typing</span><div class="dot"></div><div class="dot"></div><div class="dot"></div>';
-            chatFeed.appendChild(indicator);
-            chatFeed.scrollTop = chatFeed.scrollHeight;
-        }
-
-        function hideTyping() {
-            const indicator = document.getElementById("typingIndicator");
-            if (indicator) indicator.remove();
-        }
-
-        /* ── Authentication ────────────────────────────────────── */
-        async function bootstrapAuth() {
-            try {
-                const data = await requestJson("/api/auth/status");
-                state.loggedIn = Boolean(data.logged_in);
-                state.username = data.username || "";
-                state.isAdmin = Boolean(data.is_admin);
-                state.isTrainer = Boolean(data.is_trainer);
-                if (data.token) {
-                    state.token = data.token;
-                    jeebsSetToken(state.token);
-                }
-                localStorage.setItem("jeebs_is_admin", state.isAdmin ? "true" : "false");
-                localStorage.setItem("jeebs_username", state.username || "");
-
-                if (state.loggedIn) {
-                    showPage('chatPage');
-                    let greeting = `Welcome back, ${state.username}! `;
-                    if (state.username === "1090mb") {
-                        greeting += "🔐 Super admin access granted. ";
-                    } else if (state.isAdmin) {
-                        greeting += "⚙️ Admin access granted. ";
-                    } else if (state.isTrainer) {
-                        greeting += "🎓 Trainer access granted. ";
-                    }
-                    greeting += "How can I help you today?";
-                    appendMessage("jeebs", greeting);
-                    await loadChatHistory();
-                    updateBrainInfo();
-                    setInterval(updateBrainInfo, 10000);
-                    startSessionPing();
-                } else {
-                    showPage('loginPage');
-                }
-            } catch (error) {
-                state.loggedIn = false;
-                showPage('loginPage');
-            }
-        }
-
-        async function loadChatHistory() {
-            try {
-                if (!state.loggedIn) return;
-                const history = await requestJson("/api/chat/history?limit=50");
-                chatFeed.innerHTML = "";
-                history.reverse().forEach(msg => {
-                    appendMessageWithFeedback(msg);
-                });
-            } catch (e) {
-                setStatus("Failed to load chat history", "bad");
-            }
-        }
-
-        function appendMessageWithFeedback(msg) {
-            const bubble = document.createElement("div");
-            bubble.className = `bubble ${msg.role}`;
-            const label = document.createElement("small");
-            label.textContent = msg.role === "user" ? "You" : "JeebsAI";
-            const body = document.createElement("div");
-            body.textContent = msg.message;
-            bubble.append(label, body);
-            if (msg.role === "jeebs") {
-                const feedbackDiv = document.createElement("div");
-                feedbackDiv.className = "feedback-buttons";
-                const upBtn = document.createElement("button");
-                upBtn.textContent = "👍";
-                upBtn.title = "Helpful";
-                upBtn.onclick = () => submitFeedback(msg.id, "up");
-                const downBtn = document.createElement("button");
-                downBtn.textContent = "👎";
-                downBtn.title = "Not Helpful";
-                downBtn.onclick = () => submitFeedback(msg.id, "down");
-                const corrBtn = document.createElement("button");
-                corrBtn.textContent = "✏️";
-                corrBtn.title = "Suggest Correction";
-                corrBtn.onclick = () => {
-                    const correction = prompt("Suggest a correction for this reply:", msg.message);
-                    if (correction) submitFeedback(msg.id, "correction", correction);
-                };
-                feedbackDiv.append(upBtn, downBtn, corrBtn);
-                bubble.appendChild(feedbackDiv);
-            }
-            chatFeed.appendChild(bubble);
-            chatFeed.scrollTop = chatFeed.scrollHeight;
-        }
-
-        async function submitFeedback(chat_message_id, feedback_type, feedback_text = null) {
-            try {
-                await requestJson("/api/chat/feedback", {
-                    method: "POST",
-                    body: JSON.stringify({ chat_message_id, feedback_type, feedback_text }),
-                    headers: { "x-username": state.username }
-                });
-                setStatus("Feedback submitted!", "good");
-            } catch (e) {
-                setStatus("Feedback failed: " + e.message, "bad");
-            }
-        }
-
-        /* ── Event Listeners ───────────────────────────────────── */
-        document.getElementById("loginUsername").addEventListener("input", updateUnsignedMessage);
-
-        document.getElementById("generateChallengeBtn").addEventListener("click", (e) => {
-            e.preventDefault();
-            updateUnsignedMessage();
-            setStatus("Challenge refreshed.", "good");
+            document.getElementById('challenge').value = `LOGIN:${user}:${ts}`;
         });
 
-        document.getElementById("copyChallengeBtn").addEventListener("click", async (e) => {
+        // Login
+        document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
             e.preventDefault();
-            try {
-                await navigator.clipboard.writeText(document.getElementById("unsignedMessage").value);
-                setStatus("Challenge copied to clipboard.", "good");
-            } catch {
-                setStatus("Clipboard access failed. Copy manually.", "bad");
-            }
-        });
-
-        /* ── Login Form ────────────────────────────────────────── */
-        document.getElementById("loginForm").addEventListener("submit", async (event) => {
-            event.preventDefault();
-            const username = document.getElementById("loginUsername").value.trim();
-            const signedMessage = document.getElementById("signedMessage").value.trim();
-            const rememberMe = document.getElementById("rememberMe").checked;
-
-            if (!username.match(/^[a-zA-Z0-9_\-]{3,32}$/)) {
-                setStatus("Invalid username format.", "bad");
-                return;
-            }
-            if (!signedMessage.startsWith("-----BEGIN PGP SIGNED MESSAGE-----")) {
-                setStatus("Invalid PGP signature format.", "bad");
-                return;
-            }
+            const username = document.getElementById('username').value;
+            const signed = document.getElementById('signed').value;
 
             try {
-                const data = await requestJson("/api/login_pgp", {
-                    method: "POST",
-                    body: JSON.stringify({ username, signed_message: signedMessage, remember_me: rememberMe }),
+                const res = await fetch('/api/login_pgp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, signed_message: signed })
                 });
+
+                if (!res.ok) throw new Error('Login failed');
+                const data = await res.json();
 
                 state.loggedIn = true;
-                state.username = data.username || username;
-                state.isAdmin = Boolean(data.is_admin);
-                state.isTrainer = Boolean(data.is_trainer);
-                state.token = data.token || "";
+                state.username = username;
+                state.token = data.token || '';
+                if (state.token) jeebsSetToken(state.token);
 
-                if (state.token) {
-                    jeebsSetToken(state.token);
-                }
-                localStorage.setItem("jeebs_is_admin", state.isAdmin ? "true" : "false");
-                localStorage.setItem("jeebs_username", state.username || "");
-
-                showPage('chatPage');
-                appendMessage("jeebs", "Welcome! PGP login successful. Ready to chat.");
-                setStatus("Logged in successfully.", "good");
-                await loadChatHistory();
-                updateBrainInfo();
-                setInterval(updateBrainInfo, 10000);
-                startSessionPing();
-            } catch (error) {
-                setStatus(`Login failed: ${error.message}`, "bad");
+                switchPage('chatPage');
+                loadChat();
+            } catch (err) {
+                alert('Login failed: ' + err.message);
             }
         });
 
-        /* ── Register Form ─────────────────────────────────────── */
-        document.getElementById("registerForm").addEventListener("submit", async (event) => {
-            event.preventDefault();
-            const username = document.getElementById("regUsername").value.trim();
-            const email = document.getElementById("regEmail").value.trim();
-            const pgpPublicKey = document.getElementById("publicKey").value.trim();
-
-            if (!username.match(/^[a-zA-Z0-9_\-]{3,32}$/)) {
-                setStatus("Username must be 3-32 characters.", "bad");
-                return;
-            }
-            if (!pgpPublicKey.startsWith("-----BEGIN PGP PUBLIC KEY BLOCK-----")) {
-                setStatus("Invalid PGP public key format.", "bad");
-                return;
-            }
+        // Register
+        document.getElementById('registerForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('regUsername').value;
+            const email = document.getElementById('regEmail').value;
+            const pgp_public_key = document.getElementById('regKey').value;
 
             try {
-                await requestJson("/api/register", {
-                    method: "POST",
-                    body: JSON.stringify({ username, email, pgp_public_key: pgpPublicKey }),
+                const res = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, email, pgp_public_key })
                 });
 
-                document.getElementById("loginUsername").value = username;
-                updateUnsignedMessage();
-                showPage('loginPage');
-                setStatus("Registration complete. Now sign in with your key.", "good");
-                document.getElementById("loginForm").reset();
-            } catch (error) {
-                setStatus(`Registration failed: ${error.message}`, "bad");
+                if (!res.ok) throw new Error('Registration failed');
+
+                document.getElementById('username').value = username;
+                switchPage('loginPage');
+                alert('Account created! Now sign in.');
+            } catch (err) {
+                alert('Registration failed: ' + err.message);
             }
         });
 
-        /* ── Chat Form ─────────────────────────────────────────── */
-        document.getElementById("chatForm").addEventListener("submit", async (event) => {
-            event.preventDefault();
+        // Chat
+        async function loadChat() {
+            try {
+                const res = await fetch('/api/chat/history?limit=50', {
+                    headers: state.token ? { 'Authorization': `Bearer ${state.token}` } : {}
+                });
+                const history = await res.json();
+                const msgs = document.getElementById('messages');
+                msgs.innerHTML = '';
+                history.forEach(msg => {
+                    const div = document.createElement('div');
+                    div.className = `message ${msg.role}`;
+                    div.textContent = msg.message;
+                    msgs.appendChild(div);
+                });
+            } catch (e) {
+                console.log('Chat history error:', e);
+            }
+        }
 
-            const prompt = promptInput.value.trim();
+        document.getElementById('chatForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const prompt = document.getElementById('prompt').value;
             if (!prompt) return;
 
-            appendMessage("user", prompt);
-            promptInput.value = "";
-            promptInput.style.height = "auto";
-            showTyping();
+            const msgs = document.getElementById('messages');
+            const userMsg = document.createElement('div');
+            userMsg.className = 'message user';
+            userMsg.textContent = prompt;
+            msgs.appendChild(userMsg);
+            document.getElementById('prompt').value = '';
 
             try {
-                const data = await requestJson("/api/jeebs", {
-                    method: "POST",
-                    body: JSON.stringify({ prompt: prompt }),
+                const res = await fetch('/api/jeebs', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(state.token ? { 'Authorization': `Bearer ${state.token}` } : {})
+                    },
+                    body: JSON.stringify({ prompt })
                 });
-                hideTyping();
-                appendMessage("jeebs", data.response || "(No response)", data.thought);
-            } catch (error) {
-                hideTyping();
-                appendMessage("jeebs", `Error: ${error.message}`);
-                setStatus(`Chat failed: ${error.message}`, "bad");
+                const data = await res.json();
+
+                const botMsg = document.createElement('div');
+                botMsg.className = 'message bot';
+                botMsg.textContent = data.response || 'No response';
+                msgs.appendChild(botMsg);
+                msgs.scrollTop = msgs.scrollHeight;
+            } catch (err) {
+                const errMsg = document.createElement('div');
+                errMsg.className = 'message bot error';
+                errMsg.textContent = 'Error: ' + err.message;
+                msgs.appendChild(errMsg);
             }
         });
 
-        promptInput.addEventListener("keydown", (event) => {
-            if ((event.shiftKey || event.ctrlKey) && event.key === "Enter") {
-                event.preventDefault();
-                document.getElementById("chatForm").dispatchEvent(new Event('submit'));
+        document.getElementById('copyBtn')?.addEventListener('click', () => {
+            if (state.token) {
+                navigator.clipboard.writeText(state.token);
+                alert('Token copied!');
             }
         });
 
-        promptInput.addEventListener("input", () => {
-            promptInput.style.height = "auto";
-            promptInput.style.height = Math.min(promptInput.scrollHeight, 150) + "px";
-        });
-
-        /* ── Brain Info ────────────────────────────────────────── */
-        async function updateBrainInfo() {
+        document.getElementById('logoutBtn')?.addEventListener('click', async () => {
             try {
-                const response = await fetch("/api/jeebs_mood", { credentials: "same-origin" });
-                const text = await response.text();
-                if (text) {
-                    const nodesMatch = text.match(/(\d+)\s+nodes/);
-                    const entropyMatch = text.match(/entropy\s+([\d.]+)/);
+                await fetch('/api/logout', { method: 'POST' });
+            } catch (e) { }
+            state.loggedIn = false;
+            state.username = '';
+            state.token = '';
+            jeebsClearToken();
+            switchPage('loginPage');
+            document.getElementById('loginForm').reset();
+        });
 
-                    if (nodesMatch) {
-                        document.getElementById("nodeCountValue").textContent = nodesMatch[1];
-                    }
-                    if (entropyMatch) {
-                        document.getElementById("entropyValue").textContent = parseFloat(entropyMatch[1]).toFixed(2);
-                    }
+        // Check if already logged in
+        async function checkAuth() {
+            try {
+                const res = await fetch('/api/auth/status');
+                const data = await res.json();
+                if (data.logged_in) {
+                    state.loggedIn = true;
+                    state.username = data.username;
+                    state.token = data.token || '';
+                    switchPage('chatPage');
+                    loadChat();
                 }
             } catch (e) {
-                // Brain info unavailable, OK
+                console.log('Auth check failed');
             }
         }
 
-        /* ── Token & Logout ────────────────────────────────────── */
-        document.getElementById("copyTokenBtn").addEventListener("click", async () => {
-            if (!state.token) {
-                setStatus("No token available.", "bad");
-                return;
-            }
-            try {
-                await navigator.clipboard.writeText(state.token);
-                setStatus("Token copied.", "good");
-            } catch {
-                setStatus("Clipboard access failed.", "bad");
-            }
-        });
-
-        document.getElementById("logoutBtn").addEventListener("click", async () => {
-            try {
-                await requestJson("/api/logout", { method: "POST" });
-            } catch { }
-
-            state.loggedIn = false;
-            state.username = "";
-            state.isAdmin = false;
-            state.isTrainer = false;
-            state.token = "";
-            jeebsClearToken();
-            localStorage.removeItem("jeebs_is_admin");
-            chatFeed.innerHTML = "";
-            showPage('loginPage');
-            document.getElementById("loginForm").reset();
-            setStatus("Logged out.", "good");
-            stopSessionPing();
-        });
-
-        /* ── Session Ping ──────────────────────────────────────── */
-        let sessionPingInterval;
-        function startSessionPing() {
-            sessionPingInterval = setInterval(async () => {
-                try {
-                    await requestJson("/api/auth/status");
-                } catch {
-                    // Session expired
-                    state.loggedIn = false;
-                    showPage('loginPage');
-                    clearInterval(sessionPingInterval);
-                }
-            }, 60000);
-        }
-
-        function stopSessionPing() {
-            clearInterval(sessionPingInterval);
-        }
-
-        /* ── Theme Toggle ──────────────────────────────────────── */
-        function initializeTheme() {
-            const savedTheme = localStorage.getItem('jeebs-theme') || 'light';
-            applyTheme(savedTheme);
-
-            document.getElementById("themeToggleBtn").addEventListener("click", () => {
-                const currentTheme = document.body.getAttribute('data-theme');
-                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-                applyTheme(newTheme);
-                localStorage.setItem('jeebs-theme', newTheme);
-            });
-        }
-
-        function applyTheme(theme) {
-            if (theme === 'dark') {
-                document.body.setAttribute('data-theme', 'dark');
-                updateThemeIcon('light');
-            } else {
-                document.body.setAttribute('data-theme', 'light');
-                updateThemeIcon('dark');
-            }
-        }
-
-        function updateThemeIcon(nextTheme) {
-            const icon = document.getElementById('themeIcon');
-            if (nextTheme === 'dark') {
-                icon.innerHTML = '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>';
-            } else {
-                icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
-            }
-        }
-
-        /* ── Initialize ────────────────────────────────────────── */
-        function init() {
-            initializeTheme();
-            updateUnsignedMessage();
-            bootstrapAuth();
-        }
-
-        init();
+        checkAuth();
     </script>
 </body>
-
 </html>
