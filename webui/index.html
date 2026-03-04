@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-    <title>JeebsAI Console</title>
+    <title>JeebsAI - Intelligent Chat Assistant</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
         href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
@@ -13,667 +13,720 @@
 </head>
 
 <body data-theme="light">
-    <div id="app-layout">
-        <aside id="sidebar-container"></aside>
-        <main class="main-content">
-            <div class="chat-container">
-                <div class="chat-wrapper">
-                    <div id="authViews">
-                        <div id="loginView" class="view active">
-                            <div class="auth-container">
-                                <div class="auth-header">
-                                    <div class="auth-logo">
-                                        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2" />
-                                            <circle cx="16" cy="16" r="6" fill="currentColor" opacity=".6" />
-                                            <path d="M16 2v8M16 22v8M2 16h8M22 16h8" stroke="currentColor" stroke-width="1.5" opacity=".4" />
-                                        </svg>
-                                    </div>
-                                    <h1>JeebsAI</h1>
-                                    <p class="auth-subtitle">Intelligent Conversation & Knowledge System</p>
-                                </div>
+    <div id="app">
+        <!-- Login Page -->
+        <div id="loginPage" class="auth-page active">
+            <div class="auth-card">
+                <div class="auth-header">
+                    <div class="auth-logo">
+                        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2" />
+                            <circle cx="16" cy="16" r="6" fill="currentColor" opacity=".6" />
+                            <path d="M16 2v8M16 22v8M2 16h8M22 16h8" stroke="currentColor" stroke-width="1.5" opacity=".4" />
+                        </svg>
+                    </div>
+                    <h1>JeebsAI</h1>
+                    <p class="auth-subtitle">Intelligent Chat Assistant</p>
+                </div>
 
-                                <form id="loginForm" class="auth-form">
-                                    <div class="form-section">
-                                        <h2>Sign In with PGP</h2>
-                                        <p class="form-description">Secure cryptographic authentication</p>
-                                    </div>
+                <form id="loginForm" class="auth-form">
+                    <div class="form-section">
+                        <h2>Sign In</h2>
+                        <p class="form-description">Secure PGP authentication</p>
+                    </div>
 
-                                    <div class="form-group">
-                                        <label for="loginUsername">Username</label>
-                                        <input id="loginUsername" name="username" required
-                                            placeholder="your.username" autocomplete="username" />
-                                    </div>
+                    <div class="form-group">
+                        <label for="loginUsername">Username</label>
+                        <input id="loginUsername" name="username" type="text" required
+                            placeholder="Enter your username" />
+                    </div>
 
-                                    <div class="pgp-workflow">
-                                        <div class="workflow-step">
-                                            <div class="step-label">Step 1: Generate Challenge</div>
-                                            <button type="button" id="generateChallengeBtn" class="btn-workflow">
-                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 2.2"></path>
-                                                </svg>
-                                                Generate Challenge
-                                            </button>
-                                            <textarea id="unsignedMessage" readonly class="challenge-text"
-                                                placeholder="Challenge will appear here..."></textarea>
-                                            <button type="button" id="copyChallengeBtn" class="btn-copy-challenge">
-                                                Copy to Clipboard
-                                            </button>
-                                        </div>
+                    <div class="pgp-workflow">
+                        <div class="workflow-step">
+                            <div class="step-label">Step 1: Generate Challenge</div>
+                            <button type="button" id="generateChallengeBtn" class="btn-workflow">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 2.2"></path>
+                                </svg>
+                                Generate Challenge
+                            </button>
+                            <textarea id="unsignedMessage" readonly class="challenge-text"
+                                placeholder="Challenge will appear here..."></textarea>
+                            <button type="button" id="copyChallengeBtn" class="btn-copy-challenge">
+                                Copy to Clipboard
+                            </button>
+                        </div>
 
-                                        <div class="workflow-step">
-                                            <div class="step-label">Step 2: Sign with PGP Key</div>
-                                            <p class="step-hint">Sign the challenge with your private PGP key using your preferred tool</p>
-                                        </div>
+                        <div class="workflow-step">
+                            <div class="step-label">Step 2: Sign with PGP Key</div>
+                            <p class="step-hint">Sign the challenge with your private PGP key using your preferred tool</p>
+                        </div>
 
-                                        <div class="workflow-step">
-                                            <div class="step-label">Step 3: Paste Signed Message</div>
-                                            <textarea id="signedMessage" name="signed_message" required
-                                                placeholder="Paste your signed PGP message here..." class="form-textarea"></textarea>
-                                        </div>
-                                    </div>
-
-                                    <div class="form-options">
-                                        <label class="checkbox-label">
-                                            <input type="checkbox" id="rememberMe" />
-                                            <span>Remember this device</span>
-                                        </label>
-                                    </div>
-
-                                    <button type="submit" class="btn-primary btn-large">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M15 3H9a6 6 0 0 0-6 6v12a6 6 0 0 0 6 6h6a6 6 0 0 0 6-6V9a6 6 0 0 0-6-6z"></path>
-                                            <path d="M10 14l2 2 4-4"></path>
-                                        </svg>
-                                        Sign In Securely
-                                    </button>
-                                </form>
-
-                                <div class="auth-footer">
-                                    <p>Using PGP cryptographic authentication for enhanced security</p>
-                                </div>
-                            </div>
+                        <div class="workflow-step">
+                            <div class="step-label">Step 3: Paste Signed Message</div>
+                            <textarea id="signedMessage" name="signed_message" required
+                                placeholder="Paste your signed PGP message here..." class="form-textarea"></textarea>
                         </div>
                     </div>
-                    <section class="chat-panel" id="chatPanel">
-                        <div class="chat-header">
-                            <div class="chat-top-section">
-                                <div class="chat-info">
-                                    <div class="chat-avatar">
-                                        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2" />
-                                            <circle cx="16" cy="16" r="6" fill="currentColor" opacity=".6" />
-                                            <path d="M16 2v8M16 22v8M2 16h8M22 16h8" stroke="currentColor"
-                                                stroke-width="1.5" opacity=".4" />
-                                        </svg>
-                                    </div>
-                                    <div class="chat-details">
-                                        <h3>JeebsAI <span class="status-indicator online"></span></h3>
-                                        <div class="chat-meta" id="chatMeta">Intelligent Assistant • CDHSC-Powered</div>
-                                    </div>
-                                </div>
-                                <div class="chat-actions">
-                                    <button id="themeToggleBtn" class="action-btn" title="Toggle Dark Mode">
-                                        <svg id="themeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-                                        </svg>
-                                    </button>
-                                    <button id="copyTokenBtn" class="action-btn" title="Copy Token">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                            stroke-width="2">
-                                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                                        </svg>
-                                    </button>
-                                    <button id="logoutBtn" class="action-btn" title="Logout">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                            stroke-width="2">
-                                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                                            <polyline points="16,17 21,12 16,7"></polyline>
-                                            <line x1="21" y1="12" x2="9" y2="12"></line>
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="chat-brain-info" id="brainInfo">
-                                <div class="brain-stat">
-                                    <span class="stat-label">Brain Entropy</span>
-                                    <span class="stat-value" id="entropyValue">--</span>
-                                </div>
-                                <div class="brain-stat">
-                                    <span class="stat-label">Comprehension</span>
-                                    <span class="stat-value" id="comprehensionValue">--</span>
-                                </div>
-                                <div class="brain-stat">
-                                    <span class="stat-label">Knowledge Base</span>
-                                    <span class="stat-value" id="nodeCountValue">--</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="token-display" id="tokenBox"></div>
-                        <div class="chat-messages" id="chatFeed"></div>
-                        <div class="chat-input">
-                            <form id="chatForm" class="message-form">
-                                <div class="input-wrapper">
-                                    <textarea id="promptInput" autocomplete="off"
-                                        placeholder="Ask me anything... (shift+enter to send)" rows="1"></textarea>
-                                    <button class="send-btn" type="submit" title="Send (Shift+Enter or Ctrl+Enter)">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-                                            stroke="currentColor" stroke-width="2">
-                                            <line x1="22" y1="2" x2="11" y2="13"></line>
-                                            <polygon points="22,2 15,22 11,13 2,9"></polygon>
-                                        </svg>
-                                    </button>
-                                </div>
-                                <div class="input-hints">
-                                    <small>💡 Shift+Enter to send • Greetings auto-detected • Learning enabled</small>
-                                </div>
-                            </form>
-                        </div>
-                    </section>
+
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="rememberMe" />
+                        <span>Remember this device</span>
+                    </label>
+
+                    <button type="submit" class="btn-primary btn-large">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M15 3H9a6 6 0 0 0-6 6v12a6 6 0 0 0 6 6h6a6 6 0 0 0 6-6V9a6 6 0 0 0-6-6z"></path>
+                            <path d="M10 14l2 2 4-4"></path>
+                        </svg>
+                        Sign In
+                    </button>
+                </form>
+
+                <div class="auth-footer">
+                    <p>Don't have an account? <a href="#" id="showRegister">Create one</a></p>
+                    <p class="security-note">Your private key never leaves your device</p>
                 </div>
             </div>
+        </div>
 
-            <script src="/webui/auth.js"></script>
-            <script src="/webui/nav.js"></script>
-            <script>
-                /* ── State & Element References ────────────────────── */
-                async function loadChatHistory() {
-                    try {
-                        // Only load history if user is logged in
-                        if (!state.loggedIn) {
-                            return;
-                        }
-                        const history = await requestJson("/api/chat/history?limit=50");
-                        chatFeed.innerHTML = "";
-                        history.reverse().forEach(msg => {
-                            appendMessageWithFeedback(msg);
-                        });
-                    } catch (e) {
-                        setStatus("Failed to load chat history", "bad");
-                    }
-                }
+        <!-- Register Page -->
+        <div id="registerPage" class="auth-page">
+            <div class="auth-card">
+                <div class="auth-header">
+                    <div class="auth-logo">
+                        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2" />
+                            <circle cx="16" cy="16" r="6" fill="currentColor" opacity=".6" />
+                            <path d="M16 2v8M16 22v8M2 16h8M22 16h8" stroke="currentColor" stroke-width="1.5" opacity=".4" />
+                        </svg>
+                    </div>
+                    <h1>Join JeebsAI</h1>
+                    <p class="auth-subtitle">Create your account</p>
+                </div>
 
-                function appendMessageWithFeedback(msg) {
-                    const bubble = document.createElement("div");
-                    bubble.className = `bubble ${msg.role}`;
-                    const label = document.createElement("small");
-                    label.textContent = msg.role === "user" ? "You" : "JeebsAI";
-                    const body = document.createElement("div");
-                    body.textContent = msg.message;
-                    bubble.append(label, body);
-                    if (msg.role === "jeebs") {
-                        const feedbackDiv = document.createElement("div");
-                        feedbackDiv.className = "feedback-buttons";
-                        const upBtn = document.createElement("button");
-                        upBtn.textContent = "👍";
-                        upBtn.title = "Helpful";
-                        upBtn.onclick = () => submitFeedback(msg.id, "up");
-                        const downBtn = document.createElement("button");
-                        downBtn.textContent = "👎";
-                        downBtn.title = "Not Helpful";
-                        downBtn.onclick = () => submitFeedback(msg.id, "down");
-                        const corrBtn = document.createElement("button");
-                        corrBtn.textContent = "✏️";
-                        corrBtn.title = "Suggest Correction";
-                        corrBtn.onclick = () => {
-                            const correction = prompt("Suggest a correction for this reply:", msg.message);
-                            if (correction) submitFeedback(msg.id, "correction", correction);
-                        };
-                        feedbackDiv.append(upBtn, downBtn, corrBtn);
-                        bubble.appendChild(feedbackDiv);
-                    }
-                    chatFeed.appendChild(bubble);
-                    chatFeed.scrollTop = chatFeed.scrollHeight;
-                }
+                <form id="registerForm" class="auth-form">
+                    <div class="form-section">
+                        <h2>Create Account</h2>
+                        <p class="form-description">Secure PGP-based registration</p>
+                    </div>
 
-                async function submitFeedback(chat_message_id, feedback_type, feedback_text = null) {
-                    try {
-                        await requestJson("/api/chat/feedback", {
-                            method: "POST",
-                            body: JSON.stringify({ chat_message_id, feedback_type, feedback_text }),
-                            headers: { "x-username": state.username }
-                        });
-                        setStatus("Feedback submitted!", "good");
-                    } catch (e) {
-                        setStatus("Feedback failed: " + e.message, "bad");
-                    }
-                }
-                const state = {
-                    loggedIn: false,
-                    username: "",
-                    isAdmin: false,
-                    isTrainer: false,
-                    token: ""
-                };
+                    <div class="form-group">
+                        <label for="regUsername">Username</label>
+                        <input id="regUsername" name="username" type="text" required
+                            placeholder="Choose a username"
+                            pattern="^[a-zA-Z0-9_\-]{3,32}$" title="3-32 characters: letters, numbers, dash, underscore" />
+                        <span class="form-hint">3-32 characters (letters, numbers, dash, underscore)</span>
+                    </div>
 
-                const chatPanel = document.getElementById("chatPanel");
-                const chatMeta = document.getElementById("chatMeta");
-                const tokenBox = document.getElementById("tokenBox");
-                const promptInput = document.getElementById("promptInput");
-                const chatFeed = document.getElementById("chatFeed");
+                    <div class="form-group">
+                        <label for="regEmail">Email (optional)</label>
+                        <input id="regEmail" name="email" type="email"
+                            placeholder="your@email.com" />
+                        <span class="form-hint">For account recovery</span>
+                    </div>
 
-                /* ── Helper functions ──────────────────────────────── */
-                function isRootAdminSession() {
-                    return state.isAdmin && state.username === JEEBS_ROOT_ADMIN;
-                }
+                    <div class="form-group">
+                        <label for="publicKey">PGP Public Key</label>
+                        <textarea id="publicKey" name="pgp_public_key" required
+                            placeholder="-----BEGIN PGP PUBLIC KEY BLOCK-----&#10;...&#10;-----END PGP PUBLIC KEY BLOCK-----"
+                            class="form-textarea-large"></textarea>
+                        <span class="form-hint">Paste your ASCII-armored PGP public key</span>
+                    </div>
 
-                function canAccessTrainerPanel() {
-                    return state.isTrainer || isRootAdminSession();
-                }
+                    <div class="pgp-info-box">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="16" x2="12" y2="12"></line>
+                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                        </svg>
+                        <div>
+                            <strong>How It Works</strong>
+                            <p>During login, you'll sign a challenge with your private key to prove ownership without exposing it.</p>
+                        </div>
+                    </div>
 
-                function setStatus(msg, type) {
-                    // Show a brief toast-style status message
-                    let toast = document.getElementById("statusToast");
-                    if (!toast) {
-                        toast = document.createElement("div");
-                        toast.id = "statusToast";
-                        toast.style.cssText = "position:fixed;bottom:60px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:8px;font-size:0.9rem;z-index:10000;transition:opacity 0.3s;pointer-events:none;";
-                        document.body.appendChild(toast);
-                    }
-                    toast.textContent = msg;
-                    toast.style.background = type === "good" ? "rgba(80,200,120,0.9)" : "rgba(220,80,80,0.9)";
-                    toast.style.color = "#fff";
-                    toast.style.opacity = "1";
-                    clearTimeout(toast._timer);
-                    toast._timer = setTimeout(() => { toast.style.opacity = "0"; }, 3000);
-                }
+                    <button type="submit" class="btn-primary btn-large">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 5v14M5 12h14"></path>
+                        </svg>
+                        Create Account
+                    </button>
+                </form>
 
-                /* ── Render Auth State ─────────────────────────────── */
-                function renderAuthState() {
-                    const authViews = document.getElementById("authViews");
+                <div class="auth-footer">
+                    <p>Already have an account? <a href="#" id="showLogin">Sign in</a></p>
+                    <p class="security-note">Your private key never leaves your device</p>
+                </div>
+            </div>
+        </div>
 
-                    // Everyone gets the chat panel now
-                    authViews.style.display = "none";
-                    chatPanel.style.display = "flex";
+        <!-- Chat Page -->
+        <div id="chatPage" class="chat-page">
+            <section class="chat-panel">
+                <div class="chat-header">
+                    <div class="chat-top-section">
+                        <div class="chat-info">
+                            <div class="chat-avatar">
+                                <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2" />
+                                    <circle cx="16" cy="16" r="6" fill="currentColor" opacity=".6" />
+                                    <path d="M16 2v8M16 22v8M2 16h8M22 16h8" stroke="currentColor"
+                                        stroke-width="1.5" opacity=".4" />
+                                </svg>
+                            </div>
+                            <div class="chat-details">
+                                <h3>JeebsAI <span class="status-indicator online"></span></h3>
+                                <div class="chat-meta" id="chatMeta">Intelligent Assistant</div>
+                            </div>
+                        </div>
+                        <div class="chat-actions">
+                            <button id="themeToggleBtn" class="action-btn" title="Toggle Dark Mode">
+                                <svg id="themeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                                </svg>
+                            </button>
+                            <button id="copyTokenBtn" class="action-btn" title="Copy Token">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                            </button>
+                            <button id="logoutBtn" class="action-btn" title="Logout">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                                    <polyline points="16,17 21,12 16,7"></polyline>
+                                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="chat-brain-info" id="brainInfo">
+                        <div class="brain-stat">
+                            <span class="stat-label">Brain Entropy</span>
+                            <span class="stat-value" id="entropyValue">--</span>
+                        </div>
+                        <div class="brain-stat">
+                            <span class="stat-label">Knowledge</span>
+                            <span class="stat-value" id="nodeCountValue">--</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="chat-messages" id="chatFeed"></div>
+                <div class="chat-input">
+                    <form id="chatForm" class="message-form">
+                        <div class="input-wrapper">
+                            <textarea id="promptInput" autocomplete="off"
+                                placeholder="Ask me anything... (Shift+Enter to send)" rows="1"></textarea>
+                        </div>
+                        <button class="send-btn" type="submit" title="Send (Shift+Enter or Ctrl+Enter)">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="22" y1="2" x2="11" y2="13"></line>
+                                <polygon points="22,2 15,22 11,13 2,9"></polygon>
+                            </svg>
+                        </button>
+                    </form>
+                    <div class="input-hints">
+                        <small>💡 Shift+Enter to send • Learning enabled</small>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
 
-                    if (!state.loggedIn) {
-                        chatMeta.textContent = "Guest User (Unregistered)";
-                        tokenBox.textContent = "Please register for full access.";
-                        stopSessionPing();
-                    } else {
-                        chatMeta.textContent = `${state.username}${isRootAdminSession() ? " (super-admin)" : state.isAdmin ? " (admin)" : ""}`;
-                        tokenBox.textContent = state.token
-                            ? `Token: ${state.token}`
-                            : "Token missing from session response.";
-                        startSessionPing();
-                    }
+    <script src="/webui/auth.js"></script>
+    <script>
+        /* ── Page Navigation ───────────────────────────────────── */
+        function showPage(pageName) {
+            document.querySelectorAll('.auth-page, .chat-page').forEach(page => {
+                page.classList.remove('active');
+            });
+            document.getElementById(pageName).classList.add('active');
+        }
 
-                    promptInput.focus();
-                }
+        document.getElementById('showRegister').addEventListener('click', (e) => {
+            e.preventDefault();
+            showPage('registerPage');
+        });
 
-                /* ── Challenge Generation ──────────────────────────── */
-                function updateUnsignedMessage() {
-                    const username = document.getElementById("loginUsername").value.trim();
-                    const ts = Math.floor(Date.now() / 1000);
-                    const value = `LOGIN:${username || "username"}:${ts}`;
-                    document.getElementById("unsignedMessage").value = value;
-                }
+        document.getElementById('showLogin').addEventListener('click', (e) => {
+            e.preventDefault();
+            showPage('loginPage');
+        });
 
-                /* ── Chat Helpers ──────────────────────────────────── */
-                function appendMessage(who, text, thought = null) {
-                    const bubble = document.createElement("div");
-                    bubble.className = `bubble ${who}`;
+        /* ── State Management ──────────────────────────────────── */
+        const state = {
+            loggedIn: false,
+            username: "",
+            isAdmin: false,
+            isTrainer: false,
+            token: ""
+        };
 
-                    // Glass Box: Show thought process if available (only for Jeebs)
-                    if (who === "jeebs" && thought) {
-                        const details = document.createElement("details");
-                        details.className = "thought-process";
-                        const summary = document.createElement("summary");
-                        summary.className = "thought-summary";
-                        summary.innerHTML = "<span>🧠 Thought Process</span>";
-                        const content = document.createElement("div");
-                        content.className = "thought-content";
-                        content.textContent = thought.internal_monologue;
-                        details.appendChild(summary);
-                        details.appendChild(content);
-                        bubble.appendChild(details);
+        const chatPanel = document.getElementById("chatPanel");
+        const chatMeta = document.getElementById("chatMeta");
+        const promptInput = document.getElementById("promptInput");
+        const chatFeed = document.getElementById("chatFeed");
 
-                        // Emotional Avatar Update
-                        updateAvatarEmotion(thought);
-                    }
+        /* ── Helper Functions ──────────────────────────────────── */
+        function setStatus(msg, type) {
+            let toast = document.getElementById("statusToast");
+            if (!toast) {
+                toast = document.createElement("div");
+                toast.id = "statusToast";
+                toast.style.cssText = "position:fixed;bottom:60px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:8px;font-size:0.9rem;z-index:10000;transition:opacity 0.3s;pointer-events:none;";
+                document.body.appendChild(toast);
+            }
+            toast.textContent = msg;
+            toast.style.background = type === "good" ? "rgba(80,200,120,0.9)" : "rgba(220,80,80,0.9)";
+            toast.style.color = "#fff";
+            toast.style.opacity = "1";
+            clearTimeout(toast._timer);
+            toast._timer = setTimeout(() => { toast.style.opacity = "0"; }, 3000);
+        }
 
-                    const label = document.createElement("small");
-                    label.textContent = who === "user" ? "You" : "JeebsAI";
-                    const body = document.createElement("div");
-                    body.textContent = text;
-                    bubble.append(label, body);
+        function updateUnsignedMessage() {
+            const username = document.getElementById("loginUsername").value.trim();
+            const ts = Math.floor(Date.now() / 1000);
+            const value = `LOGIN:${username || "username"}:${ts}`;
+            document.getElementById("unsignedMessage").value = value;
+        }
 
-                    // Contextual Chips: Suggest follow-ups based on new concepts
-                    if (who === "jeebs" && thought && thought.new_concepts && thought.new_concepts.length > 0) {
-                        const chipsDiv = document.createElement("div");
-                        chipsDiv.className = "suggestion-chips";
-                        thought.new_concepts.forEach(concept => {
-                            const chip = document.createElement("button");
-                            chip.className = "chip";
-                            chip.textContent = `Ask about ${concept}`;
-                            chip.onclick = () => {
-                                promptInput.value = `What can you tell me about ${concept}?`;
-                                document.getElementById("chatForm").dispatchEvent(new Event('submit'));
-                            };
-                            chipsDiv.appendChild(chip);
-                        });
-                        bubble.appendChild(chipsDiv);
-                    }
+        async function requestJson(url, options = {}) {
+            const headers = new Headers(options.headers || {});
+            if (options.body && !headers.has("Content-Type")) {
+                headers.set("Content-Type", "application/json");
+            }
+            if (state.token && !headers.has("Authorization")) {
+                headers.set("Authorization", `Bearer ${state.token}`);
+            }
 
-                    chatFeed.appendChild(bubble);
-                    chatFeed.scrollTop = chatFeed.scrollHeight;
-                }
+            const response = await safeFetch(url, {
+                ...options,
+                headers,
+                credentials: "same-origin",
+            });
 
-                function showTyping() {
-                    const indicator = document.createElement("div");
-                    indicator.className = "typing-indicator";
-                    indicator.id = "typingIndicator";
-                    indicator.innerHTML = '<span>JeebsAI is typing</span><div class="dot"></div><div class="dot"></div><div class="dot"></div>';
-                    chatFeed.appendChild(indicator);
-                    chatFeed.scrollTop = chatFeed.scrollHeight;
-                }
+            let payload = {};
+            try {
+                payload = await response.json();
+            } catch {
+                payload = {};
+            }
 
-                function hideTyping() {
-                    const indicator = document.getElementById("typingIndicator");
-                    if (indicator) indicator.remove();
-                }
+            if (!response.ok) {
+                throw new Error(payload.error || `Request failed (${response.status})`);
+            }
 
-                function updateAvatarEmotion(thought) {
-                    const avatar = document.querySelector(".chat-avatar");
-                    if (!avatar) return;
+            return payload;
+        }
 
-                    // Reset classes
-                    avatar.classList.remove("avatar-happy", "avatar-concerned", "avatar-curious");
+        function appendMessage(who, text, thought = null) {
+            const bubble = document.createElement("div");
+            bubble.className = `bubble ${who}`;
 
-                    if (thought.detected_sentiment > 0.5) {
-                        avatar.classList.add("avatar-happy");
-                    } else if (thought.detected_sentiment < -0.5) {
-                        avatar.classList.add("avatar-concerned");
-                    } else if (thought.curiosity_target) {
-                        avatar.classList.add("avatar-curious");
-                    }
-                }
+            if (who === "jeebs" && thought) {
+                const details = document.createElement("details");
+                details.className = "thought-process";
+                const summary = document.createElement("summary");
+                summary.className = "thought-summary";
+                summary.innerHTML = "<span>🧠 Thought Process</span>";
+                const content = document.createElement("div");
+                content.className = "thought-content";
+                content.textContent = thought.internal_monologue;
+                details.appendChild(summary);
+                details.appendChild(content);
+                bubble.appendChild(details);
+            }
 
-                /* ── Request Helper ────────────────────────────────── */
-                async function requestJson(url, options = {}) {
-                    const headers = new Headers(options.headers || {});
-                    if (options.body && !headers.has("Content-Type")) {
-                        headers.set("Content-Type", "application/json");
-                    }
-                    if (state.token && !headers.has("Authorization")) {
-                        headers.set("Authorization", `Bearer ${state.token}`);
-                    }
+            const label = document.createElement("small");
+            label.textContent = who === "user" ? "You" : "JeebsAI";
+            const body = document.createElement("div");
+            body.textContent = text;
+            bubble.append(label, body);
 
-                    const response = await safeFetch(url, {
-                        ...options,
-                        headers,
-                        credentials: "same-origin",
-                    });
-
-                    let payload = {};
-                    try {
-                        payload = await response.json();
-                    } catch {
-                        payload = {};
-                    }
-
-                    if (!response.ok) {
-                        throw new Error(payload.error || `Request failed (${response.status})`);
-                    }
-
-                    return payload;
-                }
-
-                /* ── Bootstrap Auth ────────────────────────────────── */
-                async function bootstrapAuth() {
-                    try {
-                        const data = await requestJson("/api/auth/status");
-                        state.loggedIn = Boolean(data.logged_in);
-                        state.username = data.username || "";
-                        state.isAdmin = Boolean(data.is_admin);
-                        state.isTrainer = Boolean(data.is_trainer);
-                        if (data.token) {
-                            state.token = data.token;
-                            jeebsSetToken(state.token);
-                        }
-                        // Store admin flag and username for nav.js
-                        localStorage.setItem("jeebs_is_admin", state.isAdmin ? "true" : "false");
-                        localStorage.setItem("jeebs_username", state.username || "");
-                        renderAuthState();
-                        if (state.loggedIn) {
-                            // Create role-aware greeting
-                            let greeting = `Welcome, ${state.username}! `;
-                            const badges = [];
-
-                            if (state.username === "1090mb") {
-                                greeting += "🔐 You have super admin access. ";
-                                badges.push("super_admin");
-                            } else if (state.isAdmin) {
-                                greeting += "⚙️ You have admin access. ";
-                                badges.push("admin");
-                            } else if (state.isTrainer) {
-                                greeting += "🎓 You have training access. ";
-                                badges.push("trainer");
-                            } else {
-                                greeting += "👤 You're all set! ";
-                            }
-
-                            greeting += "Ask me anything and I'll help with knowledge, analysis, and learning.";
-                            appendMessage("jeebs", greeting);
-                        }
-                    } catch (error) {
-                        state.loggedIn = false;
-                        renderAuthState();
-                        setStatus(error.message, "bad");
-                    }
-                }
-
-                /* ── Event Listeners ───────────────────────────────── */
-                document.getElementById("loginUsername").addEventListener("input", updateUnsignedMessage);
-                document.getElementById("generateChallengeBtn").addEventListener("click", () => {
-                    updateUnsignedMessage();
-                    setStatus("Challenge refreshed.", "good");
-                });
-                document.getElementById("copyChallengeBtn").addEventListener("click", async () => {
-                    try {
-                        await navigator.clipboard.writeText(document.getElementById("unsignedMessage").value);
-                        setStatus("Challenge copied.", "good");
-                    } catch {
-                        setStatus("Clipboard access failed. Copy manually.", "bad");
-                    }
-                });
-
-                /* ── Login Form ────────────────────────────────────── */
-                document.getElementById("loginForm").addEventListener("submit", async (event) => {
-                    event.preventDefault();
-                    const username = document.getElementById("loginUsername").value.trim();
-                    const signedMessage = document.getElementById("signedMessage").value.trim();
-                    const rememberMe = document.getElementById("rememberMe").checked;
-
-                    // Validate inputs
-                    if (!username.match(/^[a-zA-Z0-9_\-]{3,32}$/)) {
-                        setStatus("Invalid username format.", "bad");
-                        return;
-                    }
-                    if (!signedMessage.startsWith("-----BEGIN PGP SIGNED MESSAGE-----")) {
-                        setStatus("Invalid PGP signature format. Paste the full signed message.", "bad");
-                        return;
-                    }
-
-                    try {
-                        const data = await requestJson("/api/login_pgp", {
-                            method: "POST",
-                            body: JSON.stringify({ username, signed_message: signedMessage, remember_me: rememberMe }),
-                        });
-
-                        state.loggedIn = true;
-                        state.username = data.username || username;
-                        state.isAdmin = Boolean(data.is_admin);
-                        state.isTrainer = Boolean(data.is_trainer);
-                        state.token = data.token || "";
-
-                        if (state.token) {
-                            jeebsSetToken(state.token);
-                        }
-                        localStorage.setItem("jeebs_is_admin", state.isAdmin ? "true" : "false");
-
-                        renderAuthState();
-                        appendMessage("jeebs", "PGP login successful. Session token is active.");
-                        setStatus("Logged in successfully.", "good");
-                    } catch (error) {
-                        setStatus(`Login failed: ${error.message}`, "bad");
-                    }
-                });
-
-                /* ── Chat Form with Shift+Enter Support ──────────────── */
-                document.getElementById("chatForm").addEventListener("submit", async (event) => {
-                    event.preventDefault();
-
-                    const prompt = promptInput.value.trim();
-                    if (!prompt) return;
-
-                    appendMessage("user", prompt);
-                    promptInput.value = "";
-                    promptInput.style.height = "auto";
-                    showTyping();
-
-                    try {
-                        const data = await requestJson("/api/jeebs", {
-                            method: "POST",
-                            body: JSON.stringify({ prompt: prompt }),
-                        });
-                        hideTyping();
-                        appendMessage("jeebs", data.response || "(No response body)", data.thought);
-                    } catch (error) {
-                        hideTyping();
-                        appendMessage("jeebs", `Error: ${error.message}`);
-                        setStatus(`Chat request failed: ${error.message}`, "bad");
-                    }
-                });
-
-                /* ── Textarea Auto-Resize & Shift+Enter ─────────────── */
-                promptInput.addEventListener("keydown", (event) => {
-                    if ((event.shiftKey || event.ctrlKey) && event.key === "Enter") {
-                        event.preventDefault();
+            if (who === "jeebs" && thought && thought.new_concepts && thought.new_concepts.length > 0) {
+                const chipsDiv = document.createElement("div");
+                chipsDiv.className = "suggestion-chips";
+                thought.new_concepts.forEach(concept => {
+                    const chip = document.createElement("button");
+                    chip.className = "chip";
+                    chip.textContent = `Ask about ${concept}`;
+                    chip.onclick = () => {
+                        promptInput.value = `What can you tell me about ${concept}?`;
                         document.getElementById("chatForm").dispatchEvent(new Event('submit'));
-                    }
+                    };
+                    chipsDiv.appendChild(chip);
                 });
+                bubble.appendChild(chipsDiv);
+            }
 
-                promptInput.addEventListener("input", () => {
-                    promptInput.style.height = "auto";
-                    promptInput.style.height = Math.min(promptInput.scrollHeight, 150) + "px";
-                });
+            chatFeed.appendChild(bubble);
+            chatFeed.scrollTop = chatFeed.scrollHeight;
+        }
 
-                /* ── Fetch & Update CDHSC Brain Info ───────────────── */
-                async function updateBrainInfo() {
-                    try {
-                        const response = await fetch("/api/jeebs_mood", {
-                            credentials: "same-origin"
-                        });
-                        const text = await response.text();
-                        if (text) {
-                            // Parse format: "HoloMesh: X nodes, Y links, entropy Z.ZZZZ, attitude: ..., mood: ..."
-                            const nodesMatch = text.match(/(\d+)\s+nodes/);
-                            const entropyMatch = text.match(/entropy\s+([\d.]+)/);
+        function showTyping() {
+            const indicator = document.createElement("div");
+            indicator.className = "typing-indicator";
+            indicator.id = "typingIndicator";
+            indicator.innerHTML = '<span>JeebsAI is typing</span><div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+            chatFeed.appendChild(indicator);
+            chatFeed.scrollTop = chatFeed.scrollHeight;
+        }
 
-                            if (nodesMatch) {
-                                document.getElementById("nodeCountValue").textContent = nodesMatch[1];
-                            }
-                            if (entropyMatch) {
-                                document.getElementById("entropyValue").textContent = parseFloat(entropyMatch[1]).toFixed(2);
-                            }
+        function hideTyping() {
+            const indicator = document.getElementById("typingIndicator");
+            if (indicator) indicator.remove();
+        }
 
-                            // Comprehension is calculated internally but show entropy as proxy
-                            document.getElementById("comprehensionValue").textContent = (parseFloat(entropyMatch[1]) || 0).toFixed(1);
-                        }
-                    } catch (e) {
-                        // Brain info unavailable, that's OK
-                    }
+        /* ── Authentication ────────────────────────────────────── */
+        async function bootstrapAuth() {
+            try {
+                const data = await requestJson("/api/auth/status");
+                state.loggedIn = Boolean(data.logged_in);
+                state.username = data.username || "";
+                state.isAdmin = Boolean(data.is_admin);
+                state.isTrainer = Boolean(data.is_trainer);
+                if (data.token) {
+                    state.token = data.token;
+                    jeebsSetToken(state.token);
                 }
+                localStorage.setItem("jeebs_is_admin", state.isAdmin ? "true" : "false");
+                localStorage.setItem("jeebs_username", state.username || "");
 
-                /* ── Token Copy & Logout Buttons ───────────────────── */
-                document.getElementById("copyTokenBtn").addEventListener("click", async () => {
-                    if (!state.token) {
-                        setStatus("No token available.", "bad");
-                        return;
+                if (state.loggedIn) {
+                    showPage('chatPage');
+                    let greeting = `Welcome back, ${state.username}! `;
+                    if (state.username === "1090mb") {
+                        greeting += "🔐 Super admin access granted. ";
+                    } else if (state.isAdmin) {
+                        greeting += "⚙️ Admin access granted. ";
+                    } else if (state.isTrainer) {
+                        greeting += "🎓 Trainer access granted. ";
                     }
-                    try {
-                        await navigator.clipboard.writeText(state.token);
-                        setStatus("Token copied.", "good");
-                    } catch {
-                        setStatus("Clipboard access failed. Copy manually.", "bad");
-                    }
-                });
-
-                document.getElementById("logoutBtn").addEventListener("click", async () => {
-                    try {
-                        await requestJson("/api/logout", { method: "POST" });
-                    } catch { /* ignore */ }
-
-                    state.loggedIn = false;
-                    state.username = "";
-                    state.isAdmin = false;
-                    state.isTrainer = false;
-                    state.token = "";
-                    jeebsClearToken();
-                    localStorage.removeItem("jeebs_is_admin");
-                    chatFeed.innerHTML = "";
-                    setView("login");
-                    renderAuthState();
-                    setStatus("Logged out.", "good");
-                });
-
-                /* ── Init ──────────────────────────────────────────── */
-                async function initializeApp() {
-                    JeebsNav.init("home");
-                    updateUnsignedMessage();
-                    renderAuthState();
-                    initializeTheme();
-
-                    // Wait for authentication to complete
-                    await bootstrapAuth();
-
-                    // Now load chat history after auth is done
+                    greeting += "How can I help you today?";
+                    appendMessage("jeebs", greeting);
                     await loadChatHistory();
-
-                    // Load brain metrics and update periodically
                     updateBrainInfo();
                     setInterval(updateBrainInfo, 10000);
+                    startSessionPing();
+                } else {
+                    showPage('loginPage');
                 }
+            } catch (error) {
+                state.loggedIn = false;
+                showPage('loginPage');
+            }
+        }
 
-                /* ── Theme Toggle ──────────────────────────────────– */
-                function initializeTheme() {
-                    const savedTheme = localStorage.getItem('jeebs-theme') || 'light';
-                    applyTheme(savedTheme);
+        async function loadChatHistory() {
+            try {
+                if (!state.loggedIn) return;
+                const history = await requestJson("/api/chat/history?limit=50");
+                chatFeed.innerHTML = "";
+                history.reverse().forEach(msg => {
+                    appendMessageWithFeedback(msg);
+                });
+            } catch (e) {
+                setStatus("Failed to load chat history", "bad");
+            }
+        }
 
-                    document.getElementById("themeToggleBtn").addEventListener("click", () => {
-                        const currentTheme = document.body.getAttribute('data-theme');
-                        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-                        applyTheme(newTheme);
-                        localStorage.setItem('jeebs-theme', newTheme);
-                    });
+        function appendMessageWithFeedback(msg) {
+            const bubble = document.createElement("div");
+            bubble.className = `bubble ${msg.role}`;
+            const label = document.createElement("small");
+            label.textContent = msg.role === "user" ? "You" : "JeebsAI";
+            const body = document.createElement("div");
+            body.textContent = msg.message;
+            bubble.append(label, body);
+            if (msg.role === "jeebs") {
+                const feedbackDiv = document.createElement("div");
+                feedbackDiv.className = "feedback-buttons";
+                const upBtn = document.createElement("button");
+                upBtn.textContent = "👍";
+                upBtn.title = "Helpful";
+                upBtn.onclick = () => submitFeedback(msg.id, "up");
+                const downBtn = document.createElement("button");
+                downBtn.textContent = "👎";
+                downBtn.title = "Not Helpful";
+                downBtn.onclick = () => submitFeedback(msg.id, "down");
+                const corrBtn = document.createElement("button");
+                corrBtn.textContent = "✏️";
+                corrBtn.title = "Suggest Correction";
+                corrBtn.onclick = () => {
+                    const correction = prompt("Suggest a correction for this reply:", msg.message);
+                    if (correction) submitFeedback(msg.id, "correction", correction);
+                };
+                feedbackDiv.append(upBtn, downBtn, corrBtn);
+                bubble.appendChild(feedbackDiv);
+            }
+            chatFeed.appendChild(bubble);
+            chatFeed.scrollTop = chatFeed.scrollHeight;
+        }
+
+        async function submitFeedback(chat_message_id, feedback_type, feedback_text = null) {
+            try {
+                await requestJson("/api/chat/feedback", {
+                    method: "POST",
+                    body: JSON.stringify({ chat_message_id, feedback_type, feedback_text }),
+                    headers: { "x-username": state.username }
+                });
+                setStatus("Feedback submitted!", "good");
+            } catch (e) {
+                setStatus("Feedback failed: " + e.message, "bad");
+            }
+        }
+
+        /* ── Event Listeners ───────────────────────────────────── */
+        document.getElementById("loginUsername").addEventListener("input", updateUnsignedMessage);
+
+        document.getElementById("generateChallengeBtn").addEventListener("click", (e) => {
+            e.preventDefault();
+            updateUnsignedMessage();
+            setStatus("Challenge refreshed.", "good");
+        });
+
+        document.getElementById("copyChallengeBtn").addEventListener("click", async (e) => {
+            e.preventDefault();
+            try {
+                await navigator.clipboard.writeText(document.getElementById("unsignedMessage").value);
+                setStatus("Challenge copied to clipboard.", "good");
+            } catch {
+                setStatus("Clipboard access failed. Copy manually.", "bad");
+            }
+        });
+
+        /* ── Login Form ────────────────────────────────────────── */
+        document.getElementById("loginForm").addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const username = document.getElementById("loginUsername").value.trim();
+            const signedMessage = document.getElementById("signedMessage").value.trim();
+            const rememberMe = document.getElementById("rememberMe").checked;
+
+            if (!username.match(/^[a-zA-Z0-9_\-]{3,32}$/)) {
+                setStatus("Invalid username format.", "bad");
+                return;
+            }
+            if (!signedMessage.startsWith("-----BEGIN PGP SIGNED MESSAGE-----")) {
+                setStatus("Invalid PGP signature format.", "bad");
+                return;
+            }
+
+            try {
+                const data = await requestJson("/api/login_pgp", {
+                    method: "POST",
+                    body: JSON.stringify({ username, signed_message: signedMessage, remember_me: rememberMe }),
+                });
+
+                state.loggedIn = true;
+                state.username = data.username || username;
+                state.isAdmin = Boolean(data.is_admin);
+                state.isTrainer = Boolean(data.is_trainer);
+                state.token = data.token || "";
+
+                if (state.token) {
+                    jeebsSetToken(state.token);
                 }
+                localStorage.setItem("jeebs_is_admin", state.isAdmin ? "true" : "false");
+                localStorage.setItem("jeebs_username", state.username || "");
 
-                function applyTheme(theme) {
-                    if (theme === 'dark') {
-                        document.body.setAttribute('data-theme', 'dark');
-                        updateThemeIcon('light');
-                    } else {
-                        document.body.setAttribute('data-theme', 'light');
-                        updateThemeIcon('dark');
+                showPage('chatPage');
+                appendMessage("jeebs", "Welcome! PGP login successful. Ready to chat.");
+                setStatus("Logged in successfully.", "good");
+                await loadChatHistory();
+                updateBrainInfo();
+                setInterval(updateBrainInfo, 10000);
+                startSessionPing();
+            } catch (error) {
+                setStatus(`Login failed: ${error.message}`, "bad");
+            }
+        });
+
+        /* ── Register Form ─────────────────────────────────────── */
+        document.getElementById("registerForm").addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const username = document.getElementById("regUsername").value.trim();
+            const email = document.getElementById("regEmail").value.trim();
+            const pgpPublicKey = document.getElementById("publicKey").value.trim();
+
+            if (!username.match(/^[a-zA-Z0-9_\-]{3,32}$/)) {
+                setStatus("Username must be 3-32 characters.", "bad");
+                return;
+            }
+            if (!pgpPublicKey.startsWith("-----BEGIN PGP PUBLIC KEY BLOCK-----")) {
+                setStatus("Invalid PGP public key format.", "bad");
+                return;
+            }
+
+            try {
+                await requestJson("/api/register", {
+                    method: "POST",
+                    body: JSON.stringify({ username, email, pgp_public_key: pgpPublicKey }),
+                });
+
+                document.getElementById("loginUsername").value = username;
+                updateUnsignedMessage();
+                showPage('loginPage');
+                setStatus("Registration complete. Now sign in with your key.", "good");
+                document.getElementById("loginForm").reset();
+            } catch (error) {
+                setStatus(`Registration failed: ${error.message}`, "bad");
+            }
+        });
+
+        /* ── Chat Form ─────────────────────────────────────────── */
+        document.getElementById("chatForm").addEventListener("submit", async (event) => {
+            event.preventDefault();
+
+            const prompt = promptInput.value.trim();
+            if (!prompt) return;
+
+            appendMessage("user", prompt);
+            promptInput.value = "";
+            promptInput.style.height = "auto";
+            showTyping();
+
+            try {
+                const data = await requestJson("/api/jeebs", {
+                    method: "POST",
+                    body: JSON.stringify({ prompt: prompt }),
+                });
+                hideTyping();
+                appendMessage("jeebs", data.response || "(No response)", data.thought);
+            } catch (error) {
+                hideTyping();
+                appendMessage("jeebs", `Error: ${error.message}`);
+                setStatus(`Chat failed: ${error.message}`, "bad");
+            }
+        });
+
+        promptInput.addEventListener("keydown", (event) => {
+            if ((event.shiftKey || event.ctrlKey) && event.key === "Enter") {
+                event.preventDefault();
+                document.getElementById("chatForm").dispatchEvent(new Event('submit'));
+            }
+        });
+
+        promptInput.addEventListener("input", () => {
+            promptInput.style.height = "auto";
+            promptInput.style.height = Math.min(promptInput.scrollHeight, 150) + "px";
+        });
+
+        /* ── Brain Info ────────────────────────────────────────── */
+        async function updateBrainInfo() {
+            try {
+                const response = await fetch("/api/jeebs_mood", { credentials: "same-origin" });
+                const text = await response.text();
+                if (text) {
+                    const nodesMatch = text.match(/(\d+)\s+nodes/);
+                    const entropyMatch = text.match(/entropy\s+([\d.]+)/);
+
+                    if (nodesMatch) {
+                        document.getElementById("nodeCountValue").textContent = nodesMatch[1];
+                    }
+                    if (entropyMatch) {
+                        document.getElementById("entropyValue").textContent = parseFloat(entropyMatch[1]).toFixed(2);
                     }
                 }
+            } catch (e) {
+                // Brain info unavailable, OK
+            }
+        }
 
-                function updateThemeIcon(nextTheme) {
-                    const icon = document.getElementById('themeIcon');
-                    if (nextTheme === 'dark') {
-                        icon.innerHTML = '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>';
-                    } else {
-                        icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
-                    }
+        /* ── Token & Logout ────────────────────────────────────── */
+        document.getElementById("copyTokenBtn").addEventListener("click", async () => {
+            if (!state.token) {
+                setStatus("No token available.", "bad");
+                return;
+            }
+            try {
+                await navigator.clipboard.writeText(state.token);
+                setStatus("Token copied.", "good");
+            } catch {
+                setStatus("Clipboard access failed.", "bad");
+            }
+        });
+
+        document.getElementById("logoutBtn").addEventListener("click", async () => {
+            try {
+                await requestJson("/api/logout", { method: "POST" });
+            } catch { }
+
+            state.loggedIn = false;
+            state.username = "";
+            state.isAdmin = false;
+            state.isTrainer = false;
+            state.token = "";
+            jeebsClearToken();
+            localStorage.removeItem("jeebs_is_admin");
+            chatFeed.innerHTML = "";
+            showPage('loginPage');
+            document.getElementById("loginForm").reset();
+            setStatus("Logged out.", "good");
+            stopSessionPing();
+        });
+
+        /* ── Session Ping ──────────────────────────────────────── */
+        let sessionPingInterval;
+        function startSessionPing() {
+            sessionPingInterval = setInterval(async () => {
+                try {
+                    await requestJson("/api/auth/status");
+                } catch {
+                    // Session expired
+                    state.loggedIn = false;
+                    showPage('loginPage');
+                    clearInterval(sessionPingInterval);
                 }
+            }, 60000);
+        }
 
-                // Start the app
-                initializeApp();
-            </script>
-        </main>
-    </div>
+        function stopSessionPing() {
+            clearInterval(sessionPingInterval);
+        }
+
+        /* ── Theme Toggle ──────────────────────────────────────── */
+        function initializeTheme() {
+            const savedTheme = localStorage.getItem('jeebs-theme') || 'light';
+            applyTheme(savedTheme);
+
+            document.getElementById("themeToggleBtn").addEventListener("click", () => {
+                const currentTheme = document.body.getAttribute('data-theme');
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                applyTheme(newTheme);
+                localStorage.setItem('jeebs-theme', newTheme);
+            });
+        }
+
+        function applyTheme(theme) {
+            if (theme === 'dark') {
+                document.body.setAttribute('data-theme', 'dark');
+                updateThemeIcon('light');
+            } else {
+                document.body.setAttribute('data-theme', 'light');
+                updateThemeIcon('dark');
+            }
+        }
+
+        function updateThemeIcon(nextTheme) {
+            const icon = document.getElementById('themeIcon');
+            if (nextTheme === 'dark') {
+                icon.innerHTML = '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>';
+            } else {
+                icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
+            }
+        }
+
+        /* ── Initialize ────────────────────────────────────────── */
+        function init() {
+            initializeTheme();
+            updateUnsignedMessage();
+            bootstrapAuth();
+        }
+
+        init();
+    </script>
 </body>
 
 </html>
