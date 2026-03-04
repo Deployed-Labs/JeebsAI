@@ -14,7 +14,6 @@ use serde_json::json;
 
 use crate::chat_history;
 use crate::conversation_context;
-use crate::continuous_learning;
 use crate::intelligent_inference;
 use crate::smart_response;
 use crate::state::AppState;
@@ -26,7 +25,7 @@ pub async fn smart_chat(
     data: web::Data<AppState>,
     req: web::Json<UserChatRequest>,
     session: Session,
-    http_req: HttpRequest,
+    _http_req: HttpRequest,
 ) -> impl Responder {
     // Verify authentication
     let username = match extract_username(&session) {

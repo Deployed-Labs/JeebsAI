@@ -540,7 +540,7 @@ pub async fn intelligent_chat(
     data: web::Data<AppState>,
     req: web::Json<UserChatRequest>,
     session: Session,
-    http_req: HttpRequest,
+    _http_req: HttpRequest,
 ) -> impl Responder {
     // Verify authentication
     if !is_user_authenticated(&session) {

@@ -7,8 +7,6 @@
 /// - Providing clear, direct answers
 /// - Including reasoning without overwhelming
 
-use serde_json::json;
-
 #[derive(Debug, Clone)]
 pub struct ResponseConfig {
     pub max_facts: usize,
