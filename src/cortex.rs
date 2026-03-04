@@ -390,8 +390,45 @@ impl Cortex {
         Self::generate_contextual_response(input, &facts, &intent)
     }
 
-    pub async fn think_for_user(input: &str, data: &web::Data<AppState>, _user_id: &str, _username: Option<&str>) -> String {
-        Self::think(input, data).await
+    pub async fn think_for_user(input: &str, data: &web::Data<AppState>, user_id: &str, username: Option<&str>) -> String {
+        // EARLY EXIT: Detect and handle simple greetings immediately
+        if Self::is_simple_greeting(input) {
+            return Self::handle_greeting(input);
+        }
+
+        // Try to load conversation context for better responses
+        let intent = if let Ok(context) = crate::conversation_context::load_conversation_context(
+            &data.db,
+            user_id,
+            username,
+        )
+        .await
+        {
+            // Use semantic intent analysis with conversation history
+            crate::conversation_context::analyze_user_message_semantic(input, &context.messages)
+        } else {
+            // Fall back to basic intent analysis
+            crate::conversation_context::analyze_user_message(input)
+        };
+
+        // Try context-aware fact retrieval first (uses session topic)
+        let facts = match crate::deep_learning::get_relevant_facts_with_context(&data.db, user_id, username, input).await {
+            Ok(facts) => facts,
+            Err(_) => {
+                // Fall back to generic fact search
+                crate::deep_learning::get_relevant_facts_for_chat(&data.db, "*", input)
+                    .await
+                    .unwrap_or_default()
+            }
+        };
+
+        if facts.is_empty() {
+            // Smarter fallback responses based on intent
+            return Self::generate_fallback_response(input, &intent.primary);
+        }
+
+        // Generate contextual response based on intent
+        Self::generate_contextual_response(input, &facts, &intent)
     }
 
     /// Detect if message is a simple greeting
