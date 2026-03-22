@@ -12,7 +12,7 @@ use jeebs::plugins::{
     TranslatePlugin, WeatherPlugin, WebsiteStatusPlugin,
 };
 use jeebs::{
-    admin, auth, brain_parsing_api, chat, chat_feedback, cortex, evolution, logging, user_chat, mcp_api, enhanced_chat, cdhsc_proposals, admin_dashboard, demo_data, AppState,
+    admin, auth, brain_parsing_api, chat, chat_feedback, chat_history, cortex, evolution, logging, user_chat, mcp_api, enhanced_chat, cdhsc_proposals, admin_dashboard, demo_data, AppState,
 };
 use jeebs::brain::coded_holographic_data_storage_container::CodedHolographicDataStorageContainer;
 use sqlx::{Row, SqlitePool};
@@ -88,6 +88,7 @@ async fn main() -> std::io::Result<()> {
 
     // Ensure logging storage exists
     logging::init(&pool).await;
+    chat_history::init(&pool).await;
 
     // Ensure the 1090mb super-admin account exists with hardcoded PGP key
     auth::ensure_root_admin(&pool).await;

@@ -11,6 +11,24 @@ pub struct ChatMessage {
     pub timestamp: String,
 }
 
+pub async fn init(db: &SqlitePool) {
+    if let Err(err) = sqlx::query(
+        "CREATE TABLE IF NOT EXISTS chat_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT,
+            username TEXT,
+            role TEXT NOT NULL,
+            message TEXT NOT NULL,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )",
+    )
+    .execute(db)
+    .await
+    {
+        eprintln!("[WARN] Failed to initialize chat_history table: {err}");
+    }
+}
+
 pub async fn insert_chat_message(
     db: &SqlitePool,
     session_id: Option<&str>,
