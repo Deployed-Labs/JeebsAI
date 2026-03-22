@@ -81,7 +81,44 @@
 <script src="/webui/auth.js"></script>
 <script src="/webui/nav.js"></script>
 <script>
-JeebsNav.init('logs');
+// Fallbacks so the logs page still works if auth.js or nav.js fails on a deployed instance.
+if (typeof window.jeebsGetToken !== 'function') {
+  window.jeebsGetToken = function(){ return localStorage.getItem("jeebs_auth_token") || ""; };
+}
+if (typeof window.authHeaders !== 'function') {
+  window.authHeaders = function(json){
+    var h = json ? { "Content-Type": "application/json" } : {};
+    var token = window.jeebsGetToken();
+    if (token) h.Authorization = "Bearer " + token;
+    return h;
+  };
+}
+if (typeof window.safeFetch !== 'function') {
+  window.safeFetch = async function(url, options){
+    options = options || {};
+    if (options.method && options.method.toUpperCase() === "POST") {
+      options.headers = options.headers || {};
+      options.headers["X-Requested-With"] = "XMLHttpRequest";
+    }
+    return fetch(url, options);
+  };
+}
+if (typeof window.requireAuth !== 'function') {
+  window.requireAuth = async function(){
+    return { loggedIn: true, isAdmin: true, username: localStorage.getItem('jeebs_username') || '' };
+  };
+}
+if (typeof window.startAuthGuard !== 'function') {
+  window.startAuthGuard = function(){};
+}
+if (window.JeebsNav && typeof window.JeebsNav.init === 'function') {
+  window.JeebsNav.init('logs');
+} else {
+  var sidebar = document.getElementById('sidebar-container');
+  if (sidebar) {
+    sidebar.innerHTML = '<div style="padding:16px;border-right:1px solid var(--border);height:100%"><h3 style="margin:0 0 12px">JeebsAI</h3><a href="/webui/index.html">Back to Console</a></div>';
+  }
+}
 
 var container=document.getElementById("log-container");
 var currentPage=1;var limit=50;var currentLogs=[];var ws=null;var isPaused=false;
