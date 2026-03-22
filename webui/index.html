@@ -1082,17 +1082,33 @@ function showAdminPanel() {
 
 async function adminAction(action) {
     try {
-        let url = '';
-        if (action === 'stats') url = '/api/admin/stats';
-        if (action === 'users') url = '/api/admin/users';
-        if (action === 'logs') url = '/api/admin/logs';
+        const urlMap = {
+            stats: '/api/server/stats',
+            users: '/api/admin/users',
+            logs: '/api/admin/logs'
+        };
+        const url = urlMap[action] || '';
 
         if (!url) return;
 
-        const res = await fetch(url, {
+        const res = await safeFetch(url, {
+            credentials: 'same-origin',
             headers: state.token ? { 'Authorization': `Bearer ${state.token}` } : {}
         });
-        const data = await res.json();
+
+        const raw = await res.text();
+        const contentType = res.headers.get('content-type') || '';
+        const isJson = contentType.includes('application/json');
+        const data = raw
+            ? (isJson ? JSON.parse(raw) : { response: raw })
+            : null;
+
+        if (!res.ok) {
+            const errorMessage = data && typeof data === 'object'
+                ? (data.error || data.message || `Request failed with status ${res.status}`)
+                : `Request failed with status ${res.status}`;
+            throw new Error(errorMessage);
+        }
 
         // Format JSON nicely
         const formatted = JSON.stringify(data, null, 2);
