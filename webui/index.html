@@ -837,6 +837,26 @@ function jeebsClearToken() {
     localStorage.removeItem(JEEBS_TOKEN_KEY);
 }
 
+// Fallbacks in case shared auth.js fails to load on a deployed instance.
+if (typeof window.safeFetch !== 'function') {
+    window.safeFetch = async function(url, options = {}) {
+        if (options.method && options.method.toUpperCase() === 'POST') {
+            options.headers = options.headers || {};
+            options.headers['X-Requested-With'] = 'XMLHttpRequest';
+        }
+        return fetch(url, options);
+    };
+}
+
+if (typeof window.authHeaders !== 'function') {
+    window.authHeaders = function(json = false) {
+        const headers = json ? { 'Content-Type': 'application/json' } : {};
+        const token = jeebsGetToken();
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        return headers;
+    };
+}
+
 // Notification system
 function showNotification(message, type = 'success', duration = 3000) {
     const notification = document.createElement('div');
