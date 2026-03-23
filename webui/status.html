@@ -380,6 +380,15 @@
   <script>
     JeebsNav.init('status');
 
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     // Access control for 1090mb, admin, trainer
     async function checkAccess() {
       // require trainer role (allows trainers and root admin)
@@ -506,7 +515,7 @@
         const card = document.createElement('div');
         card.className = 'card';
         card.style.marginBottom = '24px';
-        card.innerHTML = `< h3 > Session Debug</h3 ><div style="font-size:.9em;color:var(--text-muted);margin-bottom:8px">Shows the raw session/identity information returned by the server for debugging.</div><pre id="session-json" style="white-space:pre-wrap;background:var(--bg-1);padding:12px;border-radius:8px;border:1px solid var(--border);">Loading...</pre><div style="margin-top:8px"><button id="refresh-session-btn" class="btn btn-ghost">Refresh</button></div>`;
+        card.innerHTML = `<h3>Session Debug</h3><div style="font-size:.9em;color:var(--text-muted);margin-bottom:8px">Shows the raw session/identity information returned by the server for debugging.</div><pre id="session-json" style="white-space:pre-wrap;background:var(--bg-1);padding:12px;border-radius:8px;border:1px solid var(--border);">Loading...</pre><div style="margin-top:8px"><button id="refresh-session-btn" class="btn btn-ghost">Refresh</button></div>`;
         const shell = document.querySelector('.shell');
         if (shell) shell.insertBefore(card, shell.firstChild.nextSibling);
 
