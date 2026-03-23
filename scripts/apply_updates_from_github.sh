@@ -42,8 +42,8 @@ fi
 need_cmd git
 need_cmd sudo
 
-if [[ ! -x "${SAFE_DEPLOY_SCRIPT}" ]]; then
-  error "Safe deploy script not found or not executable: ${SAFE_DEPLOY_SCRIPT}"
+if [[ ! -f "${SAFE_DEPLOY_SCRIPT}" ]]; then
+  error "Safe deploy script not found: ${SAFE_DEPLOY_SCRIPT}"
   exit 1
 fi
 
@@ -92,4 +92,4 @@ fi
 
 info "Applying update ${CURRENT_REF} -> ${TARGET_REF}"
 
-exec "${SAFE_DEPLOY_SCRIPT}" "${BRANCH}" "${APP_DIR}" "${SERVICE_NAME}"
+exec bash "${SAFE_DEPLOY_SCRIPT}" "${BRANCH}" "${APP_DIR}" "${SERVICE_NAME}"
