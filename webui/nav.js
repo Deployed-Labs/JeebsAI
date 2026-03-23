@@ -40,6 +40,7 @@ const JeebsNav = (function () {
         { id: 'brain', label: 'Brain Graph', href: '/webui/visualize.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer', 'trainer'], icon: '🌐', category: 'Visualization' },
         { id: 'logic', label: 'Logic Graph', href: '/webui/logic_visualize.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer', 'trainer'], icon: '⚡', category: 'Visualization' },
         { id: 'thoughts', label: 'Thought Monitor', href: '/webui/thought_monitor.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer', 'trainer'], icon: '💭', category: 'Monitoring' },
+        { id: 'system-stats', label: 'System Stats', href: '/webui/status.html', roles: ['Admin', 'super_admin', 'Mod', 'Trainer', 'trainer'], icon: '📈', category: 'Monitoring' },
         { id: 'logs', label: 'Logs', href: '/webui/logs.html', roles: ['Admin', 'super_admin', 'Developer'], icon: '📋', category: 'Developer' },
         { id: 'evolution', label: 'Evolution', href: '/webui/evolution.html', roles: ['Admin', 'super_admin', 'Developer'], icon: '🔄', category: 'Developer' },
         { id: 'anomalies', label: 'Anomalies', href: '/webui/admin_anomalies.html', roles: ['Admin', 'super_admin'], icon: '⚠️', category: 'Admin' },

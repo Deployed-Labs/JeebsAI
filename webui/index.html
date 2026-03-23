@@ -366,7 +366,25 @@
             cursor: pointer;
             transition: all 0.2s ease;
         }
+        .admin-card .admin-link {
+            display: block;
+            padding: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--bg2);
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            text-align: center;
+        }
         .admin-card button:hover {
+            background: var(--border);
+            transform: translateY(-1px);
+        }
+        .admin-card .admin-link:hover {
             background: var(--border);
             transform: translateY(-1px);
         }
@@ -769,10 +787,10 @@
         <div class="admin-card">
             <h3>👑 Admin Controls</h3>
             <div class="admin-buttons">
-                <button onclick="window.location.href='/webui/system_stats.html'">System Stats</button>
-                <button onclick="window.location.href='/webui/trainer_resources.html'">Review Proposals</button>
+                <a class="admin-link" href="/webui/status.html">System Stats</a>
+                <a class="admin-link" href="/webui/trainer_resources.html">Review Proposals</a>
                 <button onclick="adminAction('users')">List Users</button>
-                <button onclick="window.location.href='/webui/logs.html'">View Logs</button>
+                <a class="admin-link" href="/webui/logs.html">View Logs</a>
             </div>
         </div>
     </div>

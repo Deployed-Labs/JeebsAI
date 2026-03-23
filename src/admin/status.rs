@@ -8,6 +8,28 @@ use sysinfo::System;
 use libc::statvfs;
 use std::ffi::CString;
 
+fn can_view_system_stats(session: &Session) -> bool {
+    if crate::auth::is_effective_admin_session(session) {
+        return true;
+    }
+
+    let is_trainer = session
+        .get::<bool>("is_trainer")
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+    if is_trainer {
+        return true;
+    }
+
+    session
+        .get::<String>("role")
+        .ok()
+        .flatten()
+        .map(|role| role == "trainer" || crate::auth::is_super_admin_role(&role))
+        .unwrap_or(false)
+}
+
 fn get_fs_space(path: &str) -> Option<(u64, u64)> {
     let cpath = match CString::new(path) { Ok(c) => c, Err(_) => return None };
     unsafe {
@@ -25,9 +47,9 @@ fn get_fs_space(path: &str) -> Option<(u64, u64)> {
 /// Original admin-only endpoint (kept for backwards compat)
 #[get("/api/admin/status")]
 pub async fn get_system_status(data: web::Data<AppState>, session: Session) -> impl Responder {
-    if !crate::auth::is_admin_session(&session) {
+    if !can_view_system_stats(&session) {
         return HttpResponse::Forbidden()
-            .json(json!({"error": "Admin privileges required"}));
+            .json(json!({"error": "Admin or trainer privileges required"}));
     }
 
     let mut sys = data.sys.lock().unwrap();
@@ -78,12 +100,12 @@ pub async fn health_check(data: web::Data<AppState>) -> HttpResponse {
     }
 }
 
-/// Comprehensive server stats — requires admin session
+/// Comprehensive server stats — requires admin/trainer-equivalent session
 #[get("/api/server/stats")]
 pub async fn get_server_stats(data: web::Data<AppState>, session: Session) -> impl Responder {
-    if !crate::auth::is_admin_session(&session) {
+    if !can_view_system_stats(&session) {
         return HttpResponse::Forbidden()
-            .json(json!({"error": "Admin privileges required"}));
+            .json(json!({"error": "Admin or trainer privileges required"}));
     }
 
     // ── System metrics ──
