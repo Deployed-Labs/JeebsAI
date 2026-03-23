@@ -1,0 +1,11 @@
+target
+**/target
+.git
+.github
+node_modules
+*.rs.bk
+*.log
+deploy
+*.sqlite
+*.db
+dist
