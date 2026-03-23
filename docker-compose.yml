@@ -1,15 +1,42 @@
-version: '3.8'
 services:
+  traefik:
+    image: traefik:v2.10
+    command:
+      - --providers.docker=true
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --api.insecure=false
+      - --certificatesresolvers.le.acme.tlschallenge=true
+      - --certificatesresolvers.le.acme.email=${TRAEFIK_ACME_EMAIL:-you@example.com}
+      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_letsencrypt:/letsencrypt
+
   app:
     build: .
     image: jeebsai:local
-    ports:
-      - "8080:8080"
     environment:
       - RUST_LOG=info
       - DATABASE_URL=sqlite:/data/jeebs.db
+      - SESSION_KEY_B64=${SESSION_KEY_B64}
     volumes:
       - jeebs_data:/data
+      - ./webui:/app/webui:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.jeebs.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.jeebs.entrypoints=websecure"
+      - "traefik.http.routers.jeebs.tls=true"
+      - "traefik.http.routers.jeebs.tls.certresolver=le"
+      - "traefik.http.routers.jeebs.middlewares=redirect-to-https@docker"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.routers.jeebs-http.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.jeebs-http.entrypoints=web"
+      - "traefik.http.routers.jeebs-http.middlewares=redirect-to-https@docker"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"]
       interval: 30s
@@ -18,3 +45,4 @@ services:
 
 volumes:
   jeebs_data:
+  traefik_letsencrypt:

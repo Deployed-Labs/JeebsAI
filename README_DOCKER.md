@@ -35,3 +35,18 @@ Notes:
 - SQLite database is stored in a named Docker volume `jeebs_data`.
 - Use `.env.example` as a starting point for environment variables.
 
+Traefik reverse proxy (automatic HTTPS)
+
+This compose file can run Traefik to provide automatic Let’s Encrypt certificates and route your domain to the `app` service.
+
+1. Set `DOMAIN` and `TRAEFIK_ACME_EMAIL` in `.env` (copy `.env.example` -> `.env`).
+2. Ensure DNS for `DOMAIN` points to this VPS.
+3. Start the stack:
+
+```bash
+docker compose up -d --build
+```
+
+Traefik will obtain TLS certificates for your domain and route HTTPS traffic to the app. Ports 80 and 443 must be open on the VPS.
+
+
