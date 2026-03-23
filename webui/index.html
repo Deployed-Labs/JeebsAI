@@ -350,9 +350,15 @@
             font-weight: 700;
             color: var(--primary);
         }
+        .admin-card p {
+            margin-bottom: 14px;
+            color: var(--text2);
+            font-size: 13px;
+            line-height: 1.5;
+        }
         .admin-buttons {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: 8px;
         }
         .admin-card button {
@@ -387,6 +393,182 @@
         .admin-card .admin-link:hover {
             background: var(--border);
             transform: translateY(-1px);
+        }
+        .admin-card button.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+        .admin-workspace {
+            margin: 18px 24px 0;
+            padding: 18px;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: linear-gradient(180deg, rgba(99,102,241,0.08), rgba(15,23,42,0.02));
+        }
+        .chat .admin-workspace {
+            margin-right: 324px;
+        }
+        .admin-workspace-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+        .admin-workspace-head h4 {
+            margin: 0;
+            font-size: 18px;
+        }
+        .admin-workspace-subtitle {
+            color: var(--text2);
+            font-size: 13px;
+            margin-top: 4px;
+        }
+        .admin-refresh {
+            width: auto;
+            min-width: 140px;
+            margin: 0;
+        }
+        .admin-overview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .admin-metric {
+            background: rgba(99,102,241,0.08);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+        }
+        .admin-metric-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text2);
+            margin-bottom: 6px;
+        }
+        .admin-metric-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text);
+        }
+        .admin-panel-grid {
+            display: grid;
+            gap: 14px;
+        }
+        .admin-data-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px;
+        }
+        .admin-data-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+        }
+        .admin-data-card strong,
+        .admin-data-card .value {
+            display: block;
+            font-size: 22px;
+            margin-top: 6px;
+            color: var(--primary);
+        }
+        .admin-data-card span {
+            color: var(--text2);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .admin-section {
+            background: rgba(15,23,42,0.22);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+        }
+        .admin-section h5 {
+            margin: 0 0 10px;
+            font-size: 14px;
+            color: var(--text);
+        }
+        .admin-list {
+            display: grid;
+            gap: 8px;
+        }
+        .admin-list-item {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px;
+        }
+        .admin-list-main {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .admin-list-sub {
+            margin-top: 6px;
+            color: var(--text2);
+            font-size: 12px;
+            line-height: 1.45;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .admin-badge-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .admin-badge-pill.good {
+            color: var(--success);
+            border-color: rgba(16,185,129,0.4);
+        }
+        .admin-badge-pill.warn {
+            color: #f59e0b;
+            border-color: rgba(245,158,11,0.35);
+        }
+        .admin-badge-pill.danger {
+            color: var(--danger);
+            border-color: rgba(239,68,68,0.35);
+        }
+        .admin-empty {
+            padding: 20px;
+            text-align: center;
+            color: var(--text2);
+            border: 1px dashed var(--border);
+            border-radius: 10px;
+            background: rgba(15,23,42,0.14);
+        }
+        .admin-error {
+            padding: 14px;
+            border-radius: 10px;
+            background: rgba(239,68,68,0.12);
+            border: 1px solid rgba(239,68,68,0.28);
+            color: #fecaca;
+            font-size: 13px;
+        }
+        .admin-inline-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+        .admin-inline-actions button {
+            width: auto;
+            min-width: 110px;
         }
 
         /* Notifications */
@@ -442,6 +624,9 @@
             }
             .admin-buttons {
                 grid-template-columns: 1fr;
+            }
+            .admin-workspace {
+                margin: 16px;
             }
         }
         @media (max-width: 480px) {
@@ -704,6 +889,9 @@
                 display: none;
             }
 
+            .admin-workspace {
+                margin-right: 16px;
+            }
             .chat .messages {
                 margin-right: 0;
             }
@@ -786,13 +974,25 @@
     <div id="adminPanel" class="admin-panel hidden">
         <div class="admin-card">
             <h3>👑 Admin Controls</h3>
+            <p>Use the built-in control center below for stats, users, logs, and proposals without leaving the console.</p>
             <div class="admin-buttons">
-                <button onclick="adminAction('stats')">System Stats</button>
-                <a class="admin-link" href="/webui/trainer_resources.html">Review Proposals</a>
-                <button onclick="adminAction('users')">List Users</button>
-                <a class="admin-link" href="/webui/logs.html">View Logs</a>
+                <button data-admin-view="stats" onclick="openAdminView('stats')">System Stats</button>
+                <button data-admin-view="proposals" onclick="openAdminView('proposals')">Review Proposals</button>
+                <button data-admin-view="users" onclick="openAdminView('users')">List Users</button>
+                <button data-admin-view="logs" onclick="openAdminView('logs')">View Logs</button>
             </div>
         </div>
+    </div>
+    <div id="adminWorkspace" class="admin-workspace hidden">
+        <div class="admin-workspace-head">
+            <div>
+                <h4 id="adminWorkspaceTitle">Control Center</h4>
+                <div id="adminWorkspaceSubtitle" class="admin-workspace-subtitle">Live operational views for JeebsAI.</div>
+            </div>
+            <button class="btn btn-secondary admin-refresh" type="button" onclick="refreshAdminWorkspace()">Refresh Current View</button>
+        </div>
+        <div id="adminOverview" class="admin-overview"></div>
+        <div id="adminWorkspaceContent" class="admin-panel-grid"></div>
     </div>
     <div class="messages" id="messages"></div>
     <div class="input-area">
@@ -839,6 +1039,7 @@ const state = {
     user: '',
     token: '',
     isAdmin: false,
+    adminView: 'stats',
     isDark: localStorage.getItem('theme') === 'dark'
 };
 
@@ -1117,44 +1318,233 @@ function showAdminPanel() {
     if (!state.isAdmin) return;
     const panel = document.getElementById('adminPanel');
     panel.classList.remove('hidden');
+    document.getElementById('adminWorkspace').classList.remove('hidden');
+    if (!document.getElementById('adminWorkspaceContent').innerHTML.trim()) {
+        openAdminView('stats');
+    }
+}
+
+function formatAdminNumber(value) {
+    const num = Number(value);
+    if (Number.isFinite(num)) {
+        return num.toLocaleString();
+    }
+    return String(value ?? '0');
+}
+
+function setAdminButtonsActive(view) {
+    document.querySelectorAll('[data-admin-view]').forEach((button) => {
+        button.classList.toggle('active', button.getAttribute('data-admin-view') === view);
+    });
+}
+
+function setAdminWorkspace(title, subtitle, html) {
+    document.getElementById('adminWorkspaceTitle').textContent = title;
+    document.getElementById('adminWorkspaceSubtitle').textContent = subtitle;
+    document.getElementById('adminWorkspaceContent').innerHTML = html;
+}
+
+async function adminRequest(url) {
+    const res = await safeFetch(url, {
+        credentials: 'same-origin',
+        headers: state.token ? { 'Authorization': `Bearer ${state.token}` } : {}
+    });
+    const raw = await res.text();
+    const contentType = res.headers.get('content-type') || '';
+    const isJson = contentType.includes('application/json');
+    const data = raw ? (isJson ? JSON.parse(raw) : { response: raw }) : null;
+    if (!res.ok) {
+        const message = data && typeof data === 'object'
+            ? (data.error || data.message || `Request failed with status ${res.status}`)
+            : `Request failed with status ${res.status}`;
+        throw new Error(message);
+    }
+    return data;
+}
+
+async function loadAdminOverview() {
+    const overview = document.getElementById('adminOverview');
+    overview.innerHTML = '<div class="admin-empty">Loading control center overview...</div>';
+
+    const [statsResult, usersResult, proposalsResult, logsResult] = await Promise.allSettled([
+        adminRequest('/api/server/stats'),
+        adminRequest('/api/admin/users'),
+        adminRequest('/api/brain/proposals?status=pending'),
+        adminRequest('/api/admin/logs?limit=1')
+    ]);
+
+    const stats = statsResult.status === 'fulfilled' ? statsResult.value : null;
+    const users = usersResult.status === 'fulfilled' ? usersResult.value : null;
+    const proposals = proposalsResult.status === 'fulfilled' ? proposalsResult.value : null;
+    const logs = logsResult.status === 'fulfilled' ? logsResult.value : null;
+
+    overview.innerHTML = [
+        `<div class="admin-metric"><div class="admin-metric-label">Brain Nodes</div><div class="admin-metric-value">${formatAdminNumber(stats?.database?.brain_nodes ?? 0)}</div></div>`,
+        `<div class="admin-metric"><div class="admin-metric-label">Knowledge Triples</div><div class="admin-metric-value">${formatAdminNumber(stats?.database?.knowledge_triples ?? 0)}</div></div>`,
+        `<div class="admin-metric"><div class="admin-metric-label">Users</div><div class="admin-metric-value">${formatAdminNumber(Array.isArray(users) ? users.length : 0)}</div></div>`,
+        `<div class="admin-metric"><div class="admin-metric-label">Pending Proposals</div><div class="admin-metric-value">${formatAdminNumber(Array.isArray(proposals) ? proposals.length : 0)}</div></div>`,
+        `<div class="admin-metric"><div class="admin-metric-label">Logs Access</div><div class="admin-metric-value">${Array.isArray(logs) ? 'Live' : 'Restricted'}</div></div>`,
+        `<div class="admin-metric"><div class="admin-metric-label">Uptime</div><div class="admin-metric-value" style="font-size:18px">${escapeHtml(stats?.system?.uptime_formatted ?? 'Unknown')}</div></div>`
+    ].join('');
+}
+
+async function renderAdminStatsView() {
+    const data = await adminRequest('/api/server/stats');
+    const features = data.features || {};
+    const sessions = data.sessions || {};
+
+    return `
+        <div class="admin-data-grid">
+            <div class="admin-data-card"><span>Brain Nodes</span><strong>${formatAdminNumber(data.database?.brain_nodes ?? 0)}</strong></div>
+            <div class="admin-data-card"><span>Knowledge Triples</span><strong>${formatAdminNumber(data.database?.knowledge_triples ?? 0)}</strong></div>
+            <div class="admin-data-card"><span>System Logs</span><strong>${formatAdminNumber(data.database?.system_logs ?? 0)}</strong></div>
+            <div class="admin-data-card"><span>Anomalies</span><strong>${formatAdminNumber(data.database?.anomalies ?? 0)}</strong></div>
+            <div class="admin-data-card"><span>CPU Count</span><strong>${formatAdminNumber(data.system?.cpu_count ?? 0)}</strong></div>
+            <div class="admin-data-card"><span>Memory Used</span><strong>${escapeHtml((data.system?.memory?.used_mb ?? 0) + ' MB')}</strong></div>
+        </div>
+        <div class="admin-section">
+            <h5>Runtime</h5>
+            <div class="admin-list">
+                <div class="admin-list-item">
+                    <div class="admin-list-main">
+                        <span>Server Health</span>
+                        <span class="admin-badge-pill good">${features.internet_enabled ? 'Internet On' : 'Internet Off'}</span>
+                    </div>
+                    <div class="admin-list-sub">Training: ${features.training_enabled ? 'Enabled' : 'Disabled'} | Uptime: ${escapeHtml(data.system?.uptime_formatted ?? 'Unknown')} | Active Sessions: ${formatAdminNumber(sessions.active_count ?? 0)}</div>
+                </div>
+                <div class="admin-list-item">
+                    <div class="admin-list-main">
+                        <span>Storage</span>
+                        <span>${escapeHtml(String(data.system?.storage?.used_percent ?? '0'))}% used</span>
+                    </div>
+                    <div class="admin-list-sub">Available: ${escapeHtml(String(data.system?.storage?.available_mb ?? 0))} MB | Total: ${escapeHtml(String(data.system?.storage?.total_mb ?? 0))} MB</div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+async function renderAdminUsersView() {
+    const users = await adminRequest('/api/admin/users');
+    if (!Array.isArray(users) || users.length === 0) {
+        return '<div class="admin-empty">No users found.</div>';
+    }
+
+    return `
+        <div class="admin-section">
+            <h5>Users</h5>
+            <div class="admin-list">
+                ${users.map((user) => `
+                    <div class="admin-list-item">
+                        <div class="admin-list-main">
+                            <span>${escapeHtml(user.username || 'Unknown')}</span>
+                            <span class="admin-badge-pill ${user.is_admin ? 'good' : 'warn'}">${escapeHtml(user.role || 'Reguser')}</span>
+                        </div>
+                        <div class="admin-list-sub">${escapeHtml(user.email || 'No email on file')}</div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+async function renderAdminLogsView() {
+    const logs = await adminRequest('/api/admin/logs?limit=40');
+    if (!Array.isArray(logs) || logs.length === 0) {
+        return '<div class="admin-empty">No logs available.</div>';
+    }
+
+    return `
+        <div class="admin-section">
+            <h5>Recent Logs</h5>
+            <div class="admin-list">
+                ${logs.map((log) => `
+                    <div class="admin-list-item">
+                        <div class="admin-list-main">
+                            <span>${escapeHtml(log.category || 'SYSTEM')}</span>
+                            <span class="admin-badge-pill ${log.level === 'ERROR' ? 'danger' : (log.level === 'WARN' ? 'warn' : 'good')}">${escapeHtml(log.level || 'INFO')}</span>
+                        </div>
+                        <div class="admin-list-sub">${escapeHtml(log.timestamp || '')}</div>
+                        <div class="admin-list-sub">${escapeHtml(log.message || '')}</div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+async function renderAdminProposalsView() {
+    const proposals = await adminRequest('/api/brain/proposals?status=pending');
+    if (!Array.isArray(proposals) || proposals.length === 0) {
+        return '<div class="admin-empty">No pending proposals.</div>';
+    }
+
+    return `
+        <div class="admin-section">
+            <h5>Pending Proposals</h5>
+            <div class="admin-list">
+                ${proposals.map((proposal) => `
+                    <div class="admin-list-item">
+                        <div class="admin-list-main">
+                            <span>${escapeHtml(proposal.title || 'Untitled')}</span>
+                            <span class="admin-badge-pill warn">${escapeHtml(proposal.proposal_type || 'proposal')}</span>
+                        </div>
+                        <div class="admin-list-sub">Votes: +${formatAdminNumber(proposal.votes_for ?? 0)} / -${formatAdminNumber(proposal.votes_against ?? 0)}</div>
+                        <div class="admin-inline-actions">
+                            <button class="btn btn-secondary" type="button" onclick="approveProposal('${proposal.id}')">Approve</button>
+                            <button class="btn btn-secondary" type="button" onclick="denyProposal('${proposal.id}')">Deny</button>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+async function openAdminView(view) {
+    if (!state.isAdmin) return;
+    state.adminView = view;
+    document.getElementById('adminWorkspace').classList.remove('hidden');
+    setAdminButtonsActive(view);
+    document.getElementById('adminWorkspace').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    await loadAdminOverview();
+    await refreshAdminWorkspace();
+}
+
+async function refreshAdminWorkspace() {
+    if (!state.isAdmin) return;
+    const content = document.getElementById('adminWorkspaceContent');
+    content.innerHTML = '<div class="admin-empty">Loading view...</div>';
+
+    try {
+        if (state.adminView === 'stats') {
+            setAdminWorkspace('System Stats', 'Live server and database metrics without leaving the console.', await renderAdminStatsView());
+        } else if (state.adminView === 'users') {
+            setAdminWorkspace('Users', 'Current users and roles from the admin API.', await renderAdminUsersView());
+        } else if (state.adminView === 'logs') {
+            setAdminWorkspace('Logs', 'Recent system logs in the same workspace.', await renderAdminLogsView());
+        } else if (state.adminView === 'proposals') {
+            setAdminWorkspace('Proposals', 'Review and act on pending proposals in place.', await renderAdminProposalsView());
+        } else {
+            setAdminWorkspace('Control Center', 'Choose a view from the admin controls above.', '<div class="admin-empty">Select a view.</div>');
+        }
+    } catch (err) {
+        setAdminWorkspace(
+            'Control Center',
+            'The selected admin view could not be loaded.',
+            `<div class="admin-error">${escapeHtml(err.message || 'Unknown error')}</div>`
+        );
+    }
 }
 
 async function adminAction(action) {
-    try {
-        const urlMap = {
-            stats: '/api/server/stats',
-            users: '/api/admin/users',
-            logs: '/api/admin/logs'
-        };
-        const url = urlMap[action] || '';
-
-        if (!url) return;
-
-        const res = await safeFetch(url, {
-            credentials: 'same-origin',
-            headers: state.token ? { 'Authorization': `Bearer ${state.token}` } : {}
-        });
-
-        const raw = await res.text();
-        const contentType = res.headers.get('content-type') || '';
-        const isJson = contentType.includes('application/json');
-        const data = raw
-            ? (isJson ? JSON.parse(raw) : { response: raw })
-            : null;
-
-        if (!res.ok) {
-            const errorMessage = data && typeof data === 'object'
-                ? (data.error || data.message || `Request failed with status ${res.status}`)
-                : `Request failed with status ${res.status}`;
-            throw new Error(errorMessage);
-        }
-
-        // Format JSON nicely
-        const formatted = JSON.stringify(data, null, 2);
-        addMessage(`[Admin ${action.toUpperCase()}]\n${formatted}`, false, true);
-    } catch (err) {
-        addMessage(`Admin error: ${err.message}`, false, true);
+    const adminViews = ['stats', 'users', 'logs', 'proposals'];
+    if (adminViews.includes(action)) {
+        await openAdminView(action);
+        return;
     }
+
+    addMessage(`Admin action "${action}" is not wired into the workspace yet.`, false, true);
 }
 
 // Check auth on load
@@ -1377,6 +1767,10 @@ async function approveProposal(proposalId) {
         if (!res.ok) throw new Error(data.error || 'Failed to approve proposal');
         showNotification('Proposal approved!', 'success');
         loadProposalsPanel();
+        if (state.adminView === 'proposals') {
+            await loadAdminOverview();
+            await refreshAdminWorkspace();
+        }
     } catch (err) {
         showNotification(err.message || 'Failed to approve proposal', 'error');
     }
@@ -1400,6 +1794,10 @@ async function denyProposal(proposalId) {
         if (!res.ok) throw new Error(data.error || 'Failed to deny proposal');
         showNotification('Proposal denied', 'success');
         loadProposalsPanel();
+        if (state.adminView === 'proposals') {
+            await loadAdminOverview();
+            await refreshAdminWorkspace();
+        }
     } catch (err) {
         showNotification(err.message || 'Failed to deny proposal', 'error');
     }
