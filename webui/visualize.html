@@ -4,49 +4,282 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-  <title>Brain Visualization — JeebsAI</title>
+  <title>Brain Explorer - JeebsAI</title>
   <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
     rel="stylesheet" />
   <link rel="stylesheet" href="/webui/style.css" />
   <style>
+    .explorer-shell {
+      display: grid;
+      grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.9fr);
+      gap: 24px;
+    }
+
+    .graph-stage {
+      padding: 0;
+      position: relative;
+      overflow: hidden;
+      min-height: 760px;
+      background:
+        radial-gradient(circle at top left, rgba(59, 130, 246, 0.12), transparent 34%),
+        radial-gradient(circle at bottom right, rgba(16, 185, 129, 0.12), transparent 28%),
+        linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(3, 7, 18, 0.98));
+      border: 1px solid rgba(148, 163, 184, 0.18);
+    }
+
+    .toolbar {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) repeat(3, auto);
+      gap: 10px;
+      padding: 16px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+      background: rgba(2, 6, 23, 0.72);
+      backdrop-filter: blur(12px);
+    }
+
+    .toolbar .form-input,
+    .toolbar .btn {
+      min-height: 42px;
+    }
+
+    .graph-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 0 16px 16px;
+      position: relative;
+      z-index: 2;
+      background: rgba(2, 6, 23, 0.72);
+    }
+
+    .graph-meta-chip,
+    .pill,
+    .mini-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      background: rgba(15, 23, 42, 0.82);
+      color: #dbe7ff;
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 0.82rem;
+    }
+
+    .pill {
+      background: rgba(241, 245, 249, 0.96);
+      color: #0f172a;
+      border-color: var(--border);
+    }
+
+    .mini-pill {
+      padding: 5px 10px;
+      font-size: 0.76rem;
+      cursor: pointer;
+    }
+
+    .mini-pill:hover {
+      border-color: rgba(96, 165, 250, 0.45);
+      color: #ffffff;
+    }
+
+    .graph-canvas {
+      position: relative;
+      height: 620px;
+    }
+
     #mynetwork {
       width: 100%;
-      height: 700px;
-      background: var(--bg-0);
-      border-radius: var(--radius-lg);
+      height: 100%;
     }
 
     #loading {
       position: absolute;
-      top: 20px;
-      left: 20px;
-      background: var(--panel);
+      top: 18px;
+      left: 18px;
+      background: rgba(15, 23, 42, 0.92);
       backdrop-filter: blur(12px);
       padding: 14px 20px;
-      border-radius: var(--radius-md);
-      border: 1px solid var(--border);
-      color: var(--accent);
+      border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      color: #93c5fd;
       z-index: 10;
       font-size: 0.95em;
       display: flex;
       align-items: center;
       gap: 10px;
+      box-shadow: 0 12px 28px rgba(2, 6, 23, 0.34);
     }
 
     #loading .spinner {
       width: 18px;
       height: 18px;
-      border: 2px solid var(--border);
-      border-top-color: var(--accent);
+      border: 2px solid rgba(148, 163, 184, 0.25);
+      border-top-color: #60a5fa;
       border-radius: 50%;
       animation: spin .6s linear infinite;
     }
 
+    .details-card {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-height: 760px;
+      background: linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.98));
+    }
+
+    .details-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .details-header h2 {
+      margin: 0 0 6px;
+      font-size: 1.3rem;
+    }
+
+    .details-subtitle,
+    .empty-copy,
+    .section-copy,
+    .muted-small {
+      color: var(--text-secondary);
+    }
+
+    .details-body {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-height: 0;
+    }
+
+    .detail-section {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.74);
+    }
+
+    .detail-section h3 {
+      margin-bottom: 10px;
+      font-size: 0.95rem;
+    }
+
+    .detail-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .relation-list,
+    .results-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 220px;
+      overflow: auto;
+    }
+
+    .relation-item,
+    .result-item {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: rgba(248, 250, 252, 0.95);
+    }
+
+    .result-item {
+      cursor: pointer;
+      transition: border-color 0.2s ease, transform 0.2s ease;
+      text-align: left;
+      font: inherit;
+      color: inherit;
+    }
+
+    .result-item:hover {
+      border-color: var(--primary);
+      transform: translateY(-1px);
+    }
+
+    .result-item.active {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.18);
+    }
+
+    .result-item-title {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .summary-box {
+      max-height: 180px;
+      overflow: auto;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .stat-box {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: rgba(248, 250, 252, 0.95);
+    }
+
+    .stat-box strong {
+      display: block;
+      font-size: 1.05rem;
+      margin-top: 2px;
+    }
+
+    .mono {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.78rem;
+    }
+
     @keyframes spin {
       to {
-        transform: rotate(360deg)
+        transform: rotate(360deg);
+      }
+    }
+
+    @media (max-width: 1100px) {
+      .explorer-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .graph-stage,
+      .details-card {
+        min-height: auto;
+      }
+
+      .toolbar {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .toolbar {
+        grid-template-columns: 1fr;
+      }
+
+      .graph-canvas {
+        height: 520px;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -56,149 +289,512 @@
   <div id="app-layout">
     <aside id="sidebar-container"></aside>
     <main class="main-content">
-      <div class="shell" style="max-width:1200px">
+      <div class="shell" style="max-width:1400px">
         <div class="card card-glow" style="margin-bottom:24px;text-align:center">
-          <h1 style="margin-bottom:8px">Brain Visualization</h1>
-          <p class="text-muted">Interactive graph of the JeebsAI knowledge network. <span class="badge badge-accent"
-              style="font-size:0.7em;vertical-align:middle;margin-left:6px">LIVE</span></p>
-          <div style="margin-top:12px;display:flex;justify-content:center;gap:10px;align-items:center">
-            <label class="text-muted" style="font-size:0.9em">Filter by Category:</label>
-            <select id="categoryFilter" class="form-input" style="width:auto;padding:4px 8px;font-size:0.9em"
-              onchange="if(network) network.redraw()">
-              <option value="all">All Categories</option>
-            </select>
-          </div>
+          <h1 style="margin-bottom:8px">Brain Explorer</h1>
+          <p class="text-muted">Explore the JeebsAI knowledge network with search, category filtering, and connected-node drilldowns.
+            <span class="badge badge-accent" style="font-size:0.7em;vertical-align:middle;margin-left:6px">LIVE</span>
+          </p>
         </div>
-        <div class="card" style="padding: 0; position:relative; overflow: hidden; height: 700px;">
-          <div id="loading">
-            <div class="spinner"></div> Loading Brain Graph&hellip;
-          </div>
-          <div id="mynetwork"></div>
+
+        <div class="explorer-shell">
+          <section class="card graph-stage">
+            <div class="toolbar">
+              <input id="nodeSearch" class="form-input" type="search" placeholder="Search by node title, summary, topic, or entity" />
+              <select id="categoryFilter" class="form-input">
+                <option value="all">All Categories</option>
+              </select>
+              <button id="fitGraphBtn" class="btn btn-secondary" type="button">Fit Graph</button>
+              <button id="clearFiltersBtn" class="btn btn-secondary" type="button">Clear</button>
+            </div>
+
+            <div class="graph-meta">
+              <span class="graph-meta-chip">Visible Nodes <strong id="visibleNodes">0</strong></span>
+              <span class="graph-meta-chip">Visible Edges <strong id="visibleEdges">0</strong></span>
+              <span class="graph-meta-chip">Selected <strong id="selectedNodeLabel">None</strong></span>
+            </div>
+
+            <div class="graph-canvas">
+              <div id="loading">
+                <div class="spinner"></div>
+                Loading Brain Graph...
+              </div>
+              <div id="mynetwork"></div>
+            </div>
+          </section>
+
+          <aside class="card details-card">
+            <div class="details-header">
+              <div>
+                <h2 id="detailsTitle">Pick a brain node</h2>
+                <div id="detailsSubtitle" class="details-subtitle">Select a node from the graph or search results to inspect it.</div>
+              </div>
+              <span id="detailsCategory" class="pill">Explorer</span>
+            </div>
+
+            <section class="detail-section">
+              <h3>Search Results</h3>
+              <div id="searchStatus" class="section-copy">Type to filter the graph and this result list.</div>
+              <div id="resultList" class="results-list"></div>
+            </section>
+
+            <div id="detailsEmpty" class="detail-section">
+              <div class="empty-copy">Search, click a node, then follow connected nodes and extracted concepts to move through the brain.</div>
+            </div>
+
+            <div id="detailsBody" class="details-body" style="display:none">
+              <section class="detail-section">
+                <h3>Summary</h3>
+                <div id="detailsSummary" class="summary-box"></div>
+              </section>
+
+              <section class="detail-section">
+                <h3>Signals</h3>
+                <div class="stats-grid">
+                  <div class="stat-box"><span class="muted-small">Entities</span><strong id="statEntities">0</strong></div>
+                  <div class="stat-box"><span class="muted-small">Relationships</span><strong id="statRelationships">0</strong></div>
+                  <div class="stat-box"><span class="muted-small">Topics</span><strong id="statTopics">0</strong></div>
+                  <div class="stat-box"><span class="muted-small">Linked Nodes</span><strong id="statConnections">0</strong></div>
+                </div>
+              </section>
+
+              <section class="detail-section">
+                <h3>Topics</h3>
+                <div id="topicsList" class="detail-list"></div>
+              </section>
+
+              <section class="detail-section">
+                <h3>Entities</h3>
+                <div id="entitiesList" class="detail-list"></div>
+              </section>
+
+              <section class="detail-section">
+                <h3>Relationships</h3>
+                <div id="relationshipsList" class="relation-list"></div>
+              </section>
+
+              <section class="detail-section">
+                <h3>Connected Nodes</h3>
+                <div id="connectedNodesList" class="detail-list"></div>
+              </section>
+
+              <section class="detail-section">
+                <h3>Metadata</h3>
+                <div id="metadataList" class="detail-list"></div>
+              </section>
+            </div>
+          </aside>
         </div>
       </div>
 
       <script src="/webui/auth.js"></script>
       <script src="/webui/nav.js"></script>
       <script>
-        var network, nodesDataSet, edgesDataSet, nodesView;
+        var network, nodesDataSet, edgesDataSet, nodesView, edgesView;
+        var allNodesById = {};
+        var adjacencyMap = {};
+        var visibleNodeIds = [];
+        var currentSelectedNodeId = null;
+        var autoRefreshHandle = null;
+
+        function safeText(value) {
+          return String(value == null ? "" : value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+        }
+
+        function getSearchTerm() {
+          var input = document.getElementById("nodeSearch");
+          return input ? input.value.trim().toLowerCase() : "";
+        }
+
+        function getSelectedCategory() {
+          var select = document.getElementById("categoryFilter");
+          return select ? select.value : "all";
+        }
+
+        function nodeMatchesFilters(node) {
+          if (!node) return false;
+
+          var category = getSelectedCategory();
+          if (category !== "all" && (node.group || "General") !== category) {
+            return false;
+          }
+
+          var search = getSearchTerm();
+          if (!search) return true;
+
+          var entityText = Array.isArray(node.entities) ? node.entities.map(function (entity) {
+            return [entity.value, entity.type].join(" ");
+          }).join(" ") : "";
+
+          var topicText = Array.isArray(node.topics) ? node.topics.join(" ") : "";
+          var categoryText = Array.isArray(node.categories) ? node.categories.map(function (item) {
+            return item.name;
+          }).join(" ") : "";
+
+          var haystack = [
+            node.label,
+            node.summary,
+            node.full_text,
+            topicText,
+            categoryText,
+            entityText,
+            node.id
+          ].join(" ").toLowerCase();
+
+          return haystack.indexOf(search) !== -1;
+        }
+
+        function edgeTouchesVisibleNodes(edge) {
+          return visibleNodeIds.indexOf(edge.from) !== -1 && visibleNodeIds.indexOf(edge.to) !== -1;
+        }
+
+        function refreshVisibleState() {
+          if (!nodesDataSet || !edgesDataSet) return;
+
+          visibleNodeIds = [];
+          nodesDataSet.forEach(function (node) {
+            if (nodeMatchesFilters(node)) visibleNodeIds.push(node.id);
+          });
+
+          if (nodesView) nodesView.refresh();
+          if (edgesView) edgesView.refresh();
+
+          document.getElementById("visibleNodes").textContent = String(visibleNodeIds.length);
+
+          var visibleEdges = 0;
+          edgesDataSet.forEach(function (edge) {
+            if (edgeTouchesVisibleNodes(edge)) visibleEdges += 1;
+          });
+          document.getElementById("visibleEdges").textContent = String(visibleEdges);
+
+          renderResultList();
+        }
+
+        function populateCategories(nodes) {
+          var categories = new Set();
+          nodes.forEach(function (node) {
+            categories.add(node.group || "General");
+          });
+
+          var select = document.getElementById("categoryFilter");
+          var current = select.value || "all";
+          select.innerHTML = '<option value="all">All Categories</option>';
+
+          Array.from(categories).sort().forEach(function (category) {
+            var option = document.createElement("option");
+            option.value = category;
+            option.textContent = category;
+            select.appendChild(option);
+          });
+
+          select.value = categories.has(current) ? current : "all";
+        }
+
+        function buildAdjacency(nodes, edges) {
+          adjacencyMap = {};
+          allNodesById = {};
+
+          nodes.forEach(function (node) {
+            adjacencyMap[node.id] = [];
+            allNodesById[node.id] = node;
+          });
+
+          edges.forEach(function (edge) {
+            if (!adjacencyMap[edge.from]) adjacencyMap[edge.from] = [];
+            if (!adjacencyMap[edge.to]) adjacencyMap[edge.to] = [];
+
+            adjacencyMap[edge.from].push({ nodeId: edge.to, edge: edge });
+            adjacencyMap[edge.to].push({ nodeId: edge.from, edge: edge });
+          });
+        }
+
+        function renderResultList() {
+          var container = document.getElementById("resultList");
+          var status = document.getElementById("searchStatus");
+          if (!container || !status) return;
+
+          var matches = visibleNodeIds
+            .map(function (id) { return allNodesById[id]; })
+            .filter(Boolean)
+            .sort(function (a, b) {
+              return String(a.label || "").localeCompare(String(b.label || ""));
+            })
+            .slice(0, 24);
+
+          status.textContent = visibleNodeIds.length
+            ? (visibleNodeIds.length + " matching node" + (visibleNodeIds.length === 1 ? "" : "s"))
+            : "No nodes match the current filters.";
+
+          if (!matches.length) {
+            container.innerHTML = "";
+            return;
+          }
+
+          container.innerHTML = matches.map(function (node) {
+            var isActive = node.id === currentSelectedNodeId ? " active" : "";
+            return '<button class="result-item' + isActive + '" type="button" data-node-id="' + safeText(node.id) + '">' +
+              '<div class="result-item-title">' + safeText(node.label || "Untitled") + '</div>' +
+              '<div class="muted-small">' + safeText(node.group || "General") + " · " + safeText(node.summary || "No summary") + '</div>' +
+              '</button>';
+          }).join("");
+
+          container.querySelectorAll("[data-node-id]").forEach(function (button) {
+            button.addEventListener("click", function () {
+              focusNode(this.getAttribute("data-node-id"));
+            });
+          });
+        }
+
+        function renderTagList(containerId, items, formatter) {
+          var container = document.getElementById(containerId);
+          if (!container) return;
+
+          if (!Array.isArray(items) || !items.length) {
+            container.innerHTML = '<span class="muted-small">None</span>';
+            return;
+          }
+
+          container.innerHTML = items.map(function (item) {
+            return formatter(item);
+          }).join("");
+
+          container.querySelectorAll("[data-node-target]").forEach(function (button) {
+            button.addEventListener("click", function () {
+              focusNode(this.getAttribute("data-node-target"));
+            });
+          });
+        }
+
+        function updateDetails(nodeId) {
+          currentSelectedNodeId = nodeId;
+          renderResultList();
+
+          var selectedNode = allNodesById[nodeId];
+          if (!selectedNode) return;
+
+          document.getElementById("selectedNodeLabel").textContent = selectedNode.label || selectedNode.id;
+          document.getElementById("detailsTitle").textContent = selectedNode.label || "Untitled";
+          document.getElementById("detailsSubtitle").textContent = selectedNode.id;
+          document.getElementById("detailsCategory").textContent = selectedNode.group || "General";
+          document.getElementById("detailsSummary").textContent = selectedNode.full_text || selectedNode.summary || "No summary available.";
+          document.getElementById("detailsEmpty").style.display = "none";
+          document.getElementById("detailsBody").style.display = "flex";
+
+          var neighbors = (adjacencyMap[nodeId] || []).map(function (entry) { return entry.nodeId; });
+          var uniqueNeighbors = Array.from(new Set(neighbors));
+
+          document.getElementById("statEntities").textContent = String((selectedNode.entities || []).length);
+          document.getElementById("statRelationships").textContent = String((selectedNode.relationships || []).length);
+          document.getElementById("statTopics").textContent = String((selectedNode.topics || []).length);
+          document.getElementById("statConnections").textContent = String(uniqueNeighbors.length);
+
+          renderTagList("topicsList", selectedNode.topics || [], function (topic) {
+            return '<span class="pill">' + safeText(topic) + '</span>';
+          });
+
+          renderTagList("entitiesList", selectedNode.entities || [], function (entity) {
+            return '<span class="pill">' + safeText(entity.value) + ' <span class="mono">' + safeText(entity.type) + '</span></span>';
+          });
+
+          renderTagList("relationshipsList", selectedNode.relationships || [], function (relationship) {
+            return '<div class="relation-item">' +
+              '<div><strong>' + safeText(relationship.subject) + '</strong> ' + safeText(relationship.predicate) + ' <strong>' + safeText(relationship.object) + '</strong></div>' +
+              '<div class="muted-small">Type: ' + safeText(relationship.type) + ' · Confidence: ' + safeText(Number(relationship.confidence || 0).toFixed(2)) + '</div>' +
+              '</div>';
+          });
+
+          renderTagList("connectedNodesList", uniqueNeighbors, function (neighborId) {
+            var neighbor = allNodesById[neighborId];
+            if (!neighbor) return "";
+            return '<button type="button" class="mini-pill" data-node-target="' + safeText(neighborId) + '">' +
+              safeText(neighbor.label || neighbor.id) +
+              '</button>';
+          });
+
+          var metadata = [];
+          if (selectedNode.metadata) {
+            metadata.push("Words: " + (selectedNode.metadata.word_count || 0));
+            metadata.push("Sentences: " + (selectedNode.metadata.sentence_count || 0));
+            metadata.push("Language: " + (selectedNode.metadata.language || "Unknown"));
+            metadata.push("Confidence: " + Number(selectedNode.metadata.confidence_overall || 0).toFixed(2));
+            metadata.push("Source: " + (selectedNode.metadata.source || "Unknown"));
+          }
+          if (Array.isArray(selectedNode.categories)) {
+            selectedNode.categories.forEach(function (category) {
+              metadata.push("Category: " + category.name);
+            });
+          }
+
+          renderTagList("metadataList", metadata, function (item) {
+            return '<span class="pill">' + safeText(item) + '</span>';
+          });
+        }
+
+        function focusNode(nodeId) {
+          if (!nodeId || !allNodesById[nodeId]) return;
+
+          if (network) {
+            network.selectNodes([nodeId]);
+            network.focus(nodeId, {
+              scale: 1.1,
+              animation: {
+                duration: 500,
+                easingFunction: "easeInOutQuad"
+              }
+            });
+          }
+
+          updateDetails(nodeId);
+        }
+
+        function bindControls() {
+          document.getElementById("nodeSearch").addEventListener("input", function () {
+            refreshVisibleState();
+          });
+
+          document.getElementById("categoryFilter").addEventListener("change", function () {
+            refreshVisibleState();
+          });
+
+          document.getElementById("fitGraphBtn").addEventListener("click", function () {
+            if (network) network.fit({ animation: true });
+          });
+
+          document.getElementById("clearFiltersBtn").addEventListener("click", function () {
+            document.getElementById("nodeSearch").value = "";
+            document.getElementById("categoryFilter").value = "all";
+            refreshVisibleState();
+          });
+        }
 
         async function initPage() {
           try {
-            // 1. Ensure authentication and populate session data
             await requireAuth();
-            
-            // 2. Initialize Navigation
-            JeebsNav.init('brain');
-            
-            // 3. Load Graph
+            JeebsNav.init("brain");
+            bindControls();
             await loadGraph();
           } catch (e) {
             console.error("Initialization failed:", e);
-            document.getElementById("loading").innerHTML = "Access Denied or Session Expired. <a href='/webui/index.html#login' style='color:#3B82F6'>Login</a>";
+            document.getElementById("loading").innerHTML = 'Access Denied or Session Expired. <a href="/webui/index.html#login" style="color:#3B82F6">Login</a>';
           }
         }
 
         async function loadGraph() {
           try {
             document.getElementById("loading").style.display = "flex";
-            var res = await safeFetch("/api/brain/visualize", { credentials: 'same-origin', headers: authHeaders() });
-            if (!res.ok) { 
-              var body = await res.text(); 
-              throw new Error("HTTP " + res.status + (body ? ": " + body : "")); 
+            var res = await safeFetch("/api/brain/visualize", { credentials: "same-origin", headers: authHeaders() });
+            if (!res.ok) {
+              var body = await res.text();
+              throw new Error("HTTP " + res.status + (body ? ": " + body : ""));
             }
-            
-            var data = await res.json();
-            var container = document.getElementById("mynetwork");
-            
-            nodesDataSet = new vis.DataSet(Array.isArray(data.nodes) ? data.nodes : []);
-            edgesDataSet = new vis.DataSet(Array.isArray(data.edges) ? data.edges : []);
 
-            // Populate categories for filtering
-            var categories = new Set();
-            nodesDataSet.forEach(n => categories.add(n.group || 'General'));
-            var sel = document.getElementById('categoryFilter');
-            if (sel) {
-              var current = sel.value;
-              sel.innerHTML = '<option value="all">All Categories</option>';
-              Array.from(categories).sort().forEach(c => {
-                var opt = document.createElement('option');
-                opt.value = c;
-                opt.textContent = c;
-                sel.appendChild(opt);
-              });
-              sel.value = current;
-            }
+            var data = await res.json();
+            var nodes = Array.isArray(data.nodes) ? data.nodes : [];
+            var edges = Array.isArray(data.edges) ? data.edges : [];
+            var container = document.getElementById("mynetwork");
+
+            nodesDataSet = new vis.DataSet(nodes);
+            edgesDataSet = new vis.DataSet(edges);
+            populateCategories(nodes);
+            buildAdjacency(nodes, edges);
 
             nodesView = new vis.DataView(nodesDataSet, {
               filter: function (item) {
-                var val = document.getElementById('categoryFilter') ? document.getElementById('categoryFilter').value : 'all';
-                return val === 'all' || (item.group || 'General') == val;
+                return nodeMatchesFilters(item);
+              }
+            });
+
+            edgesView = new vis.DataView(edgesDataSet, {
+              filter: function (item) {
+                return edgeTouchesVisibleNodes(item);
               }
             });
 
             var options = {
-              nodes: { 
-                shape: "dot", 
+              nodes: {
+                shape: "dot",
                 scaling: { min: 10, max: 40, label: { enabled: true } },
                 font: { size: 14, color: "#EDEDED", strokeWidth: 4, strokeColor: "rgba(0,0,0,0.5)" },
                 borderWidth: 2,
-                color: { 
-                  background: "#121212", 
+                color: {
+                  background: "#121212",
                   border: "rgba(59, 130, 246, 0.5)",
                   highlight: { background: "#1E293B", border: "#3B82F6" },
                   hover: { background: "#1E293B", border: "#3B82F6" }
                 },
                 shadow: { enabled: true, color: "rgba(0,0,0,0.5)", size: 10 }
               },
-              edges: { 
-                width: 1, 
-                color: { color: "rgba(161, 161, 170, 0.2)", highlight: "#3B82F6", hover: "#3B82F6" }, 
+              edges: {
+                width: 1,
+                color: { color: "rgba(161, 161, 170, 0.2)", highlight: "#3B82F6", hover: "#3B82F6" },
                 smooth: { type: "continuous" },
-                arrows: { to: { enabled: true, scaleFactor: 0.5 } }
+                arrows: { to: { enabled: true, scaleFactor: 0.5 } },
+                font: { size: 10, color: "#A1A1AA", strokeWidth: 0 }
               },
               groups: {
                 Technology: { color: { background: "#1E293B", border: "#3B82F6" } },
                 Science: { color: { background: "#064E3B", border: "#10B981" } },
                 Business: { color: { background: "#451A03", border: "#F59E0B" } },
-                History: { color: { background: "#4C1D95", border: "#8B5CF6" } },
-                Culture: { color: { background: "#701A75", border: "#D946EF" } }
+                History: { color: { background: "#5B3A00", border: "#FACC15" } },
+                Culture: { color: { background: "#4A1831", border: "#EC4899" } },
+                General: { color: { background: "#172033", border: "#94A3B8" } }
               },
-              physics: { 
+              physics: {
                 stabilization: { iterations: 150 },
-                barnesHut: { gravitationalConstant: -10000, springConstant: 0.04, springLength: 120 } 
+                barnesHut: { gravitationalConstant: -10000, springConstant: 0.04, springLength: 120 }
               },
               interaction: { hover: true, tooltipDelay: 200, navigationButtons: true, keyboard: true }
             };
-            
-            network = new vis.Network(container, { nodes: nodesView, edges: edgesDataSet }, options);
-            document.getElementById("loading").style.display = "none";
 
-            // Click to see details
+            network = new vis.Network(container, { nodes: nodesView, edges: edgesView }, options);
+            document.getElementById("loading").style.display = "none";
+            refreshVisibleState();
+
             network.on("selectNode", function (params) {
               var nodeId = params.nodes[0];
-              var node = nodesDataSet.get(nodeId);
-              if (node) console.log("Selected node:", node);
+              if (nodeId) focusNode(nodeId);
             });
 
-            // Auto-refresh every 15 seconds
-            setInterval(async function () {
+            if (nodes.length) {
+              focusNode(nodes[0].id);
+            }
+
+            if (autoRefreshHandle) clearInterval(autoRefreshHandle);
+            autoRefreshHandle = setInterval(async function () {
               try {
-                var r = await safeFetch("/api/brain/visualize", { credentials: 'same-origin', headers: authHeaders() });
-                if (r.ok) {
-                  var d = await r.json();
-                  if (nodesDataSet) nodesDataSet.update(d.nodes || []);
-                  if (edgesDataSet) edgesDataSet.update(d.edges || []);
+                var refreshed = await safeFetch("/api/brain/visualize", { credentials: "same-origin", headers: authHeaders() });
+                if (!refreshed.ok) return;
+
+                var next = await refreshed.json();
+                var refreshedNodes = Array.isArray(next.nodes) ? next.nodes : [];
+                var refreshedEdges = Array.isArray(next.edges) ? next.edges : [];
+
+                populateCategories(refreshedNodes);
+                buildAdjacency(refreshedNodes, refreshedEdges);
+
+                nodesDataSet.clear();
+                nodesDataSet.add(refreshedNodes);
+                edgesDataSet.clear();
+                edgesDataSet.add(refreshedEdges);
+
+                refreshVisibleState();
+                if (currentSelectedNodeId && allNodesById[currentSelectedNodeId]) {
+                  updateDetails(currentSelectedNodeId);
                 }
               } catch (e) { }
             }, 15000);
           } catch (e) {
-            var l = document.getElementById("loading"); 
-            l.innerHTML = "Error loading graph: " + e; 
-            l.style.color = "#EF4444";
+            var loading = document.getElementById("loading");
+            loading.innerHTML = "Error loading graph: " + safeText(e.message || e);
+            loading.style.color = "#EF4444";
           }
         }
-        
-        // Start initialization
+
         initPage();
       </script>
     </main>

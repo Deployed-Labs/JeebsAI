@@ -4,6 +4,15 @@ use actix_web::{get, post, web, HttpResponse, Responder};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
+fn truncate_for_preview(input: &str, max_chars: usize) -> String {
+    if input.chars().count() <= max_chars {
+        return input.to_string();
+    }
+
+    let preview: String = input.chars().take(max_chars).collect();
+    format!("{}...", preview.trim_end())
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ParseNodeRequest {
     pub node_id: String,
@@ -96,12 +105,74 @@ pub async fn visualize(state: web::Data<AppState>) -> impl Responder {
                 .nodes
                 .iter()
                 .map(|(id, node)| {
+                    let category = node
+                        .content
+                        .categories
+                        .first()
+                        .map(|c| c.name.clone())
+                        .unwrap_or("General".to_string());
+                    let original_value = node.content.original_value.clone();
+                    let preview = truncate_for_preview(&original_value, 280);
+                    let entities: Vec<serde_json::Value> = node
+                        .content
+                        .extracted_entities
+                        .iter()
+                        .map(|entity| {
+                            serde_json::json!({
+                                "type": format!("{:?}", entity.entity_type),
+                                "value": entity.value,
+                                "confidence": entity.confidence,
+                            })
+                        })
+                        .collect();
+                    let relationships: Vec<serde_json::Value> = node
+                        .content
+                        .relationships
+                        .iter()
+                        .map(|rel| {
+                            serde_json::json!({
+                                "subject": rel.subject,
+                                "predicate": rel.predicate,
+                                "object": rel.object,
+                                "type": format!("{:?}", rel.relationship_type),
+                                "confidence": rel.confidence,
+                            })
+                        })
+                        .collect();
+                    let categories: Vec<serde_json::Value> = node
+                        .content
+                        .categories
+                        .iter()
+                        .map(|c| {
+                            serde_json::json!({
+                                "name": c.name,
+                                "confidence": c.confidence,
+                                "subcategories": c.subcategories,
+                            })
+                        })
+                        .collect();
+
                     serde_json::json!({
                         "id": id,
                         "label": node.content.original_key.clone(),
-                        "title": format!("{}: {}", node.content.original_key, node.content.original_value),
-                        "group": node.content.categories.first().map(|c| c.name.clone()).unwrap_or("General".to_string()),
+                        "title": format!("{}: {}", node.content.original_key, preview),
+                        "group": category,
                         "value": (node.content.metadata.word_count / 10).max(5), // scale node size by content length
+                        "summary": preview,
+                        "full_text": original_value,
+                        "topics": node.content.topics,
+                        "entities": entities,
+                        "relationships": relationships,
+                        "categories": categories,
+                        "metadata": {
+                            "source": node.content.metadata.source,
+                            "confidence_overall": node.content.metadata.confidence_overall,
+                            "processing_timestamp": node.content.metadata.processing_timestamp,
+                            "word_count": node.content.metadata.word_count,
+                            "sentence_count": node.content.metadata.sentence_count,
+                            "language": node.content.metadata.language,
+                        },
+                        "related_nodes": node.related_nodes,
                     })
                 })
                 .collect();
