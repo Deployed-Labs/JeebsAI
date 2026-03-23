@@ -1384,6 +1384,22 @@ function bindAdminNavigationTargets(root) {
         });
         element.dataset.navBound = '1';
     });
+
+    scope.querySelectorAll('[data-admin-open-view]').forEach((element) => {
+        if (element.dataset.adminViewBound === '1') return;
+        const openView = async () => {
+            const view = element.getAttribute('data-admin-open-view');
+            if (view) await openAdminView(view);
+        };
+        element.addEventListener('click', openView);
+        element.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                openView();
+            }
+        });
+        element.dataset.adminViewBound = '1';
+    });
 }
 
 async function adminRequest(url) {
@@ -1421,7 +1437,7 @@ async function loadAdminOverview() {
     const logs = logsResult.status === 'fulfilled' ? logsResult.value : null;
 
     overview.innerHTML = [
-        `<div class="admin-metric admin-metric-link" role="link" tabindex="0" data-nav="/webui/visualize.html?source=system-stats&view=database"><div class="admin-metric-label">Brain Nodes</div><div class="admin-metric-value">${formatAdminNumber(stats?.database?.brain_nodes ?? 0)}</div><div class="admin-metric-sub">Click to explore and visualize</div></div>`,
+        `<div class="admin-metric admin-metric-link" role="button" tabindex="0" data-admin-open-view="brain"><div class="admin-metric-label">Brain Nodes</div><div class="admin-metric-value">${formatAdminNumber(stats?.database?.brain_nodes ?? 0)}</div><div class="admin-metric-sub">Click to explore and visualize</div></div>`,
         `<div class="admin-metric"><div class="admin-metric-label">Knowledge Triples</div><div class="admin-metric-value">${formatAdminNumber(stats?.database?.knowledge_triples ?? 0)}</div></div>`,
         `<div class="admin-metric"><div class="admin-metric-label">Users</div><div class="admin-metric-value">${formatAdminNumber(Array.isArray(users) ? users.length : 0)}</div></div>`,
         `<div class="admin-metric"><div class="admin-metric-label">Pending Proposals</div><div class="admin-metric-value">${formatAdminNumber(Array.isArray(proposals) ? proposals.length : 0)}</div></div>`,
@@ -1438,7 +1454,7 @@ async function renderAdminStatsView() {
 
     return `
         <div class="admin-data-grid">
-            <div class="admin-data-card admin-data-card-link" role="link" tabindex="0" data-nav="/webui/visualize.html?source=system-stats&view=database"><span>Brain Nodes</span><strong>${formatAdminNumber(data.database?.brain_nodes ?? 0)}</strong><small>Click to explore and visualize</small></div>
+            <div class="admin-data-card admin-data-card-link" role="button" tabindex="0" data-admin-open-view="brain"><span>Brain Nodes</span><strong>${formatAdminNumber(data.database?.brain_nodes ?? 0)}</strong><small>Click to explore and visualize</small></div>
             <div class="admin-data-card"><span>Knowledge Triples</span><strong>${formatAdminNumber(data.database?.knowledge_triples ?? 0)}</strong></div>
             <div class="admin-data-card"><span>System Logs</span><strong>${formatAdminNumber(data.database?.system_logs ?? 0)}</strong></div>
             <div class="admin-data-card"><span>Anomalies</span><strong>${formatAdminNumber(data.database?.anomalies ?? 0)}</strong></div>
@@ -1544,6 +1560,26 @@ async function renderAdminProposalsView() {
     `;
 }
 
+async function renderAdminBrainExplorerView() {
+    return `
+        <div class="admin-section">
+            <h5>Brain Explorer</h5>
+            <div class="admin-list-sub">Explore the stored brain nodes directly inside the admin workspace. Search and node details are available in the embedded explorer below.</div>
+            <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
+                <a class="btn btn-secondary" href="/webui/visualize.html?source=system-stats&view=database" target="_blank" rel="noopener noreferrer">Open Full Page</a>
+                <button class="btn btn-secondary" type="button" onclick="refreshAdminWorkspace()">Refresh Explorer</button>
+            </div>
+        </div>
+        <div class="admin-section" style="padding:0;overflow:hidden;">
+            <iframe
+                src="/webui/visualize.html?source=system-stats&view=database&embedded=1"
+                title="Brain Explorer"
+                style="width:100%;height:78vh;min-height:720px;border:0;background:#0b1220;">
+            </iframe>
+        </div>
+    `;
+}
+
 async function openAdminView(view) {
     if (!state.isAdmin) return;
     state.adminView = view;
@@ -1568,6 +1604,8 @@ async function refreshAdminWorkspace() {
             setAdminWorkspace('Logs', 'Recent system logs in the same workspace.', await renderAdminLogsView());
         } else if (state.adminView === 'proposals') {
             setAdminWorkspace('Proposals', 'Review and act on pending proposals in place.', await renderAdminProposalsView());
+        } else if (state.adminView === 'brain') {
+            setAdminWorkspace('Brain Explorer', 'Explore and visualize brain nodes without leaving the admin console.', await renderAdminBrainExplorerView());
         } else {
             setAdminWorkspace('Control Center', 'Choose a view from the admin controls above.', '<div class="admin-empty">Select a view.</div>');
         }
@@ -1581,7 +1619,7 @@ async function refreshAdminWorkspace() {
 }
 
 async function adminAction(action) {
-    const adminViews = ['stats', 'users', 'logs', 'proposals'];
+    const adminViews = ['stats', 'users', 'logs', 'proposals', 'brain'];
     if (adminViews.includes(action)) {
         await openAdminView(action);
         return;
