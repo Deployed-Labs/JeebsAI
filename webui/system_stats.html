@@ -169,6 +169,17 @@
       padding: 14px;
     }
 
+    .metric.metric-link {
+      cursor: pointer;
+      transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .metric.metric-link:hover {
+      transform: translateY(-1px);
+      border-color: rgba(94, 234, 212, 0.42);
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.18);
+    }
+
     .metric-name {
       color: var(--muted);
       font-size: 0.78rem;
@@ -385,8 +396,28 @@
       return { ok: res.ok, status: res.status, data };
     }
 
-    function metricCard(name, value, subtext) {
-      return `<div class="metric"><div class="metric-name">${escapeHtml(name)}</div><div class="metric-value">${escapeHtml(value)}</div>${subtext ? `<div class="metric-sub">${escapeHtml(subtext)}</div>` : ''}</div>`;
+    function metricCard(name, value, subtext, href) {
+      const attrs = href
+        ? ` class="metric metric-link" role="link" tabindex="0" data-href="${escapeHtml(href)}"`
+        : ` class="metric"`;
+      const hint = href ? `<div class="metric-sub">Click to explore and visualize</div>` : '';
+      return `<div${attrs}><div class="metric-name">${escapeHtml(name)}</div><div class="metric-value">${escapeHtml(value)}</div>${subtext ? `<div class="metric-sub">${escapeHtml(subtext)}</div>` : hint}</div>`;
+    }
+
+    function bindMetricLinks() {
+      document.querySelectorAll('[data-href]').forEach((element) => {
+        const navigate = () => {
+          const href = element.getAttribute('data-href');
+          if (href) window.location.href = href;
+        };
+        element.addEventListener('click', navigate);
+        element.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            navigate();
+          }
+        });
+      });
     }
 
     function setHtml(id, html) {
@@ -437,7 +468,7 @@
         ].join(''));
 
         setHtml('databaseMetrics', [
-          metricCard('Brain Nodes', database.brain_nodes ?? 0),
+          metricCard('Brain Nodes', database.brain_nodes ?? 0, 'Click to explore and visualize', '/webui/visualize.html?source=system-stats&view=database'),
           metricCard('Knowledge Triples', database.knowledge_triples ?? 0),
           metricCard('Store Entries', database.store_entries ?? 0),
           metricCard('System Logs', database.system_logs ?? 0),
@@ -485,7 +516,7 @@
         ].join(''));
 
         setHtml('brainMetrics', [
-          metricCard('Nodes', brain.nodes ?? 0),
+          metricCard('Nodes', brain.nodes ?? 0, 'Click to explore and visualize', '/webui/visualize.html?source=system-stats&view=brain'),
           metricCard('Learned Facts', brain.learned_facts ?? 0),
           metricCard('Chats 24h', brain.chat_logs_24h ?? 0),
           metricCard('Warnings 24h', brain.warnings_24h ?? 0),
@@ -511,6 +542,8 @@
         evolution_stats: evolution.data,
         auth_session: auth.data
       }, null, 2));
+
+      bindMetricLinks();
     }
 
     document.getElementById('refreshBtn').addEventListener('click', loadPage);
