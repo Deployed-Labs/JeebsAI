@@ -1369,10 +1369,10 @@ function setAdminWorkspace(title, subtitle, html) {
 
 function bindAdminNavigationTargets(root) {
     const scope = root || document;
-    scope.querySelectorAll('[data-nav]').forEach((element) => {
+    scope.querySelectorAll('[data-nav],[data-href]').forEach((element) => {
         if (element.dataset.navBound === '1') return;
         const navigate = () => {
-            const href = element.getAttribute('data-nav');
+            const href = element.getAttribute('data-nav') || element.getAttribute('data-href');
             if (href) {
                 if (window.top && window.top !== window) {
                     window.top.location.assign(href);

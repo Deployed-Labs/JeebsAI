@@ -405,9 +405,9 @@
     }
 
     function bindMetricLinks() {
-      document.querySelectorAll('[data-href]').forEach((element) => {
+      document.querySelectorAll('[data-href],[data-nav]').forEach((element) => {
         const navigate = () => {
-          const href = element.getAttribute('data-href');
+          const href = element.getAttribute('data-href') || element.getAttribute('data-nav');
           if (href) window.location.href = href;
         };
         element.addEventListener('click', navigate);
