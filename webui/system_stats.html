@@ -468,7 +468,7 @@
         ].join(''));
 
         setHtml('databaseMetrics', [
-          metricCard('Brain Nodes', database.brain_nodes ?? 0, 'Click to explore and visualize', '/webui/visualize.html?source=system-stats&view=database'),
+          metricCard('Brain Nodes', database.brain_nodes ?? 0, 'Click to open the brain nodes page', '/webui/brain_nodes.html'),
           metricCard('Knowledge Triples', database.knowledge_triples ?? 0),
           metricCard('Store Entries', database.store_entries ?? 0),
           metricCard('System Logs', database.system_logs ?? 0),
@@ -516,7 +516,7 @@
         ].join(''));
 
         setHtml('brainMetrics', [
-          metricCard('Nodes', brain.nodes ?? 0, 'Click to explore and visualize', '/webui/visualize.html?source=system-stats&view=brain'),
+          metricCard('Nodes', brain.nodes ?? 0, 'Click to open the brain nodes page', '/webui/brain_nodes.html'),
           metricCard('Learned Facts', brain.learned_facts ?? 0),
           metricCard('Chats 24h', brain.chat_logs_24h ?? 0),
           metricCard('Warnings 24h', brain.warnings_24h ?? 0),

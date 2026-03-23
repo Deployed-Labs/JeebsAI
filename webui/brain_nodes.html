@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>Brain Nodes - JeebsAI</title>
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: #111a2e;
+      --panel-2: #15203a;
+      --text: #e8eefc;
+      --muted: #a7b7d6;
+      --border: rgba(148, 163, 184, 0.22);
+      --accent: #60a5fa;
+      --accent-2: #34d399;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(96, 165, 250, 0.22), transparent 24%),
+        linear-gradient(180deg, #09101c 0%, #0b1220 100%);
+    }
+    .page {
+      width: min(1440px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 24px 0 32px;
+    }
+    .hero, .panel {
+      background: rgba(17, 26, 46, 0.92);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.28);
+    }
+    .hero {
+      padding: 22px;
+      margin-bottom: 18px;
+    }
+    .hero h1 { margin: 0 0 8px; }
+    .hero p { margin: 0; color: var(--muted); }
+    .actions {
+      margin-top: 14px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .btn, .input, .select {
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+      color: var(--text);
+      min-height: 42px;
+      padding: 10px 14px;
+      font: inherit;
+    }
+    .btn {
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) minmax(320px, 0.9fr);
+      gap: 18px;
+    }
+    .panel {
+      overflow: hidden;
+    }
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 220px auto;
+      gap: 10px;
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .canvas {
+      height: 72vh;
+      min-height: 620px;
+      position: relative;
+    }
+    #graph {
+      width: 100%;
+      height: 100%;
+    }
+    .stats {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 0 16px 16px;
+    }
+    .chip {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 0.84rem;
+    }
+    .side {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .section {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+      border-radius: 14px;
+      padding: 14px;
+    }
+    .section h3 {
+      margin: 0 0 10px;
+      font-size: 0.98rem;
+    }
+    .list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 220px;
+      overflow: auto;
+    }
+    .item {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,0.02);
+      cursor: pointer;
+    }
+    .item:hover {
+      border-color: rgba(96, 165, 250, 0.5);
+    }
+    .item-title {
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .muted {
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.45;
+    }
+    .summary {
+      white-space: pre-wrap;
+      line-height: 1.55;
+      max-height: 220px;
+      overflow: auto;
+    }
+    .pill-list {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .pill {
+      border-radius: 999px;
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      background: rgba(96, 165, 250, 0.08);
+      font-size: 0.82rem;
+    }
+    #loading {
+      position: absolute;
+      top: 18px;
+      left: 18px;
+      background: rgba(11, 18, 32, 0.92);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px 14px;
+      z-index: 10;
+    }
+    @media (max-width: 1100px) {
+      .layout { grid-template-columns: 1fr; }
+      .toolbar { grid-template-columns: 1fr; }
+      .canvas { min-height: 520px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <h1>Brain Nodes</h1>
+      <p>A simple standalone page for exploring the stored brain nodes.</p>
+      <div class="actions">
+        <a class="btn" href="/webui/index.html">Back to Console</a>
+        <a class="btn" href="/webui/visualize.html">Open Advanced Explorer</a>
+      </div>
+    </section>
+
+    <div class="layout">
+      <section class="panel">
+        <div class="toolbar">
+          <input id="search" class="input" type="search" placeholder="Search brain nodes" />
+          <select id="category" class="select">
+            <option value="all">All Categories</option>
+          </select>
+          <button id="fitBtn" class="btn" type="button">Fit Graph</button>
+        </div>
+        <div class="stats">
+          <span class="chip">Visible Nodes <strong id="nodeCount">0</strong></span>
+          <span class="chip">Visible Edges <strong id="edgeCount">0</strong></span>
+          <span class="chip">Selected <strong id="selected">None</strong></span>
+        </div>
+        <div class="canvas">
+          <div id="loading">Loading brain nodes...</div>
+          <div id="graph"></div>
+        </div>
+      </section>
+
+      <aside class="panel side">
+        <section class="section">
+          <h3>Matching Nodes</h3>
+          <div id="results" class="list"></div>
+        </section>
+        <section class="section">
+          <h3 id="detailTitle">Select a node</h3>
+          <div id="detailMeta" class="muted">Click a node in the graph or list.</div>
+          <div id="detailSummary" class="summary muted" style="margin-top:10px;"></div>
+        </section>
+        <section class="section">
+          <h3>Topics</h3>
+          <div id="detailTopics" class="pill-list"></div>
+        </section>
+        <section class="section">
+          <h3>Connected Nodes</h3>
+          <div id="detailConnections" class="pill-list"></div>
+        </section>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    var network, nodesDataSet, edgesDataSet, nodesView, edgesView;
+    var allNodes = {};
+    var adjacency = {};
+    var visibleIds = [];
+    var currentId = null;
+
+    function escapeHtml(value) {
+      return String(value == null ? "" : value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function searchTerm() {
+      return (document.getElementById("search").value || "").trim().toLowerCase();
+    }
+
+    function selectedCategory() {
+      return document.getElementById("category").value || "all";
+    }
+
+    function matches(node) {
+      if (!node) return false;
+      if (selectedCategory() !== "all" && (node.group || "General") !== selectedCategory()) return false;
+      var term = searchTerm();
+      if (!term) return true;
+      var haystack = [
+        node.id,
+        node.label,
+        node.summary,
+        node.full_text,
+        Array.isArray(node.topics) ? node.topics.join(" ") : ""
+      ].join(" ").toLowerCase();
+      return haystack.indexOf(term) !== -1;
+    }
+
+    function refreshFilters() {
+      visibleIds = [];
+      nodesDataSet.forEach(function (node) {
+        if (matches(node)) visibleIds.push(node.id);
+      });
+      nodesView.refresh();
+      edgesView.refresh();
+      document.getElementById("nodeCount").textContent = String(visibleIds.length);
+      var visibleEdges = 0;
+      edgesDataSet.forEach(function (edge) {
+        if (visibleIds.indexOf(edge.from) !== -1 && visibleIds.indexOf(edge.to) !== -1) visibleEdges += 1;
+      });
+      document.getElementById("edgeCount").textContent = String(visibleEdges);
+      renderResults();
+    }
+
+    function renderResults() {
+      var matches = visibleIds.map(function (id) { return allNodes[id]; }).filter(Boolean).slice(0, 40);
+      var container = document.getElementById("results");
+      container.innerHTML = matches.map(function (node) {
+        return '<div class="item" data-node-id="' + escapeHtml(node.id) + '">' +
+          '<div class="item-title">' + escapeHtml(node.label || node.id) + '</div>' +
+          '<div class="muted">' + escapeHtml(node.summary || "") + '</div>' +
+          '</div>';
+      }).join("");
+      container.querySelectorAll("[data-node-id]").forEach(function (item) {
+        item.addEventListener("click", function () {
+          selectNode(this.getAttribute("data-node-id"));
+        });
+      });
+    }
+
+    function renderPills(id, items, resolver) {
+      var el = document.getElementById(id);
+      if (!items || !items.length) {
+        el.innerHTML = '<span class="muted">None</span>';
+        return;
+      }
+      el.innerHTML = items.map(resolver).join("");
+      el.querySelectorAll("[data-node-id]").forEach(function (item) {
+        item.addEventListener("click", function () {
+          selectNode(this.getAttribute("data-node-id"));
+        });
+      });
+    }
+
+    function selectNode(id) {
+      var node = allNodes[id];
+      if (!node) return;
+      currentId = id;
+      document.getElementById("selected").textContent = node.label || node.id;
+      document.getElementById("detailTitle").textContent = node.label || node.id;
+      document.getElementById("detailMeta").textContent = [node.id, node.group || "General"].join(" · ");
+      document.getElementById("detailSummary").textContent = node.full_text || node.summary || "";
+      renderPills("detailTopics", node.topics || [], function (topic) {
+        return '<span class="pill">' + escapeHtml(topic) + '</span>';
+      });
+      var connected = Array.from(new Set((adjacency[id] || []).map(function (entry) { return entry.nodeId; }))).slice(0, 24);
+      renderPills("detailConnections", connected, function (nodeId) {
+        var other = allNodes[nodeId];
+        return '<button class="pill" type="button" data-node-id="' + escapeHtml(nodeId) + '">' + escapeHtml((other && other.label) || nodeId) + '</button>';
+      });
+      if (network) {
+        network.selectNodes([id]);
+        network.focus(id, { scale: 1.1, animation: true });
+      }
+    }
+
+    async function loadBrainNodes() {
+      try {
+        var response = await fetch("/api/brain/visualize", { credentials: "same-origin" });
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        var data = await response.json();
+        var nodes = Array.isArray(data.nodes) ? data.nodes : [];
+        var edges = Array.isArray(data.edges) ? data.edges : [];
+
+        var categories = new Set();
+        allNodes = {};
+        adjacency = {};
+        nodes.forEach(function (node) {
+          allNodes[node.id] = node;
+          adjacency[node.id] = [];
+          categories.add(node.group || "General");
+        });
+        edges.forEach(function (edge) {
+          if (!adjacency[edge.from]) adjacency[edge.from] = [];
+          if (!adjacency[edge.to]) adjacency[edge.to] = [];
+          adjacency[edge.from].push({ nodeId: edge.to });
+          adjacency[edge.to].push({ nodeId: edge.from });
+        });
+
+        var categorySelect = document.getElementById("category");
+        categorySelect.innerHTML = '<option value="all">All Categories</option>' + Array.from(categories).sort().map(function (category) {
+          return '<option value="' + escapeHtml(category) + '">' + escapeHtml(category) + '</option>';
+        }).join("");
+
+        nodesDataSet = new vis.DataSet(nodes);
+        edgesDataSet = new vis.DataSet(edges);
+
+        nodesView = new vis.DataView(nodesDataSet, {
+          filter: function (node) { return matches(node); }
+        });
+        edgesView = new vis.DataView(edgesDataSet, {
+          filter: function (edge) {
+            return visibleIds.indexOf(edge.from) !== -1 && visibleIds.indexOf(edge.to) !== -1;
+          }
+        });
+
+        network = new vis.Network(document.getElementById("graph"), { nodes: nodesView, edges: edgesView }, {
+          nodes: {
+            shape: "dot",
+            scaling: { min: 10, max: 36, label: { enabled: true } },
+            font: { color: "#e8eefc", strokeWidth: 3, strokeColor: "rgba(0,0,0,0.35)" },
+            borderWidth: 2
+          },
+          edges: {
+            arrows: { to: { enabled: true, scaleFactor: 0.5 } },
+            color: { color: "rgba(148,163,184,0.28)", highlight: "#60a5fa" },
+            smooth: { type: "continuous" }
+          },
+          interaction: { hover: true, navigationButtons: true, keyboard: true },
+          physics: {
+            stabilization: { iterations: 120 },
+            barnesHut: { gravitationalConstant: -9000, springLength: 120, springConstant: 0.04 }
+          }
+        });
+
+        network.on("selectNode", function (params) {
+          if (params.nodes && params.nodes[0]) selectNode(params.nodes[0]);
+        });
+
+        document.getElementById("loading").style.display = "none";
+        refreshFilters();
+        if (nodes.length) selectNode(nodes[0].id);
+      } catch (error) {
+        document.getElementById("loading").textContent = "Could not load brain nodes: " + error.message;
+      }
+    }
+
+    document.getElementById("search").addEventListener("input", refreshFilters);
+    document.getElementById("category").addEventListener("change", refreshFilters);
+    document.getElementById("fitBtn").addEventListener("click", function () {
+      if (network) network.fit({ animation: true });
+    });
+
+    loadBrainNodes();
+  </script>
+</body>
+</html>
