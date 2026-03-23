@@ -443,6 +443,17 @@
             border-radius: 12px;
             padding: 14px;
         }
+        .admin-metric.admin-metric-link,
+        .admin-data-card.admin-data-card-link {
+            cursor: pointer;
+            transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+        }
+        .admin-metric.admin-metric-link:hover,
+        .admin-data-card.admin-data-card-link:hover {
+            transform: translateY(-1px);
+            border-color: rgba(99,102,241,0.42);
+            box-shadow: 0 10px 24px rgba(0,0,0,0.12);
+        }
         .admin-metric-label {
             font-size: 11px;
             text-transform: uppercase;
@@ -454,6 +465,11 @@
             font-size: 24px;
             font-weight: 700;
             color: var(--text);
+        }
+        .admin-metric-sub {
+            margin-top: 6px;
+            font-size: 12px;
+            color: var(--text2);
         }
         .admin-panel-grid {
             display: grid;
@@ -482,6 +498,12 @@
             font-size: 12px;
             text-transform: uppercase;
             letter-spacing: 0.08em;
+        }
+        .admin-data-card small {
+            display: block;
+            margin-top: 8px;
+            color: var(--text2);
+            font-size: 12px;
         }
         .admin-section {
             background: rgba(15,23,42,0.22);
@@ -1379,7 +1401,7 @@ async function loadAdminOverview() {
     const logs = logsResult.status === 'fulfilled' ? logsResult.value : null;
 
     overview.innerHTML = [
-        `<a class="admin-metric" href="/webui/visualize.html?source=system-stats&view=database" style="text-decoration:none;color:inherit;display:block;"><div class="admin-metric-label">Brain Nodes</div><div class="admin-metric-value">${formatAdminNumber(stats?.database?.brain_nodes ?? 0)}</div><div class="admin-metric-sub">Click to explore and visualize</div></a>`,
+        `<div class="admin-metric admin-metric-link" role="link" tabindex="0" onclick="window.location.assign('/webui/visualize.html?source=system-stats&view=database')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.assign('/webui/visualize.html?source=system-stats&view=database');}"><div class="admin-metric-label">Brain Nodes</div><div class="admin-metric-value">${formatAdminNumber(stats?.database?.brain_nodes ?? 0)}</div><div class="admin-metric-sub">Click to explore and visualize</div></div>`,
         `<div class="admin-metric"><div class="admin-metric-label">Knowledge Triples</div><div class="admin-metric-value">${formatAdminNumber(stats?.database?.knowledge_triples ?? 0)}</div></div>`,
         `<div class="admin-metric"><div class="admin-metric-label">Users</div><div class="admin-metric-value">${formatAdminNumber(Array.isArray(users) ? users.length : 0)}</div></div>`,
         `<div class="admin-metric"><div class="admin-metric-label">Pending Proposals</div><div class="admin-metric-value">${formatAdminNumber(Array.isArray(proposals) ? proposals.length : 0)}</div></div>`,
@@ -1395,7 +1417,7 @@ async function renderAdminStatsView() {
 
     return `
         <div class="admin-data-grid">
-            <a class="admin-data-card" href="/webui/visualize.html?source=system-stats&view=database" style="text-decoration:none;color:inherit;display:block;"><span>Brain Nodes</span><strong>${formatAdminNumber(data.database?.brain_nodes ?? 0)}</strong><small>Click to explore and visualize</small></a>
+            <div class="admin-data-card admin-data-card-link" role="link" tabindex="0" onclick="window.location.assign('/webui/visualize.html?source=system-stats&view=database')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.assign('/webui/visualize.html?source=system-stats&view=database');}"><span>Brain Nodes</span><strong>${formatAdminNumber(data.database?.brain_nodes ?? 0)}</strong><small>Click to explore and visualize</small></div>
             <div class="admin-data-card"><span>Knowledge Triples</span><strong>${formatAdminNumber(data.database?.knowledge_triples ?? 0)}</strong></div>
             <div class="admin-data-card"><span>System Logs</span><strong>${formatAdminNumber(data.database?.system_logs ?? 0)}</strong></div>
             <div class="admin-data-card"><span>Anomalies</span><strong>${formatAdminNumber(data.database?.anomalies ?? 0)}</strong></div>
