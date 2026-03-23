@@ -35,8 +35,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ghcr.io/${{ toLower(github.repository) }}:latest
+            ghcr.io/${{ toLower(github.repository) }}:${{ github.sha }}
 
       - name: Optionally push to Docker Hub
         if: secrets.DOCKERHUB_USERNAME && secrets.DOCKERHUB_TOKEN
