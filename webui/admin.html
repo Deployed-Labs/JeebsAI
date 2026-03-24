@@ -612,6 +612,11 @@
             window.location.href = '/index.html';
         }
 
+        // Auto-load dashboard on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadDashboard();
+        });
+
         // Tab switching
         function switchTab(tab) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -663,6 +668,9 @@
                     ${d.top_users.map(u => `<p>👤 ${u.username} - ${u.message_count} messages</p>`).join('')}
                 `;
                 document.getElementById('dashboard-content').innerHTML = html;
+            } else {
+                document.getElementById('dashboard-content').innerHTML = `<p style="color: red;"><strong>Error:</strong> ${res.data.message}</p>`;
+                console.error('Dashboard error:', res.data);
             }
         }
 
