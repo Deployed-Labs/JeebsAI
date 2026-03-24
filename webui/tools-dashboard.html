@@ -381,8 +381,29 @@
             color: #00ff00;
             word-break: break-all;
             white-space: pre-wrap;
-            max-height: 300px;
+            max-height: 400px;
             overflow-y: auto;
+        }
+
+        .formatted-result {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #e0e0e0;
+            line-height: 1.6;
+        }
+
+        .formatted-result strong {
+            color: #00d4ff;
+        }
+
+        .formatted-result a {
+            color: #00d4ff;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+
+        .formatted-result a:hover {
+            text-decoration: underline;
+            color: #00ffff;
         }
 
         .result-error {
@@ -610,6 +631,25 @@
             return 'Other';
         }
 
+        // Example inputs for tools
+        const TOOL_EXAMPLES = {
+            'web_search': { query: 'Python programming', max_results: '3' },
+            'calculator': { expression: '2 + 3 * 4' },
+            'wikipedia_summary': { topic: 'Artificial Intelligence', sentences: '3' },
+            'latest_news': { topic: 'Technology', count: '3' },
+            'define_word': { word: 'artificial', detailed: 'false' },
+            'convert_units': { value: '5', from_unit: 'km', to_unit: 'mi' },
+            'convert_color': { color: '#FF5733', to_format: 'rgb' },
+            'sentiment_analysis': { text: 'This is amazing! I love it!' },
+            'text_summarizer': { text: 'AI is changing the world. Machine learning enables computers to learn from data. Deep learning powers modern AI systems.', sentences: '2' },
+            'keyword_extractor': { text: 'Machine learning and artificial intelligence are transforming industries globally', keyword_count: '3' },
+            'generate_password': { length: '16', include_symbols: 'true' },
+            'format_json': { json_text: '{"name":"John","age":30}' },
+            'create_todo': { task: 'Review project proposal', priority: 'high' },
+            'date_calculator': { start_date: '2024-01-01', end_date: '2024-12-31' },
+            'csv_parser': { csv_data: 'Name,Age,City\nAlice,30,NYC\nBob,25,LA', has_header: 'true' }
+        };
+
         function openToolModal(toolId) {
             const tool = allTools.find(t => t.id === toolId);
             if (!tool) return;
@@ -620,28 +660,182 @@
             document.getElementById('modalTitle').textContent = tool.name.replace(/_/g, ' ').toUpperCase();
             document.getElementById('modalDescription').textContent = tool.description;
 
-            // Build form
+            // Build form with examples
             const formInputs = document.getElementById('formInputs');
             formInputs.innerHTML = '';
 
+            const examples = TOOL_EXAMPLES[tool.name] || {};
+
             Object.entries(tool.parameters).forEach(([param, description]) => {
+                const exampleValue = examples[param] || '';
                 const input = document.createElement('div');
                 input.className = 'form-group';
-                input.innerHTML = `
-                    <label for="${param}">${param}</label>
-                    <input type="text" id="${param}" name="${param}" placeholder="${description}" required>
+                
+                let inputHTML = `
+                    <label for="${param}">
+                        ${param.replace(/_/g, ' ').toUpperCase()}
+                        <span style="font-weight: normal; color: #7788aa; font-size: 0.9em;"> (${description})</span>
+                    </label>
                 `;
+                
+                // Use textarea for longer inputs
+                if (param.includes('text') || param.includes('data') || param.includes('csv')) {
+                    inputHTML += `
+                        <textarea id="${param}" name="${param}" placeholder="Enter ${param}..." required>${exampleValue}</textarea>
+                    `;
+                } else {
+                    inputHTML += `
+                        <input type="text" id="${param}" name="${param}" placeholder="${exampleValue || 'Enter value...'}" value="${exampleValue}" required>
+                    `;
+                }
+                
+                input.innerHTML = inputHTML;
                 formInputs.appendChild(input);
             });
 
+            // Add quick example button if examples exist
+            if (Object.keys(examples).length > 0) {
+                const btnRow = document.createElement('div');
+                btnRow.style.cssText = 'margin-bottom: 15px; text-align: center;';
+                btnRow.innerHTML = `
+                    <button type="button" class="btn-clear" onclick="fillExampleInputs('${tool.name}')">
+                        📝 Use Example
+                    </button>
+                `;
+                formInputs.parentElement.insertBefore(btnRow, formInputs);
+            }
+
             document.getElementById('resultsSection').style.display = 'none';
             document.getElementById('toolModal').classList.add('active');
+        }
+
+        function fillExampleInputs(toolName) {
+            const examples = TOOL_EXAMPLES[toolName] || {};
+            Object.entries(examples).forEach(([param, value]) => {
+                const element = document.getElementById(param);
+                if (element) {
+                    element.value = value;
+                }
+            });
         }
 
         function closeToolModal() {
             document.getElementById('toolModal').classList.remove('active');
             document.getElementById('toolForm').reset();
             currentTool = null;
+        }
+
+        // Format tool results in a user-friendly way
+        function formatToolResult(toolName, result) {
+            if (result.error) {
+                return `<div class="result-error">
+                    <strong>❌ Error:</strong> ${result.error}
+                    <br><small style="margin-top: 10px; display: block; color: #aabbcc;">
+                        Tip: Check your inputs are in the correct format. Use the "Use Example" button for reference.
+                    </small>
+                </div>`;
+            }
+
+            // Web search
+            if (toolName === 'web_search' && result.results) {
+                return `<div class="formatted-result">
+                    <strong>🔍 Search Results for "${result.query}"</strong>
+                    <div style="margin-top: 10px;">
+                        ${result.results.map((r, i) => `
+                            <div style="margin-bottom: 15px; padding: 10px; background: rgba(0,212,255,0.1); border-radius: 6px;">
+                                <strong>${i+1}. ${r.title}</strong><br>
+                                <small>${r.snippet}</small>
+                                ${r.url ? `<br><a href="${r.url}" target="_blank" style="color: #00d4ff; text-decoration: none;">→ Open link</a>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>`;
+            }
+
+            // Calculator
+            if ((toolName === 'calculator' || toolName === 'solve_equation') && result.result) {
+                return `<div class="formatted-result">
+                    <strong>📊 Result:</strong> <span style="font-size: 1.3em; color: #00ff00;">${result.result}</span>
+                    ${result.verification ? `<br><small style="margin-top: 10px; display: block;">Verification: ${result.verification}</small>` : ''}
+                </div>`;
+            }
+
+            // Text analysis
+            if ((toolName === 'sentiment_analysis' || toolName === 'text_stats') && result.sentiment) {
+                const sentiment = result.sentiment;
+                const colors = { positive: '#00ff00', negative: '#ff4757', neutral: '#ffaa00' };
+                return `<div class="formatted-result">
+                    <strong>😊 Sentiment:</strong> <span style="color: ${colors[sentiment]};">${sentiment.toUpperCase()}</span>
+                    ${result.confidence ? `<br>Confidence: ${result.confidence}%` : ''}
+                    ${result.positive_words ? `<br>Positive words: ${result.positive_words}` : ''}
+                    ${result.negative_words ? `<br>Negative words: ${result.negative_words}` : ''}
+                </div>`;
+            }
+
+            // Text summarizer
+            if (toolName === 'text_summarizer' && result.summary) {
+                return `<div class="formatted-result">
+                    <strong>📝 Summary:</strong>
+                    <p style="margin-top: 10px; padding: 10px; background: rgba(0,212,255,0.1); border-radius: 6px; line-height: 1.6;">
+                        ${result.summary}
+                    </p>
+                    <small style="color: #7788aa;">Compressed by ${result.compression_ratio}%</small>
+                </div>`;
+            }
+
+            // Keywords
+            if (toolName === 'keyword_extractor' && result.keywords) {
+                return `<div class="formatted-result">
+                    <strong>🎯 Keywords Found:</strong>
+                    <div style="margin-top: 10px;">
+                        ${result.keywords.map(k => `
+                            <span style="display: inline-block; margin: 5px; padding: 6px 12px; background: rgba(0,212,255,0.2); border-radius: 15px; border: 1px solid #00d4ff;">
+                                ${k.word} <span style="color: #7788aa;">(${k.frequency})</span>
+                            </span>
+                        `).join('')}
+                    </div>
+                </div>`;
+            }
+
+            // Conversions
+            if ((toolName.includes('convert') || toolName === 'file_size_calc') && result.result) {
+                return `<div class="formatted-result">
+                    <strong>🔄 Conversion Result:</strong>
+                    <div style="margin-top: 10px; padding: 10px; background: rgba(0,212,255,0.1); border-radius: 6px;">
+                        <strong>${result.original || result.from}</strong> → <strong style="font-size: 1.2em; color: #00ff00;">${result.converted || result.result} ${result.to || result.unit || 'units'}</strong>
+                    </div>
+                </div>`;
+            }
+
+            // Password generator
+            if (toolName === 'generate_password' && result.password) {
+                return `<div class="formatted-result">
+                    <strong>🔐 Generated Password:</strong>
+                    <div style="margin-top: 10px; padding: 15px; background: rgba(0,212,255,0.1); border-radius: 6px;">
+                        <code style="font-size: 1.1em; color: #00ff00; letter-spacing: 2px;">${result.password}</code>
+                        <br><small style="margin-top: 10px; display: block; color: #7788aa;">Strength: <strong style="color: #00ff00;">${result.strength}</strong> | Length: ${result.length}</small>
+                    </div>
+                </div>`;
+            }
+
+            // Todo
+            if (toolName === 'create_todo' && result.todo) {
+                return `<div class="formatted-result">
+                    <strong>✅ Todo Created:</strong>
+                    <div style="margin-top: 10px; padding: 10px; background: rgba(0,212,255,0.1); border-radius: 6px;">
+                        <strong>${result.todo.task}</strong><br>
+                        <small style="color: #7788aa;">Priority: ${result.todo.priority} ${result.todo.due_date ? `| Due: ${result.todo.due_date}` : ''}</small>
+                    </div>
+                </div>`;
+            }
+
+            // Default: show formatted JSON
+            return `<div class="formatted-result">
+                <strong>📋 Result:</strong>
+                <pre style="margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.5); border-radius: 6px; overflow-x: auto; font-size: 0.85em;">
+${JSON.stringify(result, null, 2)}
+                </pre>
+            </div>`;
         }
 
         async function executeTool(event) {
@@ -668,18 +862,9 @@
                 });
 
                 const result = await response.json();
-
-                // Format result
-                let displayResult = '';
-                if (result.error) {
-                    displayResult = `<span class="result-error">❌ Error: ${result.error}</span>`;
-                } else {
-                    displayResult = JSON.stringify(result, null, 2);
-                }
-
-                resultBox.innerHTML = displayResult;
+                resultBox.innerHTML = formatToolResult(currentTool.id, result);
             } catch (error) {
-                resultBox.innerHTML = `<span class="result-error">❌ Error: ${error.message}</span>`;
+                resultBox.innerHTML = `<div class="result-error">❌ Connection error: ${error.message}</div>`;
             }
         }
 
