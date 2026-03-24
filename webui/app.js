@@ -304,11 +304,18 @@ async function showAdminDashboard() {
         const data = await response.json();
         const statsDiv = document.getElementById('admin-stats');
         const usersDiv = document.getElementById('admin-users');
+        const convDiv = document.getElementById('admin-conversations');
+        const controlsDiv = document.getElementById('admin-controls');
         
+        // Stats
         statsDiv.innerHTML = `
             <div class="stat-card">
                 <h4>Total Users</h4>
                 <div class="stat-value">${data.stats.total_users}</div>
+            </div>
+            <div class="stat-card">
+                <h4>Admins</h4>
+                <div class="stat-value">${data.stats.total_admins}</div>
             </div>
             <div class="stat-card">
                 <h4>Conversations</h4>
@@ -320,25 +327,350 @@ async function showAdminDashboard() {
             </div>
         `;
         
-        usersDiv.innerHTML = '<h3>Recent Users</h3>';
+        // Recent users with controls
+        usersDiv.innerHTML = '<h3>Users Management</h3>';
         data.recent_users.forEach(user => {
             const userEl = document.createElement('div');
-            userEl.className = 'user-item';
+            userEl.className = 'user-management-item';
             userEl.innerHTML = `
-                <div class="user-item-name">${escapeHtml(user.username)}</div>
-                <div class="user-item-email">${escapeHtml(user.email)}</div>
+                <div class="user-info">
+                    <div class="user-item-name">${escapeHtml(user.username)}</div>
+                    <div class="user-item-email">${escapeHtml(user.email)}</div>
+                    ${user.is_admin ? '<span class="badge-admin">ADMIN</span>' : ''}
+                </div>
+                <div class="user-actions">
+                    <button class="btn-small" onclick="toggleUserAdmin(${user.id}, ${!user.is_admin})">
+                        ${user.is_admin ? 'Revoke Admin' : 'Make Admin'}
+                    </button>
+                    <button class="btn-small btn-danger" onclick="resetUserPassword(${user.id})">Reset Pass</button>
+                    <button class="btn-small btn-danger" onclick="deleteUserAdmin(${user.id})">Delete</button>
+                </div>
             `;
             usersDiv.appendChild(userEl);
         });
         
+        // View all users button
+        const viewAllBtn = document.createElement('button');
+        viewAllBtn.className = 'btn-primary';
+        viewAllBtn.textContent = 'View All Users';
+        viewAllBtn.onclick = loadAllUsers;
+        usersDiv.appendChild(viewAllBtn);
+        
+        // Recent conversations
+        convDiv.innerHTML = '<h3>Conversations Management</h3>';
+        if (data.recent_conversations.length === 0) {
+            convDiv.innerHTML += '<p>No conversations yet</p>';
+        } else {
+            data.recent_conversations.forEach(conv => {
+                const convEl = document.createElement('div');
+                convEl.className = 'conv-management-item';
+                convEl.innerHTML = `
+                    <div class="conv-info">
+                        <div class="conv-title">${escapeHtml(conv.title)}</div>
+                        <div class="conv-user">By: ${escapeHtml(conv.username)}</div>
+                    </div>
+                    <div class="conv-actions">
+                        <button class="btn-small" onclick="viewConversationAdmin(${conv.id})">View</button>
+                        <button class="btn-small btn-danger" onclick="deleteConversationAdmin(${conv.id})">Delete</button>
+                    </div>
+                `;
+                convDiv.appendChild(convEl);
+            });
+        }
+        
+        // Controls
+        controlsDiv.innerHTML = `
+            <h3>System Controls</h3>
+            <div class="controls-grid">
+                <button class="btn-control" onclick="cleanupDatabase()">🧹 Cleanup Database</button>
+                <button class="btn-control" onclick="exportAllData()">💾 Export Data</button>
+                <button class="btn-control" onclick="viewAllConversations()">📋 All Conversations</button>
+            </div>
+        `;
+        
         document.getElementById('admin-modal').classList.remove('hidden');
     } catch (error) {
         console.error('Error loading admin dashboard:', error);
+        alert('Error loading admin dashboard');
+    }
+}
+
+async function loadAllUsers() {
+    try {
+        const response = await fetch(`${API_BASE}/admin/users`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) return;
+        
+        const users = await response.json();
+        const usersDiv = document.getElementById('admin-users');
+        usersDiv.innerHTML = '<h3>All Users</h3>';
+        
+        users.forEach(user => {
+            const userEl = document.createElement('div');
+            userEl.className = 'user-management-item';
+            userEl.innerHTML = `
+                <div class="user-info">
+                    <div class="user-item-name">${escapeHtml(user.username)}</div>
+                    <div class="user-item-email">${escapeHtml(user.email)}</div>
+                    ${user.is_admin ? '<span class="badge-admin">ADMIN</span>' : ''}
+                </div>
+                <div class="user-actions">
+                    <button class="btn-small" onclick="toggleUserAdmin(${user.id}, ${!user.is_admin})">
+                        ${user.is_admin ? 'Revoke Admin' : 'Make Admin'}
+                    </button>
+                    <button class="btn-small btn-danger" onclick="resetUserPassword(${user.id})">Reset Pass</button>
+                    ${user.id !== currentUser.id ? `<button class="btn-small btn-danger" onclick="deleteUserAdmin(${user.id})">Delete</button>` : ''}
+                </div>
+            `;
+            usersDiv.appendChild(userEl);
+        });
+    } catch (error) {
+        console.error('Error loading users:', error);
+    }
+}
+
+async function viewAllConversations() {
+    try {
+        const response = await fetch(`${API_BASE}/admin/conversations`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) return;
+        
+        const conversations = await response.json();
+        const convDiv = document.getElementById('admin-conversations');
+        convDiv.innerHTML = '<h3>All Conversations</h3>';
+        
+        conversations.forEach(conv => {
+            const convEl = document.createElement('div');
+            convEl.className = 'conv-management-item';
+            convEl.innerHTML = `
+                <div class="conv-info">
+                    <div class="conv-title">${escapeHtml(conv.title)}</div>
+                    <div class="conv-user">By: ${escapeHtml(conv.username)}</div>
+                    <div class="conv-date">Created: ${new Date(conv.created_at).toLocaleDateString()}</div>
+                </div>
+                <div class="conv-actions">
+                    <button class="btn-small" onclick="viewConversationAdmin(${conv.id})">View</button>
+                    <button class="btn-small btn-danger" onclick="deleteConversationAdmin(${conv.id})">Delete</button>
+                </div>
+            `;
+            convDiv.appendChild(convEl);
+        });
+    } catch (error) {
+        console.error('Error loading conversations:', error);
+    }
+}
+
+async function viewConversationAdmin(convId) {
+    try {
+        const response = await fetch(`${API_BASE}/admin/conversations/${convId}/messages`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) return;
+        
+        const messages = await response.json();
+        const convDiv = document.getElementById('admin-conversations');
+        convDiv.innerHTML = '<h3>Messages in Conversation</h3>';
+        
+        messages.forEach(msg => {
+            const msgEl = document.createElement('div');
+            msgEl.className = `message-item message-${msg.role}`;
+            msgEl.innerHTML = `
+                <div class="msg-header">${msg.role.toUpperCase()}</div>
+                <div class="msg-content">${escapeHtml(msg.content)}</div>
+                <div class="msg-time">${new Date(msg.created_at).toLocaleString()}</div>
+                <button class="btn-tiny btn-danger" onclick="deleteMessageAdmin(${msg.id})">Delete</button>
+            `;
+            convDiv.appendChild(msgEl);
+        });
+    } catch (error) {
+        console.error('Error loading messages:', error);
+    }
+}
+
+async function toggleUserAdmin(userId, makeAdmin) {
+    if (!confirm(`${makeAdmin ? 'Make' : 'Revoke'} admin status for user ${userId}?`)) return;
+    
+    try {
+        const response = await fetch(`${API_BASE}/admin/users/${userId}/admin`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ is_admin: makeAdmin })
+        });
+        
+        if (response.ok) {
+            alert(`User ${userId} admin status updated`);
+            showAdminDashboard();
+        }
+    } catch (error) {
+        console.error('Error updating user:', error);
+        alert('Error updating user');
+    }
+}
+
+async function resetUserPassword(userId) {
+    const newPassword = prompt('Enter new password for user:');
+    if (!newPassword) return;
+    
+    try {
+        const response = await fetch(`${API_BASE}/admin/users/${userId}/password`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ password: newPassword })
+        });
+        
+        if (response.ok) {
+            alert(`Password reset successful. New password: ${newPassword}`);
+            showAdminDashboard();
+        }
+    } catch (error) {
+        console.error('Error resetting password:', error);
+        alert('Error resetting password');
+    }
+}
+
+async function deleteUserAdmin(userId) {
+    if (!confirm(`Permanently delete user ${userId} and all their data?`)) return;
+    
+    try {
+        const response = await fetch(`${API_BASE}/admin/users/${userId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+            alert(`User ${userId} deleted`);
+            showAdminDashboard();
+        }
+    } catch (error) {
+        console.error('Error deleting user:', error);
+        alert('Error deleting user');
+    }
+}
+
+async function deleteConversationAdmin(convId) {
+    if (!confirm(`Permanently delete conversation ${convId} and all messages?`)) return;
+    
+    try {
+        const response = await fetch(`${API_BASE}/admin/conversations/${convId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+            alert(`Conversation ${convId} deleted`);
+            viewAllConversations();
+        }
+    } catch (error) {
+        console.error('Error deleting conversation:', error);
+        alert('Error deleting conversation');
+    }
+}
+
+async function deleteMessageAdmin(msgId) {
+    if (!confirm(`Delete this message?`)) return;
+    
+    try {
+        const response = await fetch(`${API_BASE}/admin/messages/${msgId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+            alert('Message deleted');
+            // Reload current view
+            const convDiv = document.getElementById('admin-conversations');
+            if (convDiv.innerHTML.includes('Messages in Conversation')) {
+                // Refresh the message list
+                location.reload();
+            }
+        }
+    } catch (error) {
+        console.error('Error deleting message:', error);
+        alert('Error deleting message');
+    }
+}
+
+async function cleanupDatabase() {
+    if (!confirm('Clean up empty conversations? This cannot be undone.')) return;
+    
+    try {
+        const response = await fetch(`${API_BASE}/admin/cleanup`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            alert(`Cleanup complete. Deleted ${data.empty_conversations_deleted} empty conversations`);
+            showAdminDashboard();
+        }
+    } catch (error) {
+        console.error('Error cleaning database:', error);
+        alert('Error cleaning database');
+    }
+}
+
+async function exportAllData() {
+    try {
+        const response = await fetch(`${API_BASE}/admin/export`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            const dataStr = JSON.stringify(data, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `jeebs-export-${new Date().toISOString()}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+            alert('Data exported successfully');
+        }
+    } catch (error) {
+        console.error('Error exporting data:', error);
+        alert('Error exporting data');
     }
 }
 
 function closeAdminDashboard() {
     document.getElementById('admin-modal').classList.add('hidden');
+}
+
+function switchAdminTab(tabName) {
+    // Hide all tabs
+    document.querySelectorAll('.admin-tab-content').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    document.querySelectorAll('.admin-tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Show selected tab
+    const tabId = `admin-${tabName}-tab`;
+    document.getElementById(tabId).classList.add('active');
+    
+    // Mark button as active
+    event.target.classList.add('active');
+    
+    // Load data for the tab
+    if (tabName === 'users') {
+        loadAllUsers();
+    } else if (tabName === 'conversations') {
+        viewAllConversations();
+    }
 }
 
 // Logout

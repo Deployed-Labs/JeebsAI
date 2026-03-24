@@ -105,14 +105,32 @@
         
         <!-- Admin Dashboard Modal -->
         <div id="admin-modal" class="modal hidden">
-            <div class="modal-content">
+            <div class="modal-content admin-modal-large">
                 <div class="modal-header">
-                    <h2>Admin Dashboard</h2>
+                    <h2>Admin Control Panel</h2>
                     <button class="btn-close" onclick="closeAdminDashboard()">×</button>
                 </div>
+                <div class="admin-tabs-container">
+                    <div class="admin-tabs">
+                        <button class="admin-tab-btn active" onclick="switchAdminTab('dashboard')">Dashboard</button>
+                        <button class="admin-tab-btn" onclick="switchAdminTab('users')">Users</button>
+                        <button class="admin-tab-btn" onclick="switchAdminTab('conversations')">Conversations</button>
+                        <button class="admin-tab-btn" onclick="switchAdminTab('controls')">Controls</button>
+                    </div>
+                </div>
                 <div class="modal-body">
-                    <div id="admin-stats" class="admin-stats"></div>
-                    <div id="admin-users" class="admin-users"></div>
+                    <div id="admin-dashboard-tab" class="admin-tab-content active">
+                        <div id="admin-stats" class="admin-stats"></div>
+                    </div>
+                    <div id="admin-users-tab" class="admin-tab-content">
+                        <div id="admin-users" class="admin-users"></div>
+                    </div>
+                    <div id="admin-conversations-tab" class="admin-tab-content">
+                        <div id="admin-conversations" class="admin-conversations"></div>
+                    </div>
+                    <div id="admin-controls-tab" class="admin-tab-content">
+                        <div id="admin-controls" class="admin-controls"></div>
+                    </div>
                 </div>
             </div>
         </div>
