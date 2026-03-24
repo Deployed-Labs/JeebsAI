@@ -4,15 +4,24 @@ services:
   web:
     build:
       context: ..
-      dockerfile: Dockerfile
+      dockerfile: deploy/Dockerfile
     image: jeebsai/web:latest
     restart: unless-stopped
     environment:
       - PORT=8000
+      - FLASK_ENV=production
     expose:
       - "8000"
+    volumes:
+      - jeebs_data:/data
     networks:
       - webnet
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
 
   caddy:
     image: caddy:2
@@ -30,6 +39,7 @@ services:
       - webnet
 
 volumes:
+  jeebs_data:
   caddy_data:
   caddy_config:
 

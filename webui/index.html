@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JeebsAI - Chat with AI</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div id="app" class="app-container">
+        <!-- Auth Section -->
+        <div id="auth-section" class="auth-section">
+            <div class="auth-container">
+                <div class="auth-box">
+                    <h1>JeebsAI</h1>
+                    <p class="subtitle">Chat with AI</p>
+                    
+                    <div class="auth-tabs">
+                        <button class="tab-btn active" onclick="switchAuthMode('login')">Login</button>
+                        <button class="tab-btn" onclick="switchAuthMode('register')">Register</button>
+                    </div>
+                    
+                    <!-- Login Form -->
+                    <form id="login-form" class="auth-form active" onsubmit="handleLogin(event)">
+                        <div class="form-group">
+                            <label for="login-username">Username</label>
+                            <input type="text" id="login-username" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="login-password">Password</label>
+                            <input type="password" id="login-password" required>
+                        </div>
+                        <button type="submit" class="btn-primary">Login</button>
+                        <div id="login-error" class="error-message"></div>
+                    </form>
+                    
+                    <!-- Register Form -->
+                    <form id="register-form" class="auth-form" onsubmit="handleRegister(event)">
+                        <div class="form-group">
+                            <label for="register-username">Username</label>
+                            <input type="text" id="register-username" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="register-email">Email</label>
+                            <input type="email" id="register-email" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="register-password">Password</label>
+                            <input type="password" id="register-password" required>
+                        </div>
+                        <button type="submit" class="btn-primary">Register</button>
+                        <div id="register-error" class="error-message"></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Chat Section -->
+        <div id="chat-section" class="chat-section hidden">
+            <div class="chat-container">
+                <!-- Sidebar -->
+                <div class="sidebar">
+                    <div class="sidebar-header">
+                        <h2>JeebsAI</h2>
+                        <button class="btn-icon" onclick="createNewConversation()">+</button>
+                    </div>
+                    <div id="conversations-list" class="conversations-list"></div>
+                    <div class="sidebar-footer">
+                        <button class="btn-logout" onclick="handleLogout()">Logout</button>
+                    </div>
+                </div>
+                
+                <!-- Main Chat -->
+                <div class="chat-main">
+                    <div class="chat-header">
+                        <h3 id="conv-title">New Chat</h3>
+                        <div class="admin-section" id="admin-section" style="display:none;">
+                            <button class="btn-icon" onclick="showAdminDashboard()">⚙️</button>
+                        </div>
+                    </div>
+                    
+                    <div id="messages-container" class="messages-container">
+                        <div class="welcome-message">
+                            <h2>Welcome to JeebsAI</h2>
+                            <p>Start a new conversation or select an existing one from the sidebar.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="chat-input-area">
+                        <form onsubmit="handleSendMessage(event)">
+                            <div class="input-group">
+                                <input 
+                                    type="text" 
+                                    id="message-input" 
+                                    placeholder="Type your message..." 
+                                    autocomplete="off"
+                                >
+                                <button type="submit" class="btn-send">Send</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Admin Dashboard Modal -->
+        <div id="admin-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Admin Dashboard</h2>
+                    <button class="btn-close" onclick="closeAdminDashboard()">×</button>
+                </div>
+                <div class="modal-body">
+                    <div id="admin-stats" class="admin-stats"></div>
+                    <div id="admin-users" class="admin-users"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/static/app.js"></script>
+</body>
+</html>
