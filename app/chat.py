@@ -6,21 +6,41 @@ from .tools import execute_tool
 
 chat_bp = Blueprint('chat', __name__, url_prefix='/api/chat')
 
-def detect_and_use_tools(user_message):
-    """Detect if a message requests tool usage and execute if needed"""
+def detect_and_use_tools(user_message, conv_id=None):
+    """Detect if a message requests tool usage and execute if needed, then learn results"""
     message_lower = user_message.lower()
     
     # Web search detection
-    if any(phrase in message_lower for phrase in ['search', 'find', 'look up', 'what is', 'who is', 'latest', 'news']):
-        if any(phrase in message_lower for phrase in ['search for', 'look up', 'find', 'search', 'web']):
-            # Extract search query
-            keywords = message_lower.split()
-            query = ' '.join(keywords)
+    if any(phrase in message_lower for phrase in ['search', 'find', 'look up', 'what is', 'who is', 'latest', 'news', 'tell me about', 'information about']):
+        # Use better query extraction
+        query = user_message
+        # Remove common prefixes
+        for prefix in ['search for ', 'look up ', 'find ', 'search ', 'what is ', 'who is ', 'latest ', 'news about ', 'tell me about ', 'information about ', 'i want to know about ']:
+            if query.lower().startswith(prefix):
+                query = query[len(prefix):]
+                break
+        
+        query = query.strip()
+        if len(query) > 1:
             result = execute_tool('web_search', query=query, max_results=3)
-            if result.get('results'):
-                response = f"I found some information about '{query}':\n\n"
-                for i, r in enumerate(result['results'][:3], 1):
-                    response += f"{i}. **{r.get('title', 'Result')}**: {r.get('snippet', 'No info')}\n"
+            if result.get('success') and result.get('results'):
+                # Build response with search results
+                response = f"🔍 **Search Results for '{query}':**\n\n"
+                for i, r in enumerate(result['results'], 1):
+                    snippet = r.get('snippet', 'No info available')
+                    # Truncate if too long
+                    if len(snippet) > 200:
+                        snippet = snippet[:197] + '...'
+                    response += f"{i}. **{r.get('title', 'Result')}**\n   {snippet}\n\n"
+                
+                # Learn this search result to the brain
+                if conv_id:
+                    try:
+                        combined_knowledge = f"{query}: " + " ".join([r.get('snippet', '') for r in result['results'][:3]])
+                        brain.save_memory(conv_id, query, combined_knowledge)
+                    except Exception as e:
+                        pass  # Silently fail if brain learning fails
+                
                 return response
     
     # Calculator detection
@@ -28,7 +48,6 @@ def detect_and_use_tools(user_message):
         # Look for mathematical expressions
         import re
         if re.search(r'\d\s*[+\-*/]\s*\d', user_message) or 'calculate' in message_lower:
-            result = execute_tool('analyze_code', code='', check_type='syntax')  # Dummy
             return None  # Fall through to other methods
     
     # Code analysis detection
@@ -37,11 +56,11 @@ def detect_and_use_tools(user_message):
     
     return None
 
-def generate_response(user_message):
+def generate_response(user_message, conv_id=None):
     """Generate a response using the holographic brain, tool use, and rule-based fallback."""
     
-    # Try to use tools if applicable
-    tool_response = detect_and_use_tools(user_message)
+    # Try to use tools if applicable (pass conv_id so tools can learn)
+    tool_response = detect_and_use_tools(user_message, conv_id)
     if tool_response:
         return tool_response
     
@@ -130,7 +149,7 @@ def send_message(user, conv_id):
     Message.create(conv_id, 'user', user_message)
     
     # Generate and store AI response
-    ai_response = generate_response(user_message)
+    ai_response = generate_response(user_message, conv_id)
     Message.create(conv_id, 'assistant', ai_response)
 
     # Save the user->assistant pair to the holographic brain for learning

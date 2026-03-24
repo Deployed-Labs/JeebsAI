@@ -752,7 +752,12 @@
             };
             if (data) opts.body = JSON.stringify(data);
 
-            const url = `${window.location.protocol}//${window.location.host}/api/admin${endpoint}`;
+            // Determine if this is a tools endpoint or admin endpoint
+            const baseUrl = endpoint.startsWith('/tools') || endpoint.startsWith('/conversations') || endpoint.startsWith('/analytics') || endpoint.startsWith('/prompts')
+                ? '/api'
+                : '/api/admin';
+
+            const url = `${window.location.protocol}//${window.location.host}${baseUrl}${endpoint}`;
             const res = await fetch(url, opts);
             const json = await res.json();
             return { ok: res.ok, data: json, status: res.status };
@@ -1076,7 +1081,7 @@
 
         // ========== TOOLS TAB FUNCTIONS ==========
         async function loadToolsList() {
-            const res = await api('GET', '/available');
+            const res = await api('GET', '/tools/available');
             if (res.ok) {
                 const tools = res.data.tools;
                 let html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">';
@@ -1103,7 +1108,7 @@
             if (tool === 'calculator') params.expression = input;
             if (tool === 'analyze_code') params.code = input;
 
-            const res = await api('POST', '/execute', { tool_name: tool, params });
+            const res = await api('POST', '/tools/execute', { tool_name: tool, params });
             const resultDiv = document.getElementById('tool-test-result');
             
             if (res.ok) {
@@ -1115,7 +1120,7 @@
 
         // ========== ANALYTICS TAB FUNCTIONS ==========
         async function loadUserAnalytics() {
-            const res = await api('GET', '/analytics/user');
+            const res = await api('GET', '/tools/analytics/user');
             if (res.ok) {
                 const a = res.data;
                 const html = `
@@ -1141,7 +1146,7 @@
         }
 
         async function loadTrendingTopics() {
-            const res = await api('GET', '/analytics/trending?limit=15');
+            const res = await api('GET', '/tools/analytics/trending?limit=15');
             if (res.ok && res.data.topics) {
                 let html = '<div style="display: flex; flex-wrap: wrap; gap: 10px;">';
                 res.data.topics.forEach(t => {
@@ -1156,7 +1161,7 @@
             const query = document.getElementById('conv-search-query').value;
             if (!query) { showAlert('Enter search term', 'error'); return; }
 
-            const res = await api('POST', '/analytics/search', { query });
+            const res = await api('POST', '/tools/analytics/search', { query });
             const resultsDiv = document.getElementById('search-results');
             
             if (res.ok && res.data.results) {
@@ -1182,7 +1187,7 @@
             const title = document.getElementById('branch-conv-title').value;
             if (!convId) { showAlert('Enter conversation ID', 'error'); return; }
 
-            const res = await api('POST', `/conversations/${convId}/branch`, { from_message_id: -1, new_title: title });
+            const res = await api('POST', `/tools/conversations/${convId}/branch`, { from_message_id: -1, new_title: title });
             const resultDiv = document.getElementById('branch-result');
             
            if (res.ok) {
@@ -1198,7 +1203,7 @@
             const content = document.getElementById('edit-msg-content').value;
             if (!convId || !msgId || !content) { showAlert('Fill all fields', 'error'); return; }
 
-            const res = await api('PUT', `/conversations/${convId}/messages/${msgId}`, { content });
+            const res = await api('PUT', `/tools/conversations/${convId}/messages/${msgId}`, { content });
             const resultDiv = document.getElementById('edit-result');
             
             if (res.ok) {
@@ -1214,7 +1219,7 @@
             const title = document.getElementById('merge-title').value;
             if (!conv1 || !conv2) { showAlert('Enter both conversation IDs', 'error'); return; }
 
-            const res = await api('POST', '/conversations/merge', { conversation_id_1: conv1, conversation_id_2: conv2, new_title: title });
+            const res = await api('POST', '/tools/conversations/merge', { conversation_id_1: conv1, conversation_id_2: conv2, new_title: title });
             const resultDiv = document.getElementById('merge-result');
             
             if (res.ok) {

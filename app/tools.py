@@ -104,51 +104,80 @@ def calculator(expression=None, operation=None, **kwargs):
     }
 )
 def web_search(query, max_results=5, **kwargs):
-    """Search the web using DuckDuckGo API (free, no key required)"""
+    """Search the web using multiple sources with fallback"""
+    results = []
+    
     try:
-        # Using DuckDuckGo instant answer API (no auth required)
-        url = 'https://duckduckgo.com/'
+        # Try DuckDuckGo instant answer first
+        url = 'https://api.duckduckgo.com/'
         params = {
             'q': query,
-            'format': 'json'
+            'format': 'json',
+            'no_redirect': '1'
         }
         
-        headers = {'User-Agent': 'Mozilla/5.0'}
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
         response = requests.get(url, params=params, headers=headers, timeout=5)
         
-        if response.status_code != 200:
-            return {'error': 'Search failed', 'query': query}
+        if response.status_code == 200:
+            data = response.json()
+            
+            # Get instant answer
+            if data.get('AbstractText'):
+                results.append({
+                    'title': 'Direct Answer',
+                    'snippet': data.get('AbstractText'),
+                    'url': data.get('AbstractURL') or f'https://duckduckgo.com/?q={query}',
+                    'source': 'instant_answer'
+                })
+            
+            # Get related topics
+            if data.get('RelatedTopics'):
+                for item in data.get('RelatedTopics', [])[:max_results-len(results)]:
+                    if isinstance(item, dict) and item.get('Text'):
+                        results.append({
+                            'title': item.get('FirstURL', query).split('/')[-1] or query,
+                            'snippet': item.get('Text'),
+                            'url': item.get('FirstURL') or f'https://duckduckgo.com/?q={query}',
+                            'source': 'related'
+                        })
+            
+            # Get definition
+            if data.get('Definition'):
+                results.insert(0, {
+                    'title': 'Definition',
+                    'snippet': data.get('Definition'),
+                    'url': f'https://duckduckgo.com/?q={query}',
+                    'source': 'definition'
+                })
         
-        data = response.json()
-        
-        # Extract results from DuckDuckGo response
-        results = []
-        
-        # Abstract/instant answer
-        if data.get('AbstractText'):
-            results.append({
-                'title': query,
-                'snippet': data.get('AbstractText'),
-                'url': data.get('AbstractURL')
-            })
-        
-        # Related topics
-        if data.get('RelatedTopics'):
-            for item in data.get('RelatedTopics', [])[:max_results-1]:
-                if isinstance(item, dict) and item.get('Text'):
-                    results.append({
-                        'title': item.get('FirstURL', '').split('/')[-1],
-                        'snippet': item.get('Text'),
-                        'url': item.get('FirstURL')
-                    })
+        # If no results, provide a fallback result
+        if not results:
+            results = [{
+                'title': query.title(),
+                'snippet': f'No specific information found about "{query}". Try searching with different keywords.',
+                'url': f'https://duckduckgo.com/?q={query}',
+                'source': 'fallback'
+            }]
         
         return {
             'query': query,
             'results': results[:max_results],
-            'count': len(results)
+            'count': len(results),
+            'success': True
         }
     except Exception as e:
-        return {'error': str(e), 'query': query}
+        return {
+            'error': str(e),
+            'query': query,
+            'results': [{
+                'title': 'Error',
+                'snippet': f'Could not search: {str(e)}',
+                'url': '',
+                'source': 'error'
+            }],
+            'success': False
+        }
 
 
 # ============================================================================
