@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JeebsAI Tools Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0f1e 0%, #1a1a3f 50%, #0f2040 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        /* HEADER */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+            padding: 30px;
+            background: rgba(0, 212, 255, 0.05);
+            border: 2px solid rgba(0, 212, 255, 0.2);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 212, 255, 0.1);
+        }
+
+        h1 {
+            font-size: 2.5em;
+            background: linear-gradient(135deg, #00d4ff 0%, #0099ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .header-stats {
+            display: flex;
+            gap: 30px;
+            font-size: 1.1em;
+        }
+
+        .stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #00d4ff;
+        }
+
+        .stat-label {
+            font-size: 0.8em;
+            color: #8899aa;
+            margin-top: 5px;
+        }
+
+        /* CONTROLS */
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+            padding: 12px 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 2px solid rgba(0, 212, 255, 0.2);
+            border-radius: 8px;
+            color: #e0e0e0;
+            font-size: 1em;
+            transition: all 0.3s;
+        }
+
+        .search-box:focus {
+            outline: none;
+            border-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.1);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        }
+
+        .filter-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 8px 16px;
+            background: rgba(0, 212, 255, 0.1);
+            border: 2px solid rgba(0, 212, 255, 0.3);
+            border-radius: 20px;
+            color: #00d4ff;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .filter-btn:hover {
+            background: rgba(0, 212, 255, 0.2);
+            border-color: #00d4ff;
+        }
+
+        .filter-btn.active {
+            background: rgba(0, 212, 255, 0.4);
+            border-color: #00d4ff;
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.4);
+        }
+
+        /* TOOLS GRID */
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .tool-card {
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.05) 0%, rgba(0, 100, 160, 0.05) 100%);
+            border: 2px solid rgba(0, 212, 255, 0.1);
+            border-radius: 12px;
+            padding: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tool-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .tool-card:hover::before {
+            left: 100%;
+        }
+
+        .tool-card:hover {
+            border-color: #00d4ff;
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.15) 0%, rgba(0, 100, 160, 0.1) 100%);
+            box-shadow: 0 8px 32px rgba(0, 212, 255, 0.2);
+            transform: translateY(-5px);
+        }
+
+        .tool-icon {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .tool-name {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #00d4ff;
+            margin-bottom: 8px;
+        }
+
+        .tool-description {
+            color: #aabbcc;
+            font-size: 0.95em;
+            line-height: 1.5;
+            margin-bottom: 15px;
+            min-height: 45px;
+        }
+
+        .tool-category {
+            display: inline-block;
+            padding: 4px 12px;
+            background: rgba(0, 212, 255, 0.15);
+            border-radius: 15px;
+            font-size: 0.8em;
+            color: #00d4ff;
+            margin-bottom: 15px;
+        }
+
+        .tool-btn {
+            width: 100%;
+            padding: 10px 15px;
+            background: linear-gradient(135deg, #00d4ff 0%, #0099ff 100%);
+            border: none;
+            border-radius: 6px;
+            color: #000;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .tool-btn:hover {
+            transform: scale(1.02);
+            box-shadow: 0 6px 20px rgba(0, 212, 255, 0.4);
+        }
+
+        /* MODAL */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%);
+            border: 2px solid rgba(0, 212, 255, 0.3);
+            border-radius: 15px;
+            padding: 30px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            border-bottom: 2px solid rgba(0, 212, 255, 0.2);
+            padding-bottom: 15px;
+        }
+
+        .modal-title {
+            font-size: 1.8em;
+            color: #00d4ff;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 2em;
+            color: #00d4ff;
+            cursor: pointer;
+            padding: 0;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .close-btn:hover {
+            color: #ff4757;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #00d4ff;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 10px 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 2px solid rgba(0, 212, 255, 0.2);
+            border-radius: 6px;
+            color: #e0e0e0;
+            font-size: 0.95em;
+            font-family: monospace;
+            transition: all 0.3s;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.1);
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.2);
+        }
+
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 25px;
+        }
+
+        .btn-execute {
+            flex: 1;
+            padding: 12px;
+            background: linear-gradient(135deg, #00d4ff 0%, #0099ff 100%);
+            border: none;
+            border-radius: 6px;
+            color: #000;
+            font-weight: 600;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-execute:hover {
+            transform: scale(1.02);
+            box-shadow: 0 8px 25px rgba(0, 212, 255, 0.4);
+        }
+
+        .btn-clear {
+            flex: 1;
+            padding: 12px;
+            background: rgba(100, 100, 150, 0.3);
+            border: 2px solid rgba(100, 100, 150, 0.5);
+            border-radius: 6px;
+            color: #aabbcc;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-clear:hover {
+            background: rgba(100, 100, 150, 0.5);
+            color: #e0e0e0;
+        }
+
+        /* RESULTS */
+        .results-section {
+            margin-top: 25px;
+            padding-top: 25px;
+            border-top: 2px solid rgba(0, 212, 255, 0.2);
+        }
+
+        .results-title {
+            font-size: 1.2em;
+            color: #00d4ff;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .result-box {
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(0, 212, 255, 0.2);
+            border-radius: 6px;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 0.9em;
+            color: #00ff00;
+            word-break: break-all;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .result-error {
+            color: #ff4757;
+        }
+
+        /* LOADING */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0, 212, 255, 0.3);
+            border-top-color: #00d4ff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .tools-grid {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 1.8em;
+            }
+
+            .header-stats {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .controls {
+                flex-direction: column;
+            }
+
+            .search-box {
+                width: 100%;
+            }
+
+            .filter-buttons {
+                width: 100%;
+            }
+
+            .modal-content {
+                width: 95%;
+                padding: 20px;
+            }
+        }
+
+        /* EMPTY STATE */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #aabbcc;
+        }
+
+        .empty-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        .empty-text {
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- HEADER -->
+        <header>
+            <h1>⚙️ JeebsAI Tools Dashboard</h1>
+            <div class="header-stats">
+                <div class="stat">
+                    <div class="stat-value" id="toolCount">0</div>
+                    <div class="stat-label">Tools Available</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="categoryCount">0</div>
+                    <div class="stat-label">Categories</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- CONTROLS -->
+        <div class="controls">
+            <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search tools by name or keyword...">
+            <div class="filter-buttons" id="categoryFilter"></div>
+        </div>
+
+        <!-- TOOLS GRID -->
+        <div class="tools-grid" id="toolsGrid"></div>
+
+        <div class="empty-state" id="emptyState" style="display: none;">
+            <div class="empty-icon">🔍</div>
+            <div class="empty-text">No tools found matching your search</div>
+        </div>
+    </div>
+
+    <!-- TOOL MODAL -->
+    <div class="modal" id="toolModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <div class="tool-icon" id="modalIcon"></div>
+                    <div class="modal-title" id="modalTitle"></div>
+                </div>
+                <button class="close-btn" onclick="closeToolModal()">✕</button>
+            </div>
+
+            <div id="modalDescription" style="color: #aabbcc; margin-bottom: 20px;"></div>
+
+            <form id="toolForm" onsubmit="executeTool(event)">
+                <div id="formInputs"></div>
+                <div class="action-buttons">
+                    <button type="submit" class="btn-execute">▶ Execute</button>
+                    <button type="reset" class="btn-clear">Clear</button>
+                </div>
+            </form>
+
+            <div class="results-section" id="resultsSection" style="display: none;">
+                <div class="results-title">📊 Results</div>
+                <div class="result-box" id="resultBox"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        const TOOLS_CATEGORIES = {
+            'Research': ['web_search', 'wikipedia_summary', 'latest_news', 'define_word'],
+            'Analysis': ['text_stats', 'sentiment_analysis', 'analyze_code', 'brain_stats'],
+            'Conversion': ['convert_units', 'convert_color', 'format_json', 'base64_encode_decode', 'hash_generator', 'markdown_to_html'],
+            'Security': ['generate_password', 'hash_generator', 'generate_uuid'],
+            'Math & Logic': ['calculator', 'solve_equation', 'parse_cron', 'regex_match'],
+            'Utilities': ['get_url_info', 'file_size_calc', 'timezone_convert', 'ascii_chart', 'generate_qr_ascii', 'ip_info'],
+            'Entertainment': ['get_quote', 'get_joke', 'fun_fact']
+        };
+
+        const TOOL_ICONS = {
+            'web_search': '🔍',
+            'wikipedia_summary': '📖',
+            'latest_news': '📰',
+            'sentiment_analysis': '😊',
+            'brain_stats': '🧠',
+            'define_word': '📝',
+            'convert_units': '⚙️',
+            'convert_color': '🎨',
+            'format_json': '📄',
+            'generate_password': '🔑',
+            'calculator': '🔢',
+            'get_quote': '💡',
+            'get_joke': '😄',
+            'fun_fact': '🌟',
+            'get_url_info': '🔗',
+            'text_stats': '📊',
+            'analyze_code': '🐛',
+            'base64_encode_decode': '🔐',
+            'hash_generator': '🔒',
+            'generate_uuid': '🆔',
+            'regex_match': '🎯',
+            'markdown_to_html': '📝',
+            'ip_info': '🌐',
+            'timezone_convert': '⏰',
+            'ascii_chart': '📈',
+            'generate_qr_ascii': '⊞',
+            'file_size_calc': '📦',
+            'solve_equation': '📐'
+        };
+
+        let allTools = [];
+        let currentTool = null;
+
+        async function loadTools() {
+            try {
+                const response = await fetch(`${API_BASE}/tools/available`);
+                const tools = await response.json();
+                
+                allTools = Object.values(tools).map((tool, idx) => ({
+                    ...tool,
+                    id: tool.name,
+                    icon: TOOL_ICONS[tool.name] || '🔧'
+                }));
+
+                renderTools(allTools);
+                updateStats();
+                setupFilters();
+            } catch (error) {
+                console.error('Error loading tools:', error);
+            }
+        }
+
+        function renderTools(tools) {
+            const grid = document.getElementById('toolsGrid');
+            const empty = document.getElementById('emptyState');
+
+            if (tools.length === 0) {
+                grid.style.display = 'none';
+                empty.style.display = 'block';
+                return;
+            }
+
+            grid.style.display = 'grid';
+            empty.style.display = 'none';
+
+            grid.innerHTML = tools.map(tool => `
+                <div class="tool-card" onclick="openToolModal('${tool.id}')">
+                    <div class="tool-icon">${tool.icon}</div>
+                    <div class="tool-name">${tool.name.replace(/_/g, ' ').toUpperCase()}</div>
+                    <div class="tool-description">${tool.description}</div>
+                    <div class="tool-category">${getToolCategory(tool.id)}</div>
+                    <button class="tool-btn">Test Tool →</button>
+                </div>
+            `).join('');
+        }
+
+        function getToolCategory(toolId) {
+            for (const [category, tools] of Object.entries(TOOLS_CATEGORIES)) {
+                if (tools.includes(toolId)) return category;
+            }
+            return 'Other';
+        }
+
+        function openToolModal(toolId) {
+            const tool = allTools.find(t => t.id === toolId);
+            if (!tool) return;
+
+            currentTool = tool;
+
+            document.getElementById('modalIcon').textContent = tool.icon;
+            document.getElementById('modalTitle').textContent = tool.name.replace(/_/g, ' ').toUpperCase();
+            document.getElementById('modalDescription').textContent = tool.description;
+
+            // Build form
+            const formInputs = document.getElementById('formInputs');
+            formInputs.innerHTML = '';
+
+            Object.entries(tool.parameters).forEach(([param, description]) => {
+                const input = document.createElement('div');
+                input.className = 'form-group';
+                input.innerHTML = `
+                    <label for="${param}">${param}</label>
+                    <input type="text" id="${param}" name="${param}" placeholder="${description}" required>
+                `;
+                formInputs.appendChild(input);
+            });
+
+            document.getElementById('resultsSection').style.display = 'none';
+            document.getElementById('toolModal').classList.add('active');
+        }
+
+        function closeToolModal() {
+            document.getElementById('toolModal').classList.remove('active');
+            document.getElementById('toolForm').reset();
+            currentTool = null;
+        }
+
+        async function executeTool(event) {
+            event.preventDefault();
+
+            if (!currentTool) return;
+
+            // Show loading
+            const resultBox = document.getElementById('resultBox');
+            resultBox.innerHTML = '<div class="loading"></div> Executing...';
+            document.getElementById('resultsSection').style.display = 'block';
+
+            try {
+                const formData = new FormData(document.getElementById('toolForm'));
+                const params = Object.fromEntries(formData);
+
+                const response = await fetch(`${API_BASE}/tools/execute`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        tool: currentTool.id,
+                        params: params
+                    })
+                });
+
+                const result = await response.json();
+
+                // Format result
+                let displayResult = '';
+                if (result.error) {
+                    displayResult = `<span class="result-error">❌ Error: ${result.error}</span>`;
+                } else {
+                    displayResult = JSON.stringify(result, null, 2);
+                }
+
+                resultBox.innerHTML = displayResult;
+            } catch (error) {
+                resultBox.innerHTML = `<span class="result-error">❌ Error: ${error.message}</span>`;
+            }
+        }
+
+        function updateStats() {
+            const categories = new Set();
+            allTools.forEach(tool => {
+                categories.add(getToolCategory(tool.id));
+            });
+
+            document.getElementById('toolCount').textContent = allTools.length;
+            document.getElementById('categoryCount').textContent = categories.size;
+        }
+
+        function setupFilters() {
+            const categories = new Set();
+            allTools.forEach(tool => {
+                categories.add(getToolCategory(tool.id));
+            });
+
+            const filterContainer = document.getElementById('categoryFilter');
+            filterContainer.innerHTML = '<button class="filter-btn active" onclick="filterTools(null)">All Tools</button>';
+
+            Array.from(categories).sort().forEach(category => {
+                const btn = document.createElement('button');
+                btn.className = 'filter-btn';
+                btn.textContent = category;
+                btn.onclick = (e) => {
+                    e.preventDefault();
+                    filterTools(category);
+                };
+                filterContainer.appendChild(btn);
+            });
+        }
+
+        function filterTools(category) {
+            const search = document.getElementById('searchBox').value.toLowerCase();
+            let filtered = allTools.filter(tool => {
+                const matchCategory = !category || getToolCategory(tool.id) === category;
+                const matchSearch = !search || 
+                    tool.name.includes(search) || 
+                    tool.description.toLowerCase().includes(search);
+                return matchCategory && matchSearch;
+            });
+
+            renderTools(filtered);
+
+            // Update active filter
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.toggle('active', 
+                    (!category && btn.textContent === 'All Tools') ||
+                    (btn.textContent === category)
+                );
+            });
+        }
+
+        // Search
+        document.getElementById('searchBox')?.addEventListener('input', () => {
+            filterTools(null);
+        });
+
+        // Close modal on Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeToolModal();
+        });
+
+        // Load tools on page load
+        loadTools();
+    </script>
+</body>
+</html>

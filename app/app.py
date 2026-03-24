@@ -7,7 +7,10 @@ from .chat import chat_bp
 from .admin import admin_bp
 from .tools_api import tools_bp
 
-app = Flask(__name__, static_folder='../static', static_url_path='/static')
+# Get the webui folder path (where HTML files are stored)
+WEBUI_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'webui')
+
+app = Flask(__name__, static_folder=WEBUI_FOLDER, static_url_path='/static')
 CORS(app)
 
 # Initialize database
@@ -28,6 +31,16 @@ def admin_panel():
             return f.read()
     except:
         return jsonify({"message": "Admin panel not found"}), 404
+
+# Tools dashboard route
+@app.route('/tools', methods=['GET'])
+def tools_dashboard():
+    """Serve tools dashboard"""
+    try:
+        with open(os.path.join(app.static_folder, 'tools-dashboard.html'), 'r') as f:
+            return f.read()
+    except:
+        return jsonify({"message": "Tools dashboard not found"}), 404
 
 # Health check
 @app.route('/health', methods=['GET'])

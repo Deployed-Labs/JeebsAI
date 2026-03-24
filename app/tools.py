@@ -1044,6 +1044,595 @@ def fun_fact(category='science', **kwargs):
 
 
 # ============================================================================
+# BASE64 ENCODER/DECODER TOOL
+# ============================================================================
+
+@register_tool(
+    'base64_encode_decode',
+    'Encode text to Base64 or decode Base64 to text',
+    {
+        'text': 'Text to encode or decode',
+        'action': 'Action: encode or decode'
+    }
+)
+def base64_encode_decode(text, action='encode', **kwargs):
+    """Encode/decode Base64"""
+    try:
+        import base64
+        
+        if action.lower() == 'encode':
+            encoded = base64.b64encode(text.encode()).decode()
+            return {
+                'action': 'encode',
+                'input': text[:50] + ('...' if len(text) > 50 else ''),
+                'output': encoded,
+                'length': len(encoded)
+            }
+        elif action.lower() == 'decode':
+            decoded = base64.b64decode(text).decode()
+            return {
+                'action': 'decode',
+                'input': text[:50] + ('...' if len(text) > 50 else ''),
+                'output': decoded,
+                'length': len(decoded)
+            }
+        else:
+            return {'error': 'Action must be encode or decode'}
+    
+    except Exception as e:
+        return {'error': str(e)}
+
+
+# ============================================================================
+# HASH GENERATOR TOOL
+# ============================================================================
+
+@register_tool(
+    'hash_generator',
+    'Generate cryptographic hashes of text',
+    {
+        'text': 'Text to hash',
+        'algorithm': 'Hash algorithm (md5, sha1, sha256, sha512)'
+    }
+)
+def hash_generator(text, algorithm='sha256', **kwargs):
+    """Generate cryptographic hashs"""
+    try:
+        import hashlib
+        
+        algo = algorithm.lower()
+        
+        if algo == 'md5':
+            hash_result = hashlib.md5(text.encode()).hexdigest()
+        elif algo == 'sha1':
+            hash_result = hashlib.sha1(text.encode()).hexdigest()
+        elif algo == 'sha256':
+            hash_result = hashlib.sha256(text.encode()).hexdigest()
+        elif algo == 'sha512':
+            hash_result = hashlib.sha512(text.encode()).hexdigest()
+        else:
+            return {'error': f'Unknown algorithm: {algo}'}
+        
+        return {
+            'text': text[:50] + ('...' if len(text) > 50 else ''),
+            'algorithm': algo,
+            'hash': hash_result,
+            'length': len(hash_result)
+        }
+    
+    except Exception as e:
+        return {'error': str(e)}
+
+
+# ============================================================================
+# UUID GENERATOR TOOL
+# ============================================================================
+
+@register_tool(
+    'generate_uuid',
+    'Generate unique identifiers (UUIDs)',
+    {
+        'count': 'Number of UUIDs to generate (default 1)',
+        'version': 'UUID version (4 for random, 1 for timestamp)'
+    }
+)
+def generate_uuid(count=1, version=4, **kwargs):
+    """Generate UUIDs"""
+    try:
+        import uuid
+        
+        count = min(int(count), 10)  # Max 10 at a time
+        uuids = []
+        
+        for _ in range(count):
+            if version == 1:
+                uuids.append(str(uuid.uuid1()))
+            else:
+                uuids.append(str(uuid.uuid4()))
+        
+        return {
+            'count': len(uuids),
+            'version': version,
+            'uuids': uuids
+        }
+    
+    except Exception as e:
+        return {'error': str(e)}
+
+
+# ============================================================================
+# REGEX PATTERN MATCHER TOOL
+# ============================================================================
+
+@register_tool(
+    'regex_match',
+    'Test text against regex patterns',
+    {
+        'text': 'Text to search',
+        'pattern': 'Regex pattern to match',
+        'action': 'Action: match, findall, substitute'
+    }
+)
+def regex_match(text, pattern, action='match', replacement='', **kwargs):
+    """Match regex patterns"""
+    try:
+        import re
+        
+        if action == 'match':
+            match = re.search(pattern, text)
+            if match:
+                return {
+                    'action': 'match',
+                    'found': True,
+                    'match': match.group(0),
+                    'groups': match.groups(),
+                    'start': match.start(),
+                    'end': match.end()
+                }
+            else:
+                return {'action': 'match', 'found': False}
+        
+        elif action == 'findall':
+            matches = re.findall(pattern, text)
+            return {
+                'action': 'findall',
+                'count': len(matches),
+                'matches': matches[:10]  # Max 10
+            }
+        
+        elif action == 'substitute':
+            result = re.sub(pattern, replacement, text)
+            return {
+                'action': 'substitute',
+                'original': text[:50],
+                'result': result[:50],
+                'changes': len(re.findall(pattern, text))
+            }
+        
+        else:
+            return {'error': 'Unknown action'}
+    
+    except re.error as e:
+        return {'error': f'Regex error: {e}'}
+    except Exception as e:
+        return {'error': str(e)}
+
+
+# ============================================================================
+# MARKDOWN TO HTML CONVERTER TOOL
+# ============================================================================
+
+@register_tool(
+    'markdown_to_html',
+    'Convert Markdown to HTML',
+    {
+        'markdown': 'Markdown text to convert'
+    }
+)
+def markdown_to_html(markdown, **kwargs):
+    """Convert Markdown to HTML"""
+    try:
+        import re
+        
+        html = markdown
+        
+        # Headers
+        html = re.sub(r'^### (.*?)$', r'<h3>\1</h3>', html, flags=re.MULTILINE)
+        html = re.sub(r'^## (.*?)$', r'<h2>\1</h2>', html, flags=re.MULTILINE)
+        html = re.sub(r'^# (.*?)$', r'<h1>\1</h1>', html, flags=re.MULTILINE)
+        
+        # Bold and italic
+        html = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', html)
+        html = re.sub(r'\*(.*?)\*', r'<em>\1</em>', html)
+        html = re.sub(r'__(.*?)__', r'<strong>\1</strong>', html)
+        html = re.sub(r'_(.*?)_', r'<em>\1</em>', html)
+        
+        # Links
+        html = re.sub(r'\[(.*?)\]\((.*?)\)', r'<a href="\2">\1</a>', html)
+        
+        # Code blocks
+        html = re.sub(r'```(.*?)```', r'<pre><code>\1</code></pre>', html, flags=re.DOTALL)
+        html = re.sub(r'`(.*?)`', r'<code>\1</code>', html)
+        
+        # Line breaks
+        html = html.replace('\n\n', '</p><p>')
+        html = '<p>' + html + '</p>'
+        
+        return {
+            'html': html,
+            'length': len(html)
+        }
+    
+    except Exception as e:
+        return {'error': str(e)}
+
+
+# ============================================================================
+# IP ADDRESS INFO TOOL
+# ============================================================================
+
+@register_tool(
+    'ip_info',
+    'Get information about an IP address',
+    {
+        'ip': 'IP address to look up'
+    }
+)
+def ip_info(ip, **kwargs):
+    """Get IP address information"""
+    try:
+        import socket
+        
+        # Basic validation
+        parts = ip.split('.')
+        if len(parts) != 4 or not all(p.isdigit() and 0 <= int(p) <= 255 for p in parts):
+            return {'error': 'Invalid IP address'}
+        
+        # Try hostname lookup
+        try:
+            hostname = socket.gethostbyaddr(ip)[0]
+        except:
+            hostname = 'N/A'
+        
+        # Check IP type
+        ip_int = sum(int(p) << (8 * (3 - i)) for i, p in enumerate(parts))
+        
+        if parts[0] == '127':
+            ip_type = 'Loopback'
+        elif parts[0] == '192' and parts[1] == '168':
+            ip_type = 'Private (RFC1918)'
+        elif parts[0] == '10':
+            ip_type = 'Private (RFC1918)'
+        elif parts[0] == '172' and 16 <= int(parts[1]) <= 31:
+            ip_type = 'Private (RFC1918)'
+        elif parts[0] in ['224', '225', '226', '227', '228', '229', '230', '231', '232', '233', '234', '235', '236', '237', '238', '239']:
+            ip_type = 'Multicast'
+        else:
+            ip_type = 'Public'
+        
+        return {
+            'ip': ip,
+            'hostname': hostname,
+            'type': ip_type,
+            'binary': '.'.join(format(int(p), '08b') for p in parts)
+        }
+    
+    except Exception as e:
+        return {'error': str(e)}
+
+
+# ============================================================================
+# TIMEZONE CONVERTER TOOL
+# ============================================================================
+
+@register_tool(
+    'timezone_convert',
+    'Convert times between timezones',
+    {
+        'hour': 'Hour (0-23)',
+        'from_tz': 'From timezone offset (e.g., -5 for EST)',
+        'to_tz': 'To timezone offset (e.g., 1 for CET)'
+    }
+)
+def timezone_convert(hour, from_tz, to_tz, **kwargs):
+    """Convert between timezones"""
+    try:
+        hour = int(hour)
+        from_tz = int(from_tz)
+        to_tz = int(to_tz)
+        
+        if not 0 <= hour <= 23:
+            return {'error': 'Hour must be 0-23'}
+        
+        offset_diff = to_tz - from_tz
+        new_hour = (hour + offset_diff) % 24
+        
+        tz_names = {
+            -12: 'Baker Island', -11: 'SST', -10: 'HST', -9: 'AKST', -8: 'PST',
+            -7: 'MST', -6: 'CST', -5: 'EST', -4: 'EDT', -3: 'ART', -2: 'GST',
+            -1: 'AZT', 0: 'GMT', 1: 'CET', 2: 'EET', 3: 'MSK', 4: 'AZT',
+            5: 'PKT', 6: 'BST', 7: 'ICT', 8: 'CST', 9: 'JST', 10: 'AEST',
+            11: 'AEDT', 12: 'NZDT'
+        }
+        
+        return {
+            'from_hour': hour,
+            'from_tz': f'UTC{from_tz:+d}',
+            'from_name': tz_names.get(from_tz, 'Unknown'),
+            'to_hour': new_hour,
+            'to_tz': f'UTC{to_tz:+d}',
+            'to_name': tz_names.get(to_tz, 'Unknown'),
+            'offset': offset_diff
+        }
+    
+    except Exception as e:
+        return {'error': str(e)}
+
+
+# ============================================================================
+# EQUATION SOLVER TOOL
+# ============================================================================
+
+@register_tool(
+    'solve_equation',
+    'Solve simple linear equations',
+    {
+        'equation': 'Equation to solve (e.g., "2x + 5 = 13", solve for x)'
+    }
+)
+def solve_equation(equation, **kwargs):
+    """Solve simple equations"""
+    try:
+        import re
+        
+        # Simple linear equation solver
+        # Format: ax + b = c
+        equation = equation.replace(' ', '').replace('=', '=').split('=')
+        
+        if len(equation) != 2:
+            return {'error': 'Invalid equation format'}
+        
+        left, right = equation[0], equation[1]
+        
+        # Try to extract a, b from ax + b
+        left_match = re.match(r'([+-]?\d*)x([+-]?\d+)?', left)
+        right_val = float(right)
+        
+        if left_match:
+            a = left_match.group(1)
+            a = int(a) if a and a != '+' else 1 if a != '-' else -1
+            
+            b = left_match.group(2)
+            b = int(b) if b else 0
+            
+            if a == 0:
+                return {'error': 'No solution or infinite solutions'}
+            
+            x = (right_val - b) / a
+            
+            return {
+                'equation': equation[0] + '=' + equation[1],
+                'x': round(x, 4),
+                'verification': f'{a}*{x} + {b} = {a*x + b}'
+            }
+        
+        return {'error': 'Could not parse equation'}
+    
+    except Exception as e:
+        return {'error': str(e)}
+
+
+# ============================================================================
+# CRON EXPRESSION PARSER TOOL
+# ============================================================================
+
+@register_tool(
+    'parse_cron',
+    'Parse and explain cron expressions',
+    {
+        'cron': 'Cron expression (e.g., "0 9 * * 1")'
+    }
+)
+def parse_cron(cron, **kwargs):
+    """Parse cron expressions"""
+    try:
+        parts = cron.split()
+        if len(parts) != 5:
+            return {'error': 'Cron must have 5 fields: minute hour day month weekday'}
+        
+        minute, hour, day, month, weekday = parts
+        
+        day_names = {0: 'Mon', 1: 'Tue', 2: 'Wed', 3: 'Thu', 4: 'Fri', 5: 'Sat', 6: 'Sun'}
+        month_names = {
+            1: 'Jan', 2: 'Feb', 3: 'Mar', 4: 'Apr', 5: 'May', 6: 'Jun',
+            7: 'Jul', 8: 'Aug', 9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dec'
+        }
+        
+        # Simple parsing
+        minute_desc = 'every minute' if minute == '*' else f'minute {minute}'
+        hour_desc = 'every hour' if hour == '*' else f'{hour}:00'
+        day_desc = 'every day' if day == '*' else f'day {day}'
+        month_desc = 'every month' if month == '*' else f'{month_names.get(int(month), month)}'
+        weekday_desc = 'any weekday' if weekday == '*' else day_names.get(int(weekday), weekday)
+        
+        description = f'Runs at {hour_desc} on {weekday_desc}'
+        
+        return {
+            'cron': cron,
+            'minute': minute,
+            'hour': hour,
+            'day': day,
+            'month': month,
+            'weekday': weekday,
+            'description': description,
+            'readable': f'{minute_desc}, {hour_desc}, {day_desc}, {month_desc}, {weekday_desc}'
+        }
+    
+    except Exception as e:
+        return {'error': str(e)}
+
+
+# ============================================================================
+# QR CODE TEXT GENERATOR TOOL
+# ============================================================================
+
+@register_tool(
+    'generate_qr_ascii',
+    'Generate ASCII representation of QR code data',
+    {
+        'text': 'Text to encode in QR code',
+        'size': 'Size: small, medium, large'
+    }
+)
+def generate_qr_ascii(text, size='medium', **kwargs):
+    """Generate ASCII QR code representation"""
+    try:
+        import hashlib
+        
+        # Create a simple ASCII representation based on hash
+        hash_val = hashlib.md5(text.encode()).hexdigest()
+        
+        # Convert to grid
+        grid = []
+        for i in range(0, len(hash_val), 2):
+            byte = int(hash_val[i:i+2], 16)
+            row = ''
+            for j in range(8):
+                row += '██' if byte & (1 << j) else '  '
+            grid.append(row)
+        
+        # Create frame
+        ascii_qr = '  ┌' + '─' * 16 + '┐\n'
+        for row in grid[:2]:
+            ascii_qr += '  │' + row[:16] + '│\n'
+        ascii_qr += '  │' + text[:16].ljust(16) + '│\n'
+        for row in grid[2:4]:
+            ascii_qr += '  │' + row[:16] + '│\n'
+        ascii_qr += '  └' + '─' * 16 + '┘\n'
+        
+        return {
+            'text': text[:50],
+            'qr_ascii': ascii_qr,
+            'hash': hash_val,
+            'size': size
+        }
+    
+    except Exception as e:
+        return {'error': str(e)}
+
+
+# ============================================================================
+# FILE SIZE CALCULATOR TOOL
+# ============================================================================
+
+@register_tool(
+    'file_size_calc',
+    'Calculate and convert file sizes',
+    {
+        'size': 'Size value',
+        'from_unit': 'From unit (bytes, kb, mb, gb, tb)',
+        'to_unit': 'To unit'
+    }
+)
+def file_size_calc(size, from_unit='mb', to_unit='gb', **kwargs):
+    """Calculate file sizes"""
+    try:
+        size = float(size)
+        
+        units = {
+            'bytes': 1,
+            'byte': 1,
+            'b': 1,
+            'kb': 1024,
+            'mb': 1024**2,
+            'gb': 1024**3,
+            'tb': 1024**4
+        }
+        
+        from_u = from_unit.lower()
+        to_u = to_unit.lower()
+        
+        if from_u not in units or to_u not in units:
+            return {'error': f'Unknown unit. Available: {list(units.keys())}'}
+        
+        # Convert to bytes then to target
+        bytes_val = size * units[from_u]
+        result = bytes_val / units[to_u]
+        
+        return {
+            'original': f'{size} {from_u}',
+            'converted': round(result, 4),
+            'unit': to_u,
+            'bytes': bytes_val
+        }
+    
+    except Exception as e:
+        return {'error': str(e)}
+
+
+# ============================================================================
+# DATA VISUALIZATION TOOL
+# ============================================================================
+
+@register_tool(
+    'ascii_chart',
+    'Create ASCII charts from data',
+    {
+        'data': 'Space-separated numbers (e.g., "10 20 15 30")',
+        'chart_type': 'Type: bar, line'
+    }
+)
+def ascii_chart(data, chart_type='bar', **kwargs):
+    """Create ASCII charts"""
+    try:
+        numbers = [float(x) for x in data.split()]
+        
+        if not numbers:
+            return {'error': 'No data provided'}
+        
+        max_val = max(numbers)
+        min_val = min(numbers)
+        
+        if chart_type.lower() == 'bar':
+            chart = ''
+            max_bar = 20
+            
+            for i, num in enumerate(numbers):
+                bar_length = int((num / max_val) * max_bar) if max_val > 0 else 0
+                bar = '█' * bar_length + '░' * (max_bar - bar_length)
+                chart += f'{num:>6.1f} │ {bar}\n'
+            
+            return {
+                'chart_type': 'bar',
+                'data': numbers,
+                'chart': chart,
+                'max': max_val,
+                'min': min_val
+            }
+        
+        elif chart_type.lower() == 'line':
+            chart = ''
+            # Simple line chart
+            for num in numbers:
+                normalized = int((num / max_val) * 10) if max_val > 0 else 0
+                chart += '▁' * normalized + '▔' * (10 - normalized) + '  ' + str(round(num, 1)) + '\n'
+            
+            return {
+                'chart_type': 'line',
+                'data': numbers,
+                'chart': chart,
+                'max': max_val,
+                'min': min_val
+            }
+        
+        else:
+            return {'error': 'Unknown chart type'}
+    
+    except Exception as e:
+        return {'error': str(e)}
+
+
+# ============================================================================
 # TOOL EXECUTOR
 # ============================================================================
 
