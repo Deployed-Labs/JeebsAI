@@ -6,7 +6,7 @@ from .auth import auth_bp
 from .chat import chat_bp
 from .admin import admin_bp
 
-app = Flask(__name__, static_folder='../webui', static_url_path='/static')
+app = Flask(__name__, static_folder='../static', static_url_path='/static')
 CORS(app)
 
 # Initialize database
