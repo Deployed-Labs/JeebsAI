@@ -292,107 +292,13 @@ function escapeHtml(text) {
 
 // Admin dashboard
 async function showAdminDashboard() {
-    if (!currentUser.is_admin) return;
-    
-    try {
-        const response = await fetch(`${API_BASE}/admin/dashboard`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (!response.ok) return;
-        
-        const data = await response.json();
-        const statsDiv = document.getElementById('admin-stats');
-        const usersDiv = document.getElementById('admin-users');
-        const convDiv = document.getElementById('admin-conversations');
-        const controlsDiv = document.getElementById('admin-controls');
-        
-        // Stats
-        statsDiv.innerHTML = `
-            <div class="stat-card">
-                <h4>Total Users</h4>
-                <div class="stat-value">${data.stats.total_users}</div>
-            </div>
-            <div class="stat-card">
-                <h4>Admins</h4>
-                <div class="stat-value">${data.stats.total_admins}</div>
-            </div>
-            <div class="stat-card">
-                <h4>Conversations</h4>
-                <div class="stat-value">${data.stats.total_conversations}</div>
-            </div>
-            <div class="stat-card">
-                <h4>Messages</h4>
-                <div class="stat-value">${data.stats.total_messages}</div>
-            </div>
-        `;
-        
-        // Recent users with controls
-        usersDiv.innerHTML = '<h3>Users Management</h3>';
-        data.recent_users.forEach(user => {
-            const userEl = document.createElement('div');
-            userEl.className = 'user-management-item';
-            userEl.innerHTML = `
-                <div class="user-info">
-                    <div class="user-item-name">${escapeHtml(user.username)}</div>
-                    <div class="user-item-email">${escapeHtml(user.email)}</div>
-                    ${user.is_admin ? '<span class="badge-admin">ADMIN</span>' : ''}
-                </div>
-                <div class="user-actions">
-                    <button class="btn-small" onclick="toggleUserAdmin(${user.id}, ${!user.is_admin})">
-                        ${user.is_admin ? 'Revoke Admin' : 'Make Admin'}
-                    </button>
-                    <button class="btn-small btn-danger" onclick="resetUserPassword(${user.id})">Reset Pass</button>
-                    <button class="btn-small btn-danger" onclick="deleteUserAdmin(${user.id})">Delete</button>
-                </div>
-            `;
-            usersDiv.appendChild(userEl);
-        });
-        
-        // View all users button
-        const viewAllBtn = document.createElement('button');
-        viewAllBtn.className = 'btn-primary';
-        viewAllBtn.textContent = 'View All Users';
-        viewAllBtn.onclick = loadAllUsers;
-        usersDiv.appendChild(viewAllBtn);
-        
-        // Recent conversations
-        convDiv.innerHTML = '<h3>Conversations Management</h3>';
-        if (data.recent_conversations.length === 0) {
-            convDiv.innerHTML += '<p>No conversations yet</p>';
-        } else {
-            data.recent_conversations.forEach(conv => {
-                const convEl = document.createElement('div');
-                convEl.className = 'conv-management-item';
-                convEl.innerHTML = `
-                    <div class="conv-info">
-                        <div class="conv-title">${escapeHtml(conv.title)}</div>
-                        <div class="conv-user">By: ${escapeHtml(conv.username)}</div>
-                    </div>
-                    <div class="conv-actions">
-                        <button class="btn-small" onclick="viewConversationAdmin(${conv.id})">View</button>
-                        <button class="btn-small btn-danger" onclick="deleteConversationAdmin(${conv.id})">Delete</button>
-                    </div>
-                `;
-                convDiv.appendChild(convEl);
-            });
-        }
-        
-        // Controls
-        controlsDiv.innerHTML = `
-            <h3>System Controls</h3>
-            <div class="controls-grid">
-                <button class="btn-control" onclick="cleanupDatabase()">🧹 Cleanup Database</button>
-                <button class="btn-control" onclick="exportAllData()">💾 Export Data</button>
-                <button class="btn-control" onclick="viewAllConversations()">📋 All Conversations</button>
-            </div>
-        `;
-        
-        document.getElementById('admin-modal').classList.remove('hidden');
-    } catch (error) {
-        console.error('Error loading admin dashboard:', error);
-        alert('Error loading admin dashboard');
+    if (!currentUser.is_admin) {
+        alert('Admin access required');
+        return;
     }
+    
+    // Navigate to the admin dashboard page
+    window.location.href = '/admin';
 }
 
 async function loadAllUsers() {
