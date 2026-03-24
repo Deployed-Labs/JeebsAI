@@ -17,12 +17,10 @@ app.register_blueprint(auth_bp)
 app.register_blueprint(chat_bp)
 app.register_blueprint(admin_bp)
 
-# Admin panel route (protected)
+# Admin panel route (client-side token validation via admin.html)
 @app.route('/admin', methods=['GET'])
-@token_required
-@admin_required
-def admin_panel(user):
-    """Serve admin panel (admin only)"""
+def admin_panel():
+    """Serve admin panel (token validated by client-side JavaScript)"""
     try:
         with open(os.path.join(app.static_folder, 'admin.html'), 'r') as f:
             return f.read()
