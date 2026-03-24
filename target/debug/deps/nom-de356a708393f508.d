@@ -1,0 +1,15 @@
+/Volumes/PLAN-B/GitHub/JeebsAI/target/debug/deps/nom-de356a708393f508.d: /Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/lib.rs /Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/util.rs /Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/internal.rs /Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/macros.rs /Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/methods.rs /Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/bytes.rs /Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/bits.rs /Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/nom.rs /Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/character.rs /Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/stream.rs /Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/str.rs
+
+/Volumes/PLAN-B/GitHub/JeebsAI/target/debug/deps/libnom-de356a708393f508.rmeta: /Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/lib.rs /Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/util.rs /Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/internal.rs /Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/macros.rs /Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/methods.rs /Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/bytes.rs /Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/bits.rs /Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/nom.rs /Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/character.rs /Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/stream.rs /Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/str.rs
+
+/Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/lib.rs:
+/Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/util.rs:
+/Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/internal.rs:
+/Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/macros.rs:
+/Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/methods.rs:
+/Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/bytes.rs:
+/Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/bits.rs:
+/Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/nom.rs:
+/Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/character.rs:
+/Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/stream.rs:
+/Users/shoup/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/nom-1.2.4/src/str.rs:

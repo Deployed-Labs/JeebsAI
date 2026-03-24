@@ -1,0 +1,1 @@
+{"rustc":12983045474342760211,"features":"[]","declared_features":"[\"portable-atomic\"]","target":14411119108718288063,"profile":12016011389024150975,"path":17731124150525628448,"deps":[],"local":[{"CheckDepInfo":{"dep_info":"debug/.fingerprint/atomic-waker-26847ce6f1bd349b/dep-lib-atomic_waker","checksum":false}}],"rustflags":[],"config":2069994364910194474,"compile_kind":0}

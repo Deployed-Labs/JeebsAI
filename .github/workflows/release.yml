@@ -1,9 +1,0 @@
-name: Manual Release (kept)
-on:
-  workflow_dispatch: {}
-jobs:
-  noop:
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "This repository keeps no automated workflows by default. Use scripts/push_to_main.sh to create Releases."
-        shell: bash

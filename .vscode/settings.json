@@ -1,5 +1,0 @@
-{
-    "chat.agent.maxRequests": 250,
-    "github.copilot.nextEditSuggestions.enabled": true,
-    "chat.customAgentInSubagent.enabled": true
-}

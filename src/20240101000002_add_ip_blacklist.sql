@@ -1,1 +1,0 @@
-CREATE TABLE IF NOT EXISTS ip_blacklist (ip TEXT PRIMARY KEY);
