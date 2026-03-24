@@ -5,6 +5,7 @@ from .models import init_db
 from .auth import auth_bp, token_required, admin_required
 from .chat import chat_bp
 from .admin import admin_bp
+from .tools_api import tools_bp
 
 app = Flask(__name__, static_folder='../static', static_url_path='/static')
 CORS(app)
@@ -16,6 +17,7 @@ init_db()
 app.register_blueprint(auth_bp)
 app.register_blueprint(chat_bp)
 app.register_blueprint(admin_bp)
+app.register_blueprint(tools_bp)
 
 # Admin panel route (client-side token validation via admin.html)
 @app.route('/admin', methods=['GET'])
