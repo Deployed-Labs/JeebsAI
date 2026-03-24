@@ -42,6 +42,16 @@ def tools_dashboard():
     except:
         return jsonify({"message": "Tools dashboard not found"}), 404
 
+# Brain visualization route
+@app.route('/brain-viz', methods=['GET'])
+def brain_visualization():
+    """Serve holographic brain visualization"""
+    try:
+        with open(os.path.join(app.static_folder, 'brain-viz.html'), 'r') as f:
+            return f.read()
+    except:
+        return jsonify({"message": "Brain visualization not found"}), 404
+
 # Health check
 @app.route('/health', methods=['GET'])
 def health():

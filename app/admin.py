@@ -828,3 +828,129 @@ def ai_capabilities(user):
         }
     }), 200
 
+
+@admin_bp.route('/brain/viz-data', methods=['GET'])
+@token_required
+@admin_required
+def brain_viz_data(user):
+    """Get brain visualization data (nodes and edges for 3D/2D visualization)
+    
+    Returns:
+    - nodes: List of memory nodes with id, query text, response excerpt, conversation_id
+    - edges: List of similarity connections between nodes (weight > threshold)
+    - stats: Overall brain statistics
+    """
+    import numpy as np
+    from sklearn.metrics.pairwise import cosine_similarity
+    import json
+    
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        
+        # Get all memories with their vectors
+        cur.execute(f"""
+            SELECT id, conversation_id, key_text, response_text, vector_json, created_at
+            FROM {brain.table_name}
+            ORDER BY created_at DESC
+        """)
+        
+        all_memories = cur.fetchall()
+        memories = [dict(row) for row in all_memories]
+        conn.close()
+        
+        if not memories:
+            return jsonify({
+                'nodes': [],
+                'edges': [],
+                'stats': {
+                    'total_memories': 0,
+                    'total_edges': 0,
+                    'unique_conversations': 0
+                }
+            }), 200
+        
+        # Parse vectors and compute similarity
+        vectors = []
+        memory_ids = []
+        
+        for mem in memories:
+            try:
+                vec = json.loads(mem['vector_json'])
+                vectors.append(np.array(vec, dtype=np.float32))
+                memory_ids.append(mem['id'])
+            except:
+                pass
+        
+        if not vectors:
+            return jsonify({
+                'nodes': [],
+                'edges': [],
+                'stats': {
+                    'total_memories': 0,
+                    'total_edges': 0,
+                    'unique_conversations': 0
+                }
+            }), 200
+        
+        # Compute similarity matrix
+        vectors_array = np.array(vectors)
+        similarity_matrix = cosine_similarity(vectors_array)
+        
+        # Build nodes (memories)
+        nodes = []
+        for i, mem in enumerate(memories):
+            # Truncate long text
+            query_text = mem['key_text'][:60] + ('...' if len(mem['key_text']) > 60 else '')
+            response_text = mem['response_text'][:100] + ('...' if len(mem['response_text']) > 100 else '')
+            
+            nodes.append({
+                'id': mem['id'],
+                'label': query_text,
+                'query': mem['key_text'],
+                'response': response_text,
+                'conversation_id': mem['conversation_id'],
+                'created_at': mem['created_at'],
+                'index': i
+            })
+        
+        # Build edges (similarity > 0.65)
+        edges = []
+        threshold = 0.65
+        edge_id = 0
+        
+        for i in range(len(vectors)):
+            for j in range(i + 1, len(vectors)):
+                similarity = float(similarity_matrix[i][j])
+                
+                if similarity > threshold:
+                    edges.append({
+                        'id': edge_id,
+                        'source': memory_ids[i],
+                        'target': memory_ids[j],
+                        'weight': similarity
+                    })
+                    edge_id += 1
+        
+        # Compute stats
+        unique_convs = len(set(mem['conversation_id'] for mem in memories))
+        
+        return jsonify({
+            'nodes': nodes,
+            'edges': edges,
+            'stats': {
+                'total_memories': len(memories),
+                'total_edges': len(edges),
+                'unique_conversations': unique_convs,
+                'similarity_threshold': threshold,
+                'brain_dimension': brain.dim
+            }
+        }), 200
+        
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
