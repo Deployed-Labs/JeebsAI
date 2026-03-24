@@ -1,1 +1,0 @@
-cargo:rustc-env=MIME_TYPES_GENERATED_PATH=/Volumes/PLAN-B/GitHub/JeebsAI/target/release/build/mime_guess-d867fac3ae9425f5/out/mime_types_generated.rs

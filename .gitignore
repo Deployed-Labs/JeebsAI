@@ -1,0 +1,22 @@
+# Ignore Rust/Cargo artifacts and common env files
+target/
+**/target/
+Cargo.lock
+
+# Python
+venv/
+env/
+.venv/
+__pycache__/
+*.py[cod]
+
+# Node
+node_modules/
+
+# IDEs
+.idea/
+.vscode/
+
+# Misc
+.DS_Store
+*.log
