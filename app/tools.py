@@ -192,8 +192,8 @@ def web_search(query, max_results=5, **kwargs):
         'check_type': 'Type: syntax, performance, security, style'
     }
 )
-def analyze_code(code, check_type='syntax', **kwargs):
-    """Analyze Python code"""
+def analyze_code(code, check_type='full', **kwargs):
+    """Analyze Python code for errors and improvements"""
     try:
         import ast
         import re
@@ -201,46 +201,94 @@ def analyze_code(code, check_type='syntax', **kwargs):
         results = {
             'syntax_valid': True,
             'issues': [],
-            'suggestions': []
+            'suggestions': [],
+            'lines': 0,
+            'coverage': ''
         }
         
         # Check syntax
         try:
             ast.parse(code)
+            results['syntax_valid'] = True
         except SyntaxError as e:
             results['syntax_valid'] = False
-            results['issues'].append(f"Syntax Error at line {e.lineno}: {e.msg}")
-            return results
+            results['issues'].append({
+                'type': 'Syntax Error',
+                'line': e.lineno,
+                'message': e.msg if e.msg else 'Invalid Python syntax'
+            })
+            return results  # Stop if syntax error
+        
+        lines = code.split('\n')
+        results['lines'] = len(lines)
         
         # Performance checks
-        if check_type in ['performance', 'all']:
-            if re.search(r'while True', code):
-                results['suggestions'].append('Infinite loop detected - ensure exit condition')
-            if re.search(r'import \*', code):
-                results['suggestions'].append('Avoid "import *" - explicitly import needed modules')
+        if check_type in ['performance', 'full']:
+            # Check for common performance issues
+            for i, line in enumerate(lines, 1):
+                if re.search(r'while\s+True', line):
+                    results['suggestions'].append({
+                        'type': 'Performance',
+                        'line': i,
+                        'message': 'Infinite loop detected - ensure proper exit condition'
+                    })
+                if re.search(r'import\s+\*', line):
+                    results['suggestions'].append({
+                        'type': 'Performance',
+                        'line': i,
+                        'message': 'Avoid "import *" - explicitly import needed modules'
+                    })
+                if re.search(r'for.*in.*range.*len', line):
+                    results['suggestions'].append({
+                        'type': 'Performance',
+                        'line': i,
+                        'message': 'Consider using "for item in list:" instead of "for i in range(len(list)):"'
+                    })
         
         # Security checks
-        if check_type in ['security', 'all']:
-            dangerous = ['eval', 'exec', 'pickle.loads', 'os.system', 'subprocess.call']
-            for danger in dangerous:
-                if danger in code:
-                    results['issues'].append(f'Security risk: {danger} detected')
+        if check_type in ['security', 'full']:
+            dangerous = {
+                'eval': 'Remote code execution vulnerability',
+                'exec': 'Code injection vulnerability',
+                'pickle.loads': 'Arbitrary code execution vulnerability',
+                'os.system': 'Command injection risk',
+                'subprocess.call': 'Use subprocess.run() with shell=False instead'
+            }
+            
+            for i, line in enumerate(lines, 1):
+                for danger, warning in dangerous.items():
+                    if danger in line and not line.strip().startswith('#'):
+                        results['issues'].append({
+                            'type': 'Security Risk',
+                            'line': i,
+                            'message': warning
+                        })
         
         # Style checks
-        if check_type in ['style', 'all']:
-            lines = code.split('\n')
+        if check_type in ['style', 'full']:
             for i, line in enumerate(lines, 1):
                 if len(line) > 100:
-                    results['suggestions'].append(f'Line {i} too long ({len(line)} chars)')
-                if line.strip() and not line[0].isspace() and i > 1:
-                    if re.match(r'^(def|class|if|for|while)', line):
-                        pass  # OK
+                    results['suggestions'].append({
+                        'type': 'Style',
+                        'line': i,
+                        'message': f'Line too long ({len(line)} chars) - consider breaking it up'
+                    })
+                
+                if line.strip() and line[0].isspace() and not line[0].isspace() * 4:
+                    results['suggestions'].append({
+                        'type': 'Style',
+                        'line': i,
+                        'message': 'Indentation should be multiples of 4 spaces'
+                    })
         
-        results['lines'] = len(code.split('\n'))
+        # Summary
+        results['coverage'] = f"Checked {len(lines)} lines: {len(results['issues'])} issues, {len(results['suggestions'])} suggestions"
+        results['success'] = True
+        
         return results
     
     except Exception as e:
-        return {'error': str(e)}
+        return {'error': f'Code analysis failed: {str(e)}', 'success': False}
 
 
 # ============================================================================
@@ -314,47 +362,77 @@ def text_stats(text, include='words,sentences', **kwargs):
     }
 )
 def get_url_info(url, include='title,status', **kwargs):
-    """Get URL metadata"""
+    """Get URL metadata with better error handling"""
     try:
         if not url.startswith('http'):
             url = 'https://' + url
         
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.head(url, headers=headers, timeout=5, allow_redirects=True)
+        # Validate URL format
+        if not url or ' ' in url:
+            return {'error': 'Invalid URL format', 'url': url, 'success': False}
         
-        info = {
-            'url': response.url,
-            'status_code': response.status_code,
-            'status_text': {
-                200: 'OK', 301: 'Moved', 401: 'Unauthorized', 403: 'Forbidden',
-                404: 'Not Found', 500: 'Server Error'
-            }.get(response.status_code, 'Unknown')
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'text/html,application/xhtml+xml'
         }
         
-        if 'title' in include or 'description' in include or 'image' in include:
-            # Need to fetch content for these
-            response = requests.get(url, headers=headers, timeout=5)
-            response.encoding = 'utf-8'
-            content = response.text
-            
-            import re
-            
-            if 'title' in include:
-                match = re.search(r'<title[^>]*>([^<]+)</title>', content, re.IGNORECASE)
-                info['title'] = match.group(1) if match else 'N/A'
-            
-            if 'description' in include:
-                match = re.search(r'<meta\s+name=["\']description["\']\s+content=["\']([^"\']+)["\']', content, re.IGNORECASE)
-                info['description'] = match.group(1) if match else 'N/A'
-            
-            if 'image' in include:
-                match = re.search(r'<meta\s+property=["\']og:image["\']\s+content=["\']([^"\']+)["\']', content, re.IGNORECASE)
-                info['image'] = match.group(1) if match else None
+        info = {
+            'url': url,
+            'accessible': False,
+            'success': False
+        }
         
-        return info
+        try:
+            # Try HEAD request first (faster)
+            response = requests.head(url, headers=headers, timeout=5, allow_redirects=True)
+            info['url'] = response.url  # Get final URL after redirects
+            info['status_code'] = response.status_code
+            info['accessible'] = response.status_code < 400
+            
+            status_map = {
+                200: 'OK', 301: 'Moved Permanently', 302: 'Moved Temporarily',
+                401: 'Unauthorized', 403: 'Forbidden', 404: 'Not Found',
+                500: 'Server Error', 503: 'Service Unavailable'
+            }
+            info['status_text'] = status_map.get(response.status_code, f'HTTP {response.status_code}')
+            
+            # Get additional metadata if requested and status is OK
+            if response.status_code == 200 and ('title' in include or 'description' in include or 'image' in include):
+                try:
+                    response_get = requests.get(url, headers=headers, timeout=5)
+                    response_get.encoding = 'utf-8'
+                    content = response_get.text[:50000]  # Limit to 50KB
+                    
+                    import re
+                    
+                    if 'title' in include:
+                        match = re.search(r'<title[^>]*>([^<]+)</title>', content, re.IGNORECASE)
+                        info['title'] = match.group(1).strip() if match else 'No title found'
+                    
+                    if 'description' in include:
+                        match = re.search(r'<meta\s+name=["\']description["\']\s+content=["\']([^"\']+)["\']', content, re.IGNORECASE)
+                        info['description'] = match.group(1).strip() if match else 'No description'
+                    
+                    if 'image' in include:
+                        match = re.search(r'<meta\s+property=["\']og:image["\']\s+content=["\']([^"\']+)["\']', content, re.IGNORECASE)
+                        info['image'] = match.group(1) if match else None
+                except requests.Timeout:
+                    info['warning'] = 'Full content fetch timed out, showing header info only'
+                except Exception:
+                    info['warning'] = 'Could not fetch full page content'
+            
+            info['success'] = True
+            return info
+            
+        except requests.Timeout:
+            return {'error': 'Request timed out - website may be slow or unreachable', 'url': url, 'success': False}
+        except requests.ConnectionError:
+            return {'error': 'Connection failed - check the URL or network', 'url': url, 'success': False}
+        except Exception as e:
+            return {'error': f'Request failed: {type(e).__name__}', 'url': url, 'success': False}
     
     except Exception as e:
-        return {'error': str(e), 'url': url}
+        return {'error': f'URL info failed: {str(e)}', 'success': False}
 
 
 # ============================================================================
@@ -470,14 +548,17 @@ def wikipedia_summary(topic, sentences=3, **kwargs):
     }
 )
 def latest_news(topic, count=3, **kwargs):
-    """Get latest news using NewsAPI or DuckDuckGo"""
+    """Get latest news using web search with news-focused queries"""
     try:
-        # Try to get news via web search (since NewsAPI requires key)
+        # Add news keywords to the query for better results
+        search_query = f'{topic} latest news recent'
+        
         url = 'https://api.duckduckgo.com/'
         params = {
-            'q': f'{topic} news',
+            'q': search_query,
             'format': 'json',
-            'no_redirect': '1'
+            'no_redirect': '1',
+            'kl': 'en-us'
         }
         
         headers = {'User-Agent': 'Mozilla/5.0'}
@@ -487,27 +568,52 @@ def latest_news(topic, count=3, **kwargs):
             data = response.json()
             articles = []
             
-            # Extract from RelatedTopics
+            # Try AbstractText first (highest quality)
+            if data.get('AbstractText') and data.get('AbstractURL'):
+                articles.append({
+                    'title': data.get('Heading', topic.title() + ' News'),
+                    'description': data.get('AbstractText'),
+                    'url': data.get('AbstractURL'),
+                    'source': 'direct'
+                })
+            
+            # Extract from RelatedTopics for more articles
             if data.get('RelatedTopics'):
-                for item in data.get('RelatedTopics', [])[:int(count)]:
-                    if isinstance(item, dict) and item.get('Text'):
-                        articles.append({
-                            'title': item.get('FirstURL', '').split('/')[-1] or topic,
-                            'description': item.get('Text'),
-                            'url': item.get('FirstURL', '')
-                        })
+                for item in data.get('RelatedTopics', [])[:max(0, int(count)-len(articles))]:
+                    if isinstance(item, dict):
+                        if item.get('Text'):
+                            title = item.get('FirstURL', '').split('/')[-1]
+                            if not title:
+                                title = topic.title() + ' Info'
+                            
+                            articles.append({
+                                'title': title,
+                                'description': item.get('Text')[:200] if item.get('Text') else 'No description',
+                                'url': item.get('FirstURL', f'https://duckduckgo.com/?q={search_query}'),
+                                'source': 'related'
+                            })
+            
+            # If still no results, provide helpful message
+            if not articles:
+                articles = [{
+                    'title': f'{topic} Information',
+                    'description': f'No recent news found. Try a different search term or check major news sites for {topic}.',
+                    'url': f'https://duckduckgo.com/?q={search_query}',
+                    'source': 'fallback'
+                }]
             
             return {
                 'topic': topic,
-                'articles': articles,
+                'query': search_query,
+                'articles': articles[:int(count)],
                 'count': len(articles),
-                'success': len(articles) > 0
+                'success': True
             }
         
         return {'error': 'Could not fetch news', 'topic': topic, 'success': False}
     
     except Exception as e:
-        return {'error': str(e), 'topic': topic, 'success': False}
+        return {'error': f'News search failed: {str(e)}', 'topic': topic, 'success': False}
 
 
 # ============================================================================
