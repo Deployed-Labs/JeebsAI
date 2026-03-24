@@ -96,8 +96,34 @@
                                     autocomplete="off"
                                 >
                                 <button type="submit" class="btn-send">Send</button>
+                                <button type="button" class="btn-tools" onclick="toggleToolsPanel()">🔧 Tools</button>
                             </div>
                         </form>
+                        
+                        <!-- Tools Panel -->
+                        <div id="tools-panel" class="tools-panel hidden">
+                            <div class="tools-header">
+                                <h4>AI Tools</h4>
+                                <button class="btn-close" onclick="toggleToolsPanel()">×</button>
+                            </div>
+                            <div class="tools-grid">
+                                <button class="tool-btn" onclick="openTool('search')">🔍 Web Search</button>
+                                <button class="tool-btn" onclick="openTool('calculator')">🧮 Calculator</button>
+                                <button class="tool-btn" onclick="openTool('code_analyzer')">👨‍💻 Code Analyzer</button>
+                                <button class="tool-btn" onclick="openTool('text_stats')">📊 Text Stats</button>
+                                <button class="tool-btn" onclick="openTool('branch_conv')">🌳 Branch Chat</button>
+                                <button class="tool-btn" onclick="openTool('analytics')">📈 Analytics</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Tool Input Panel -->
+                        <div id="tool-input-panel" class="tool-input-panel hidden">
+                            <div class="tool-input-header">
+                                <h4 id="tool-title">Tool</h4>
+                                <button class="btn-close" onclick="closeTool()">×</button>
+                            </div>
+                            <div id="tool-input-content" class="tool-input-content"></div>
+                        </div>
                     </div>
                 </div>
             </div>

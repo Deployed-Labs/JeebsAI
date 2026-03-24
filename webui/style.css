@@ -697,6 +697,131 @@ body {
     border-bottom: 1px solid #e0e0e0;
 }
 
+/* Tools Panel */
+.tools-panel {
+    background: #f9f9f9;
+    border-top: 1px solid #e0e0e0;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+.tools-panel.hidden {
+    display: none;
+}
+
+.tools-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.tools-header h4 {
+    color: #333;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.tools-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+}
+
+.tool-btn {
+    padding: 10px;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    transition: all 0.2s;
+}
+
+.tool-btn:hover {
+    background: #5568d3;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.tool-input-panel {
+    background: #f9f9f9;
+    border: 2px solid #667eea;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 10px;
+}
+
+.tool-input-panel.hidden {
+    display: none;
+}
+
+.tool-input-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #667eea;
+}
+
+.tool-input-header h4 {
+    color: #333;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.tool-input-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.tool-input-content input,
+.tool-input-content textarea,
+.tool-input-content select {
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+}
+
+.tool-input-content textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.tool-input-content button {
+    padding: 10px 16px;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.tool-input-content button:hover {
+    background: #5568d3;
+}
+
+.btn-tools {
+    background: #764ba2;
+    padding: 8px 16px;
+    font-size: 12px;
+}
+
+.btn-tools:hover {
+    background: #673a91;
+}
+
 .admin-tab-btn {
     flex: 1;
     padding: 12px 16px;

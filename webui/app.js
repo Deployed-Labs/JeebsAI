@@ -598,6 +598,288 @@ function logout() {
     document.getElementById('register-password').value = '';
 }
 
+// ============================================================================
+// TOOLS PANEL FUNCTIONS
+// ============================================================================
+
+function toggleToolsPanel() {
+    document.getElementById('tools-panel').classList.toggle('hidden');
+}
+
+function openTool(toolName) {
+    const panel = document.getElementById('tool-input-panel');
+    const title = document.getElementById('tool-title');
+    const content = document.getElementById('tool-input-content');
+    
+    title.textContent = '🔧 ' + toolName.replace('_', ' ').toUpperCase();
+    
+    let html = '';
+    
+    if (toolName === 'search') {
+        html = `
+            <input type="text" id="search-query" placeholder="Search query..." required>
+            <button onclick="executeTool_search()">🔍 Search</button>
+            <div id="search-results" class="tool-results"></div>
+        `;
+    } else if (toolName === 'calculator') {
+        html = `
+            <input type="text" id="calc-expression" placeholder="e.g., 2 + 3 * 4">
+            <select id="calc-operation">
+                <option value="">Expression</option>
+                <option value="add">Add</option>
+                <option value="subtract">Subtract</option>
+                <option value="multiply">Multiply</option>
+                <option value="divide">Divide</option>
+                <option value="power">Power</option>
+                <option value="sqrt">Square Root</option>
+            </select>
+            <input type="number" id="calc-a" placeholder="First number">
+            <input type="number" id="calc-b" placeholder="Second number">
+            <button onclick="executeTool_calculator()">🧮 Calculate</button>
+            <div id="calc-result" class="tool-results"></div>
+        `;
+    } else if (toolName === 'code_analyzer') {
+        html = `
+            <textarea id="code-input" placeholder="Paste Python code here..."></textarea>
+            <select id="code-check">
+                <option value="syntax">Syntax Check</option>
+                <option value="security">Security Check</option>
+                <option value="performance">Performance Check</option>
+                <option value="style">Style Check</option>
+            </select>
+            <button onclick="executeTool_codeAnalyzer()">👨‍💻 Analyze</button>
+            <div id="code-result" class="tool-results"></div>
+        `;
+    } else if (toolName === 'text_stats') {
+        html = `
+            <textarea id="text-input" placeholder="Paste text here..."></textarea>
+            <label><input type="checkbox" id="stats-words" checked> Word Count</label>
+            <label><input type="checkbox" id="stats-sentences" checked> Sentences</label>
+            <label><input type="checkbox" id="stats-readability" checked> Readability</label>
+            <button onclick="executeTool_textStats()">📊 Analyze</button>
+            <div id="text-result" class="tool-results"></div>
+        `;
+    } else if (toolName === 'branch_conv') {
+        html = `
+            <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Create an alternate conversation path from current point.</p>
+            <input type="text" id="branch-title" placeholder="New branch title...">
+            <button onclick="executeTool_branchConv()">🌳 Create Branch</button>
+            <div id="branch-result" class="tool-results"></div>
+        `;
+    } else if (toolName === 'analytics') {
+        html = `
+            <p style="font-size: 12px; color: #666; margin-bottom: 10px;">View conversation analytics and trends.</p>
+            <select id="analytics-type">
+                <option value="current">Current Conversation</option>
+                <option value="user">User Statistics</option>
+                <option value="trending">Trending Topics</option>
+            </select>
+            <button onclick="executeTool_analytics()">📈 View Analytics</button>
+            <div id="analytics-result" class="tool-results"></div>
+        `;
+    }
+    
+    content.innerHTML = html;
+    panel.classList.remove('hidden');
+}
+
+function closeTool() {
+    document.getElementById('tool-input-panel').classList.add('hidden');
+}
+
+async function executeTool_search() {
+    const query = document.getElementById('search-query').value;
+    if (!query) { alert('Enter a search query'); return; }
+    
+    try {
+        const res = await fetch(`${API_BASE}/tools/search`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query, max_results: 5 })
+        });
+        const data = await res.json();
+        
+        let html = '<h5 style="margin-bottom: 10px; color: #333;">Search Results:</h5>';
+        if (data.results && data.results.length) {
+            data.results.forEach((r, i) => {
+                html += `
+                    <div style="margin-bottom: 12px; padding: 10px; background: white; border-radius: 4px; border-left: 3px solid #667eea;">
+                        <strong>${i+1}. ${r.title}</strong><br>
+                        <small>${r.snippet}</small><br>
+                        <a href="${r.url}" target="_blank" style="font-size: 11px; color: #667eea;">View →</a>
+                    </div>
+                `;
+            });
+        } else {
+            html += '<p style="color: #999;">No results found.</p>';
+        }
+        document.getElementById('search-results').innerHTML = html;
+    } catch (e) {
+        alert('Search failed: ' + e.message);
+    }
+}
+
+async function executeTool_calculator() {
+    const expr = document.getElementById('calc-expression').value;
+    const op = document.getElementById('calc-operation').value;
+    const a = document.getElementById('calc-a').value;
+    const b = document.getElementById('calc-b').value;
+    
+    try {
+        const res = await fetch(`${API_BASE}/tools/calculator`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ expression: expr, operation: op, a: Number(a) || 0, b: Number(b) || 0 })
+        });
+        const data = await res.json();
+        
+        const html = data.error ? 
+            `<p style="color: red;"><strong>Error:</strong> ${data.error}</p>` :
+            `<p style="font-size: 16px; color: #667eea;"><strong>Result:</strong> ${data.result}</p>`;
+        
+        document.getElementById('calc-result').innerHTML = html;
+    } catch (e) {
+        alert('Calculation failed: ' + e.message);
+    }
+}
+
+async function executeTool_codeAnalyzer() {
+    const code = document.getElementById('code-input').value;
+    const checkType = document.getElementById('code-check').value;
+    
+    if (!code) { alert('Enter code to analyze'); return; }
+    
+    try {
+        const res = await fetch(`${API_BASE}/tools/analyze-code`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code, check_type: checkType })
+        });
+        const data = await res.json();
+        
+        let html = `<h5 style="margin-bottom: 10px; color: #333;">Analysis Results:</h5>`;
+        html += `<p><strong>Syntax Valid:</strong> ${data.syntax_valid ? '✓ Yes' : '✗ No'}</p>`;
+        
+        if (data.issues && data.issues.length) {
+            html += `<p style="color: red;"><strong>Issues (${data.issues.length}):</strong></p><ul style="margin-left: 20px;">`;
+            data.issues.forEach(issue => html += `<li>${issue}</li>`);
+            html += `</ul>`;
+        }
+        
+        if (data.suggestions && data.suggestions.length) {
+            html += `<p style="color: #f39c12;"><strong>Suggestions (${data.suggestions.length}):</strong></p><ul style="margin-left: 20px;">`;
+            data.suggestions.forEach(sug => html += `<li>${sug}</li>`);
+            html += `</ul>`;
+        }
+        
+        document.getElementById('code-result').innerHTML = html;
+    } catch (e) {
+        alert('Analysis failed: ' + e.message);
+    }
+}
+
+async function executeTool_textStats() {
+    const text = document.getElementById('text-input').value;
+    if (!text) { alert('Enter text'); return; }
+    
+    let include = [];
+    if (document.getElementById('stats-words').checked) include.push('words');
+    if (document.getElementById('stats-sentences').checked) include.push('sentences');
+    if (document.getElementById('stats-readability').checked) include.push('readability');
+    
+    try {
+        const res = await fetch(`${API_BASE}/tools/text-stats`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, include: include.join(',') })
+        });
+        const data = await res.json();
+        
+        let html = '<h5 style="margin-bottom: 10px; color: #333;">Text Statistics:</h5>';
+        for (const [key, value] of Object.entries(data)) {
+            if (key !== 'character_count') {
+                html += `<p><strong>${key.replace(/_/g, ' ')}:</strong> ${value}</p>`;
+            }
+        }
+        document.getElementById('text-result').innerHTML = html;
+    } catch (e) {
+        alert('Analysis failed: ' + e.message);
+    }
+}
+
+async function executeTool_branchConv() {
+    if (!currentConversationId) {
+        alert('No conversation selected'); return;
+    }
+    
+    const title = document.getElementById('branch-title').value || `${document.getElementById('conv-title').textContent} (Branch)`;
+    
+    try {
+        const res = await fetch(`${API_BASE}/tools/conversations/${currentConversationId}/branch`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ from_message_id: -1, new_title: title })
+        });
+        const data = await res.json();
+        
+        const html = data.success ?
+            `<p style="color: green;"><strong>✓ Branch Created!</strong><br>New conversation: ${data.branch_title}<br>${data.messages_copied} messages copied.</p>` :
+            `<p style="color: red;"><strong>Error:</strong> ${data.error}</p>`;
+        
+        document.getElementById('branch-result').innerHTML = html;
+        if (data.success) {
+            setTimeout(() => {
+                closeTool();
+                toggleToolsPanel();
+                loadConversations();
+            }, 1500);
+        }
+    } catch (e) {
+        alert('Branch failed: ' + e.message);
+    }
+}
+
+async function executeTool_analytics() {
+    const type = document.getElementById('analytics-type').value;
+    let endpoint = '';
+    
+    if (type === 'current') {
+        if (!currentConversationId) {
+            alert('No conversation selected'); return;
+        }
+        endpoint = `/analytics/conversation/${currentConversationId}`;
+    } else if (type === 'user') {
+        endpoint = '/analytics/user';
+    } else if (type === 'trending') {
+        endpoint = '/analytics/trending?limit=10';
+    }
+    
+    try {
+        const res = await fetch(`${API_BASE}/tools${endpoint}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        
+        let html = '<h5 style="margin-bottom: 10px; color: #333;">Analytics:</h5>';
+        
+        if (type === 'trending' && data.topics) {
+            html += '<p><strong>Trending Topics:</strong></p><ul style="margin-left: 20px;">';
+            data.topics.forEach(t => html += `<li>${t.topic} (${t.frequency} mentions)</li>`);
+            html += '</ul>';
+        } else {
+            for (const [key, value] of Object.entries(data)) {
+                if (!key.startsWith('_') && typeof value !== 'object') {
+                    html += `<p><strong>${key.replace(/_/g, ' ')}:</strong> ${value}</p>`;
+                }
+            }
+        }
+        
+        document.getElementById('analytics-result').innerHTML = html;
+    } catch (e) {
+        alert('Analytics failed: ' + e.message);
+    }
+}
+
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
     if (e.ctrlKey && e.key === 'n') {

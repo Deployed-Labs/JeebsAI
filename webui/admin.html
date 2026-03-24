@@ -398,6 +398,8 @@
             <div class="nav-tab" onclick="switchTab('brain')">🧠 Brain & Learning</div>
             <div class="nav-tab" onclick="switchTab('users')">👥 Users</div>
             <div class="nav-tab" onclick="switchTab('conversations')">💬 Conversations</div>
+            <div class="nav-tab" onclick="switchTab('tools')">🔧 Tools</div>
+            <div class="nav-tab" onclick="switchTab('analytics')">📈 Analytics</div>
             <div class="nav-tab" onclick="switchTab('system')">⚙️ System</div>
             <div class="nav-tab" onclick="switchTab('test')">🧪 Test Chat</div>
         </div>
@@ -594,6 +596,109 @@
                 </div>
             </div>
         </div>
+
+        <!-- Tools Tab -->
+        <div id="tools" class="tab-content">
+            <div class="section">
+                <h2>🔧 Available AI Tools</h2>
+                <div class="tools-list" id="tools-list"></div>
+            </div>
+            
+            <div class="section">
+                <h2>⚡ Quick Tool Test</h2>
+                <div class="form-group">
+                    <label>Tool</label>
+                    <select id="tool-select">
+                        <option value="web_search">Web Search</option>
+                        <option value="calculator">Calculator</option>
+                        <option value="analyze_code">Code Analyzer</option>
+                        <option value="text_stats">Text Statistics</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Input</label>
+                    <textarea id="tool-input" placeholder="Tool input..." rows="3"></textarea>
+                </div>
+                <button class="btn-primary" onclick="testTool()">Test Tool</button>
+                <div id="tool-test-result" style="margin-top: 15px;"></div>
+            </div>
+        </div>
+
+        <!-- Analytics Tab -->
+        <div id="analytics" class="tab-content">
+            <div class="section">
+                <h2>📈 User Analytics</h2>
+                <div id="user-analytics" class="loading"><div class="spinner"></div> Loading...</div>
+            </div>
+            
+            <div class="section">
+                <h2>🔥 Trending Topics</h2>
+                <div id="trending-topics" class="loading"><div class="spinner"></div> Loading...</div>
+            </div>
+            
+            <div class="section">
+                <h2>🔍 Search Conversations</h2>
+                <div class="form-group">
+                    <label>Search Query</label>
+                    <input type="text" id="conv-search-query" placeholder="Search across conversations...">
+                </div>
+                <button class="btn-primary" onclick="searchConversations()">🔍 Search</button>
+                <div id="search-results" style="margin-top: 15px;"></div>
+            </div>
+        </div>
+
+        <!-- Conversation Management Tab -->
+        <div id="conversations-mgmt" class="tab-content" style="display: none;">
+            <div class="section">
+                <h2>🌳 Conversation Branching</h2>
+                <div class="form-group">
+                    <label>Conversation ID</label>
+                    <input type="number" id="branch-conv-id" placeholder="Enter conversation ID">
+                </div>
+                <div class="form-group">
+                    <label>Branch Title</label>
+                    <input type="text" id="branch-conv-title" placeholder="New branch title...">
+                </div>
+                <button class="btn-primary" onclick="branchConversation()">🌳 Create Branch</button>
+                <div id="branch-result" style="margin-top: 15px;"></div>
+            </div>
+            
+            <div class="section">
+                <h2>✏️ Edit Message</h2>
+                <div class="form-group">
+                    <label>Conversation ID</label>
+                    <input type="number" id="edit-conv-id" placeholder="Conversation ID">
+                </div>
+                <div class="form-group">
+                    <label>Message ID</label>
+                    <input type="number" id="edit-msg-id" placeholder="Message ID">
+                </div>
+                <div class="form-group">
+                    <label>New Content</label>
+                    <textarea id="edit-msg-content" placeholder="New message content..." rows="3"></textarea>
+                </div>
+                <button class="btn-primary" onclick="editMessage()">✏️ Update Message</button>
+                <div id="edit-result" style="margin-top: 15px;"></div>
+            </div>
+            
+            <div class="section">
+                <h2>🔗 Merge Conversations</h2>
+                <div class="form-group">
+                    <label>First Conversation ID</label>
+                    <input type="number" id="merge-conv1" placeholder="Conversation ID 1">
+                </div>
+                <div class="form-group">
+                    <label>Second Conversation ID</label>
+                    <input type="number" id="merge-conv2" placeholder="Conversation ID 2">
+                </div>
+                <div class="form-group">
+                    <label>Merged Title</label>
+                    <input type="text" id="merge-title" placeholder="Combined title...">
+                </div>
+                <button class="btn-primary" onclick="mergeConversations()">🔗 Merge</button>
+                <div id="merge-result" style="margin-top: 15px;"></div>
+            </div>
+        </div>
     </div>
 
     <footer>
@@ -629,7 +734,11 @@
             else if (tab === 'brain') loadBrainData();
             else if (tab === 'users') loadUsers();
             else if (tab === 'conversations') loadConversations();
+            else if (tab === 'tools') loadToolsList();
+            else if (tab === 'analytics') { loadUserAnalytics(); loadTrendingTopics(); }
+            else if (tab === 'conversations-mgmt') { /* conversation management tab */ }
             else if (tab === 'system') { loadSystemHealth(); loadLogs(); loadAICapabilities(); loadTrainingStatus(); }
+            else if (tab === 'test') { /* test chat */ }
         }
 
         // API wrapper
@@ -965,8 +1074,163 @@
             showAlert('✓ All data refreshed', 'info');
         }
 
+        // ========== TOOLS TAB FUNCTIONS ==========
+        async function loadToolsList() {
+            const res = await api('GET', '/available');
+            if (res.ok) {
+                const tools = res.data.tools;
+                let html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">';
+                tools.forEach(tool => {
+                    html += `
+                        <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; border-left: 4px solid #667eea;">
+                            <h4 style="color: #667eea; margin-bottom: 8px;">${tool.name}</h4>
+                            <p style="color: #666; font-size: 13px; margin-bottom: 10px;">${tool.description}</p>
+                            <p style="font-size: 12px; color: #999;"><strong>Params:</strong> ${Object.keys(tool.parameters).join(', ')}</p>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                document.getElementById('tools-list').innerHTML = html;
+            }
+        }
+
+        async function testTool() {
+            const tool = document.getElementById('tool-select').value;
+            const input = document.getElementById('tool-input').value;
+            if (!input) { showAlert('Enter input', 'error'); return; }
+
+            let params = { [tool === 'web_search' ? 'query' : 'text']: input };
+            if (tool === 'calculator') params.expression = input;
+            if (tool === 'analyze_code') params.code = input;
+
+            const res = await api('POST', '/execute', { tool_name: tool, params });
+            const resultDiv = document.getElementById('tool-test-result');
+            
+            if (res.ok) {
+                resultDiv.innerHTML = `<h4 style="color: green; margin-bottom: 10px;">✓ Success</h4><pre style="background: #f0f0f0; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 12px;">${JSON.stringify(res.data, null, 2)}</pre>`;
+            } else {
+                resultDiv.innerHTML = `<h4 style="color: red;">✗ Error</h4><p>${res.data.message}</p>`;
+            }
+        }
+
+        // ========== ANALYTICS TAB FUNCTIONS ==========
+        async function loadUserAnalytics() {
+            const res = await api('GET', '/analytics/user');
+            if (res.ok) {
+                const a = res.data;
+                const html = `
+                    <div class="card">
+                        <div class="stat-label">Total Conversations</div>
+                        <div class="stat-value">${a.total_conversations}</div>
+                    </div>
+                    <div class="card">
+                        <div class="stat-label">Total Messages</div>
+                        <div class="stat-value">${a.total_messages}</div>
+                    </div>
+                    <div class="card">
+                        <div class="stat-label">Avg per Conversation</div>
+                        <div class="stat-value">${a.avg_conversation_length}</div>
+                    </div>
+                    <div class="card">
+                        <div class="stat-label">Avg Message Length</div>
+                        <div class="stat-value">${Math.round(a.avg_message_length)}</div>
+                    </div>
+                `;
+                document.getElementById('user-analytics').innerHTML = html;
+            }
+        }
+
+        async function loadTrendingTopics() {
+            const res = await api('GET', '/analytics/trending?limit=15');
+            if (res.ok && res.data.topics) {
+                let html = '<div style="display: flex; flex-wrap: wrap; gap: 10px;">';
+                res.data.topics.forEach(t => {
+                    html += `<span style="background: #667eea; color: white; padding: 6px 12px; border-radius: 20px; font-size: 13px;">${t.topic} <strong>×${t.frequency}</strong></span>`;
+                });
+                html += '</div>';
+                document.getElementById('trending-topics').innerHTML = html;
+            }
+        }
+
+        async function searchConversations() {
+            const query = document.getElementById('conv-search-query').value;
+            if (!query) { showAlert('Enter search term', 'error'); return; }
+
+            const res = await api('POST', '/analytics/search', { query });
+            const resultsDiv = document.getElementById('search-results');
+            
+            if (res.ok && res.data.results) {
+                let html = res.data.total_matches ? `<p><strong>Found ${res.data.total_matches} conversations:</strong></p>` : '<p>No results found.</p>';
+                res.data.results.forEach(r => {
+                    html += `
+                        <div style="background: #f9f9f9; padding: 12px; margin: 10px 0; border-radius: 6px; border-left: 3px solid #667eea;">
+                            <p><strong>Conv #${r.conversation_id}:</strong> ${r.conversation_title}</p>
+                            <p style="color: #666; font-size: 13px;"><em>${r.context}</em></p>
+                            <p style="color: #999; font-size: 12px;">${r.matching_messages} matching messages</p>
+                        </div>
+                    `;
+                });
+                resultsDiv.innerHTML = html;
+            } else {
+                resultsDiv.innerHTML = `<p style="color: red;">Error: ${res.data.message}</p>`;
+            }
+        }
+
+        // ========== CONVERSATION MANAGEMENT FUNCTIONS ==========
+        async function branchConversation() {
+            const convId = document.getElementById('branch-conv-id').value;
+            const title = document.getElementById('branch-conv-title').value;
+            if (!convId) { showAlert('Enter conversation ID', 'error'); return; }
+
+            const res = await api('POST', `/conversations/${convId}/branch`, { from_message_id: -1, new_title: title });
+            const resultDiv = document.getElementById('branch-result');
+            
+           if (res.ok) {
+                resultDiv.innerHTML = `<div style="background: #e8f5e9; padding: 12px; border-radius: 6px; color: #2e7d32;">✓ Branch created! New conversation: ${res.data.branch_id}</div>`;
+            } else {
+                resultDiv.innerHTML = `<div style="background: #ffebee; padding: 12px; border-radius: 6px; color: #c62828;">✗ Error: ${res.data.error}</div>`;
+            }
+        }
+
+        async function editMessage() {
+            const convId = document.getElementById('edit-conv-id').value;
+            const msgId = document.getElementById('edit-msg-id').value;
+            const content = document.getElementById('edit-msg-content').value;
+            if (!convId || !msgId || !content) { showAlert('Fill all fields', 'error'); return; }
+
+            const res = await api('PUT', `/conversations/${convId}/messages/${msgId}`, { content });
+            const resultDiv = document.getElementById('edit-result');
+            
+            if (res.ok) {
+                resultDiv.innerHTML = `<div style="background: #e8f5e9; padding: 12px; border-radius: 6px; color: #2e7d32;">✓ Message updated!</div>`;
+            } else {
+                resultDiv.innerHTML = `<div style="background: #ffebee; padding: 12px; border-radius: 6px; color: #c62828;">✗ Error: ${res.data.error}</div>`;
+            }
+        }
+
+        async function mergeConversations() {
+            const conv1 = document.getElementById('merge-conv1').value;
+            const conv2 = document.getElementById('merge-conv2').value;
+            const title = document.getElementById('merge-title').value;
+            if (!conv1 || !conv2) { showAlert('Enter both conversation IDs', 'error'); return; }
+
+            const res = await api('POST', '/conversations/merge', { conversation_id_1: conv1, conversation_id_2: conv2, new_title: title });
+            const resultDiv = document.getElementById('merge-result');
+            
+            if (res.ok) {
+                resultDiv.innerHTML = `<div style="background: #e8f5e9; padding: 12px; border-radius: 6px; color: #2e7d32;">✓ Conversations merged! ID: ${res.data.merged_id}</div>`;
+            } else {
+                resultDiv.innerHTML = `<div style="background: #ffebee; padding: 12px; border-radius: 6px; color: #c62828;">✗ Error: ${res.data.error}</div>`;
+            }
+        }
+
         // Load on start
         loadDashboard();
+        setTimeout(() => {
+            loadToolsList();
+            loadUserAnalytics();
+            loadTrendingTopics();
+        }, 500);
     </script>
 </body>
 </html>
