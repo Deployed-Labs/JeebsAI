@@ -1633,6 +1633,496 @@ def ascii_chart(data, chart_type='bar', **kwargs):
 
 
 # ============================================================================
+# PRODUCTIVITY TOOLS
+# ============================================================================
+
+@register_tool(
+    'create_todo',
+    'Create and manage todo items',
+    {
+        'task': 'Task description',
+        'priority': 'Priority: high, medium, low',
+        'due_date': 'Due date (YYYY-MM-DD) optional'
+    }
+)
+def create_todo(task, priority='medium', due_date=None, **kwargs):
+    """Create a todo item"""
+    try:
+        # Simple in-memory todo storage
+        todo = {
+            'id': hash(task + str(datetime.now())) % 1000000,
+            'task': task,
+            'priority': priority.lower(),
+            'due_date': due_date,
+            'created_at': datetime.now().isoformat(),
+            'completed': False
+        }
+        
+        # Validate priority
+        if priority.lower() not in ['high', 'medium', 'low']:
+            return {'error': 'Priority must be high, medium, or low'}
+        
+        # Validate date format
+        if due_date:
+            try:
+                datetime.strptime(due_date, '%Y-%m-%d')
+            except:
+                return {'error': 'Date must be YYYY-MM-DD format'}
+        
+        return {
+            'success': True,
+            'todo': todo,
+            'message': f'Todo created: {task}'
+        }
+    except Exception as e:
+        return {'error': str(e)}
+
+
+@register_tool(
+    'pomodoro_calculator',
+    'Calculate pomodoro breaks and sessions',
+    {
+        'work_sessions': 'Number of 25-min sessions (default 4)',
+        'short_break': 'Minutes for short break (default 5)',
+        'long_break': 'Minutes for long break (default 15)'
+    }
+)
+def pomodoro_calculator(work_sessions=4, short_break=5, long_break=15, **kwargs):
+    """Calculate pomodoro timer schedule"""
+    try:
+        sessions = int(work_sessions)
+        short_b = int(short_break)
+        long_b = int(long_break)
+        
+        schedule = []
+        total_time = 0
+        
+        for i in range(1, sessions + 1):
+            schedule.append({'session': i, 'type': 'work', 'duration': 25})
+            total_time += 25
+            
+            if i < sessions:
+                if i % 4 == 0:
+                    schedule.append({'break': i, 'type': 'long_break', 'duration': long_b})
+                    total_time += long_b
+                else:
+                    schedule.append({'break': i, 'type': 'short_break', 'duration': short_b})
+                    total_time += short_b
+        
+        return {
+            'total_sessions': sessions,
+            'total_time_minutes': total_time,
+            'total_time_hours': round(total_time / 60, 1),
+            'schedule': schedule,
+            'efficiency': f'{(sessions * 25) / total_time * 100:.1f}% work time'
+        }
+    except Exception as e:
+        return {'error': str(e)}
+
+
+@register_tool(
+    'task_priority_score',
+    'Calculate task priority using Eisenhower Matrix',
+    {
+        'task': 'Task description',
+        'urgency': 'Urgency level 1-10 (10 is most urgent)',
+        'importance': 'Importance level 1-10 (10 is most important)'
+    }
+)
+def task_priority_score(task, urgency=5, importance=5, **kwargs):
+    """Calculate task priority score using Eisenhower Matrix"""
+    try:
+        urgency = min(10, max(1, int(urgency)))
+        importance = min(10, max(1, int(importance)))
+        
+        score = (urgency * 0.4) + (importance * 0.6)
+        
+        # Eisenhower quadrant
+        if importance >= 6 and urgency >= 6:
+            quadrant = 'Do First (Crisis/Important & Urgent)'
+        elif importance >= 6 and urgency < 6:
+            quadrant = 'Schedule (Important but Not Urgent)'
+        elif importance < 6 and urgency >= 6:
+            quadrant = 'Delegate (Urgent but Not Important)'
+        else:
+            quadrant = 'Eliminate (Neither Important nor Urgent)'
+        
+        return {
+            'task': task[:50],
+            'urgency': urgency,
+            'importance': importance,
+            'priority_score': round(score, 1),
+            'eisenhower_quadrant': quadrant,
+            'recommendation': f'Score: {round(score, 1)}/10 - {quadrant}'
+        }
+    except Exception as e:
+        return {'error': str(e)}
+
+
+@register_tool(
+    'effort_estimator',
+    'Estimate task effort and complexity',
+    {
+        'task': 'Task description',
+        'complexity': 'Complexity 1-5 (1=simple, 5=very complex)',
+        'dependencies': 'Number of dependencies (0-10)'
+    }
+)
+def effort_estimator(task, complexity=3, dependencies=0, **kwargs):
+    """Estimate task effort"""
+    try:
+        complexity = min(5, max(1, int(complexity)))
+        deps = min(10, max(0, int(dependencies)))
+        
+        base_effort = complexity * 2  # Hours
+        dep_multiplier = 1 + (deps * 0.15)  # 15% per dependency
+        
+        estimated_hours = base_effort * dep_multiplier
+        estimated_days = estimated_hours / 8
+        
+        confidence = max(0.5, 1.0 - (deps * 0.05))
+        
+        return {
+            'task': task[:50],
+            'complexity_level': complexity,
+            'dependencies': deps,
+            'estimated_hours': round(estimated_hours, 1),
+            'estimated_days': round(estimated_days, 1),
+            'confidence_percent': round(confidence * 100, 1),
+            'recommendation': f'{round(estimated_days, 1)} days ({round(estimated_hours, 1)} hours)'
+        }
+    except Exception as e:
+        return {'error': str(e)}
+
+
+# ============================================================================
+# DATA PROCESSING TOOLS
+# ============================================================================
+
+@register_tool(
+    'csv_parser',
+    'Parse and analyze CSV data',
+    {
+        'csv_data': 'CSV data (comma-separated)',
+        'has_header': 'First row is header (true/false)'
+    }
+)
+def csv_parser(csv_data, has_header=True, **kwargs):
+    """Parse CSV data"""
+    try:
+        import csv
+        import io
+        
+        rows = []
+        reader = csv.reader(io.StringIO(csv_data))
+        
+        for row in reader:
+            rows.append(row)
+        
+        if not rows:
+            return {'error': 'No CSV data provided'}
+        
+        header = rows[0] if has_header and rows else None
+        data_rows = rows[1:] if has_header and rows else rows
+        
+        return {
+            'row_count': len(data_rows),
+            'column_count': len(rows[0]) if rows else 0,
+            'header': header,
+            'data': data_rows[:10],  # Show first 10 rows
+            'total_data_rows': len(data_rows),
+            'preview': f'{len(data_rows)} rows, {len(rows[0]) if rows else 0} columns'
+        }
+    except Exception as e:
+        return {'error': str(e)}
+
+
+@register_tool(
+    'data_validator',
+    'Validate data types and formats',
+    {
+        'value': 'Value to validate',
+        'data_type': 'Expected type: email, url, phone, number, date, ipv4'
+    }
+)
+def data_validator(value, data_type='email', **kwargs):
+    """Validate data format"""
+    try:
+        import re
+        
+        validators = {
+            'email': r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+            'url': r'^https?://',
+            'phone': r'^\+?1?\d{9,15}$',
+            'ipv4': r'^(\d{1,3}\.){3}\d{1,3}$',
+            'date': r'^\d{4}-\d{2}-\d{2}$',
+            'number': r'^-?\d+\.?\d*$'
+        }
+        
+        if data_type not in validators:
+            return {'error': f'Unknown type: {data_type}'}
+        
+        pattern = validators[data_type]
+        is_valid = bool(re.match(pattern, str(value)))
+        
+        return {
+            'value': value,
+            'data_type': data_type,
+            'valid': is_valid,
+            'message': f'{value} is {"valid" if is_valid else "invalid"} {data_type}'
+        }
+    except Exception as e:
+        return {'error': str(e)}
+
+
+@register_tool(
+    'data_formatter',
+    'Format data in various styles',
+    {
+        'data': 'Data to format',
+        'format_type': 'Format: list, table, html, xml, yaml'
+    }
+)
+def data_formatter(data, format_type='list', **kwargs):
+    """Format data in different styles"""
+    try:
+        items = [item.strip() for item in data.split(',')]
+        
+        if format_type == 'list':
+            result = '\n'.join(f'• {item}' for item in items)
+        elif format_type == 'table':
+            result = '| Item |\n|------|\n' + '\n'.join(f'| {item} |' for item in items)
+        elif format_type == 'html':
+            result = '<ul>\n' + '\n'.join(f'  <li>{item}</li>' for item in items) + '\n</ul>'
+        elif format_type == 'xml':
+            result = '<items>\n' + '\n'.join(f'  <item>{item}</item>' for item in items) + '\n</items>'
+        elif format_type == 'yaml':
+            result = 'items:\n' + '\n'.join(f'  - {item}' for item in items)
+        else:
+            return {'error': f'Unknown format: {format_type}'}
+        
+        return {
+            'count': len(items),
+            'format': format_type,
+            'formatted': result
+        }
+    except Exception as e:
+        return {'error': str(e)}
+
+
+# ============================================================================
+# TEXT PROCESSING TOOLS
+# ============================================================================
+
+@register_tool(
+    'text_summarizer',
+    'Summarize text into key points',
+    {
+        'text': 'Text to summarize',
+        'sentences': 'Number of sentences in summary (1-5, default 3)'
+    }
+)
+def text_summarizer(text, sentences=3, **kwargs):
+    """Summarize text"""
+    try:
+        import re
+        
+        sentences_num = min(5, max(1, int(sentences)))
+        
+        # Split into sentences
+        sent_list = re.split(r'[.!?]+', text)
+        sent_list = [s.strip() for s in sent_list if s.strip()]
+        
+        if len(sent_list) <= sentences_num:
+            summary = '. '.join(sent_list) + '.'
+        else:
+            # Take first and last sentences
+            selected = [sent_list[0]]
+            step = len(sent_list) // (sentences_num - 1)
+            for i in range(step, len(sent_list) - 1, step):
+                if len(selected) < sentences_num:
+                    selected.append(sent_list[i])
+            selected.append(sent_list[-1])
+            summary = '. '.join(selected[:sentences_num]) + '.'
+        
+        return {
+            'original_length': len(text),
+            'summary_length': len(summary),
+            'compression_ratio': round((1 - len(summary)/len(text)) * 100, 1),
+            'summary': summary,
+            'original_sentences': len(sent_list),
+            'summary_sentences': sentences_num
+        }
+    except Exception as e:
+        return {'error': str(e)}
+
+
+@register_tool(
+    'keyword_extractor',
+    'Extract keywords from text',
+    {
+        'text': 'Text to analyze',
+        'keyword_count': 'Number of keywords to extract (default 5)'
+    }
+)
+def keyword_extractor(text, keyword_count=5, **kwargs):
+    """Extract keywords from text"""
+    try:
+        import re
+        
+        # Simple keyword extraction
+        stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'is', 'are', 'was', 'were',
+                     'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did',
+                     'will', 'would', 'could', 'should', 'may', 'might', 'can', 'must',
+                     'to', 'for', 'in', 'on', 'at', 'by', 'of', 'with', 'from'}
+        
+        # Extract words
+        words = re.findall(r'\b\w+\b', text.lower())
+        
+        # Filter stop words and count
+        word_freq = {}
+        for word in words:
+            if len(word) > 3 and word not in stop_words:
+                word_freq[word] = word_freq.get(word, 0) + 1
+        
+        # Get top keywords
+        top_keywords = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)[:int(keyword_count)]
+        
+        return {
+            'text_length': len(text),
+            'unique_words': len(set(words)),
+            'keywords': [{'word': w[0], 'frequency': w[1]} for w in top_keywords],
+            'keyword_count': len(top_keywords)
+        }
+    except Exception as e:
+        return {'error': str(e)}
+
+
+@register_tool(
+    'text_to_outline',
+    'Convert text to outline format',
+    {
+        'text': 'Text to outline',
+        'depth': 'Outline depth 1-3 (default 2)'
+    }
+)
+def text_to_outline(text, depth=2, **kwargs):
+    """Convert text to outline"""
+    try:
+        import re
+        
+        # Split by sentences and paragraphs
+        paragraphs = text.split('\n\n')
+        
+        outline = []
+        for i, para in enumerate(paragraphs, 1):
+            if para.strip():
+                sentences = re.split(r'[.!?]+', para)
+                if int(depth) >= 1:
+                    outline.append(f'I. {para[:50]}...' if len(para) > 50 else f'I. {para}')
+                if int(depth) >= 2:
+                    for j, sent in enumerate(sentences[:3], 1):
+                        if sent.strip():
+                            outline.append(f'   A. {sent.strip()[:40]}...' if len(sent.strip()) > 40 else f'   A. {sent.strip()}')
+        
+        return {
+            'original_length': len(text),
+            'outline_depth': int(depth),
+            'outline_items': len(outline),
+            'outline': outline[:20]  # Max 20 items
+        }
+    except Exception as e:
+        return {'error': str(e)}
+
+
+# ============================================================================
+# DATE & TIME TOOLS
+# ============================================================================
+
+@register_tool(
+    'date_calculator',
+    'Calculate days between dates',
+    {
+        'start_date': 'Start date (YYYY-MM-DD)',
+        'end_date': 'End date (YYYY-MM-DD)',
+        'include_weekdays': 'Count only weekdays (true/false)'
+    }
+)
+def date_calculator(start_date, end_date, include_weekdays=False, **kwargs):
+    """Calculate days between dates"""
+    try:
+        from datetime import datetime, timedelta
+        
+        start = datetime.strptime(start_date, '%Y-%m-%d')
+        end = datetime.strptime(end_date, '%Y-%m-%d')
+        
+        delta = end - start
+        total_days = delta.days
+        
+        # Calculate weekdays
+        weekdays = 0
+        if include_weekdays:
+            current = start
+            while current <= end:
+                if current.weekday() < 5:  # Mon-Fri
+                    weekdays += 1
+                current += timedelta(days=1)
+        
+        weeks = total_days // 7
+        months = total_days // 30
+        
+        return {
+            'start_date': start_date,
+            'end_date': end_date,
+            'total_days': total_days,
+            'weeks': weeks,
+            'months': months,
+            'weekdays': weekdays if include_weekdays else 'Not calculated',
+            'time_period': f'{months} months, {total_days % 30} days'
+        }
+    except Exception as e:
+        return {'error': str(e)}
+
+
+@register_tool(
+    'time_range_calculator',
+    'Calculate time ranges and durations',
+    {
+        'start_time': 'Start time (HH:MM)',
+        'end_time': 'End time (HH:MM)',
+        'include_breaks': 'Include break time (minutes, optional)'
+    }
+)
+def time_range_calculator(start_time, end_time, include_breaks=0, **kwargs):
+    """Calculate time durations"""
+    try:
+        start = datetime.strptime(start_time, '%H:%M')
+        end = datetime.strptime(end_time, '%H:%M')
+        
+        if end < start:
+            end = end + timedelta(days=1)
+        
+        delta = end - start
+        total_minutes = delta.total_seconds() / 60
+        breaks = int(include_breaks)
+        work_minutes = total_minutes - breaks
+        
+        hours = int(work_minutes // 60)
+        minutes = int(work_minutes % 60)
+        
+        return {
+            'start_time': start_time,
+            'end_time': end_time,
+            'total_duration_minutes': int(total_minutes),
+            'total_duration_hours': round(total_minutes / 60, 2),
+            'break_time_minutes': breaks,
+            'work_time': f'{hours}h {minutes}m'
+        }
+    except Exception as e:
+        return {'error': str(e)}
+
+
+# ============================================================================
 # TOOL EXECUTOR
 # ============================================================================
 

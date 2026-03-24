@@ -240,6 +240,29 @@ async function handleSendMessage(e) {
     input.value = '';
     addMessageToUI('user', content);
     
+    // Fetch tool suggestions if user is admin
+    if (currentUser && currentUser.is_admin) {
+        try {
+            const suggestResponse = await fetch(`${API_BASE}/chat/suggest-tools`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ message: content, max_suggestions: 3 })
+            });
+            
+            if (suggestResponse.ok) {
+                const suggestData = await suggestResponse.json();
+                if (suggestData.suggestions && suggestData.suggestions.length > 0) {
+                    displayToolSuggestions(suggestData.suggestions);
+                }
+            }
+        } catch (err) {
+            console.error('Error fetching tool suggestions:', err);
+        }
+    }
+    
     try {
         const response = await fetch(`${API_BASE}/chat/conversations/${currentConversationId}/messages`, {
             method: 'POST',
@@ -268,6 +291,39 @@ async function handleSendMessage(e) {
         console.error('Error sending message:', error);
         addMessageToUI('assistant', 'Error: Could not send message. Please try again.');
     }
+}
+
+// Display tool suggestions for admin users
+function displayToolSuggestions(suggestions) {
+    const container = document.getElementById('messages-container');
+    
+    // Create suggestions display
+    const suggestionsDiv = document.createElement('div');
+    suggestionsDiv.className = 'tool-suggestions';
+    suggestionsDiv.innerHTML = '<div class="suggestions-header">💡 <strong>Suggested Tools:</strong></div>';
+    
+    suggestions.forEach(tool => {
+        const toolCard = document.createElement('div');
+        toolCard.className = 'suggestion-card';
+        toolCard.innerHTML = `
+            <div class="suggestion-tool">
+                <strong>${tool.name}</strong>
+                <p class="suggestion-desc">${tool.description}</p>
+                <small class="suggestion-keywords">Keywords: ${tool.matched_keywords.join(', ')}</small>
+                <button class="btn-suggestion" onclick="navigateToTool('${tool.name}')">Use Tool →</button>
+            </div>
+        `;
+        suggestionsDiv.appendChild(toolCard);
+    });
+    
+    container.appendChild(suggestionsDiv);
+    container.scrollTop = container.scrollHeight;
+}
+
+// Navigate to tool dashboard or execute tool
+function navigateToTool(toolName) {
+    // For now, navigate to the tools dashboard with the tool pre-selected
+    window.location.href = `/tools?tool=${encodeURIComponent(toolName)}`;
 }
 
 // Add message to UI

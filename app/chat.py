@@ -2,9 +2,75 @@ from flask import Blueprint, request, jsonify
 from .models import Conversation, Message
 from .holographic_brain import brain
 from .auth import token_required
-from .tools import execute_tool
+from .tools import execute_tool, TOOLS_REGISTRY
 
 chat_bp = Blueprint('chat', __name__, url_prefix='/api/chat')
+
+def suggest_tools(user_message, max_suggestions=3):
+    """Analyze user message and suggest relevant tools"""
+    message_lower = user_message.lower()
+    
+    # Define keyword-to-tool mappings
+    tool_keywords = {
+        'web_search': ['search', 'find', 'look up', 'what is', 'who is', 'news', 'latest', 'tell me about'],
+        'calculator': ['calculate', 'math', 'compute', 'what is', 'how much', 'equals', '+', '-', '*', '/', 'multiply', 'divide', 'add', 'subtract'],
+        'wikipedia_summary': ['wikipedia', 'about', 'explain', 'tell me', 'summary', 'overview'],
+        'define_word': ['define', 'meaning', 'what does', 'definition', 'means'],
+        'sentiment_analysis': ['sentiment', 'emotion', 'feeling', 'mood', 'positive', 'negative', 'analyze text'],
+        'text_summarizer': ['summarize', 'summary', 'tldr', 'shorten', 'brief', 'condense'],
+        'keyword_extractor': ['keywords', 'key points', 'main ideas', 'extract', 'important'],
+        'convert_units': ['convert', 'km to miles', 'pounds to kg', 'fahrenheit', 'celsius', 'units'],
+        'convert_color': ['color', 'hex', 'rgb', 'hsl', 'convert color'],
+        'base64_encode_decode': ['encode', 'decode', 'base64', 'encoding'],
+        'hash_generator': ['hash', 'md5', 'sha', 'encrypt', 'cryptographic'],
+        'generate_password': ['password', 'generate', 'passphrase', 'secure password'],
+        'format_json': ['json', 'format', 'pretty', 'minify', 'validate json'],
+        'regex_match': ['regex', 'pattern', 'match', 'regular expression', 'pattern matching'],
+        'markdown_to_html': ['markdown', 'html', 'convert', 'render'],
+        'date_calculator': ['date', 'days', 'between', 'difference', 'how many days'],
+        'time_range_calculator': ['time', 'duration', 'how long', 'start time', 'end time'],
+        'csv_parser': ['csv', 'parse', 'comma', 'spreadsheet', 'data'],
+        'data_validator': ['validate', 'email', 'url', 'phone', 'format', 'check'],
+        'create_todo': ['todo', 'task', 'create', 'task list', 'remember'],
+        'pomodoro_calculator': ['pomodoro', 'timer', 'break', 'work session', 'productivity'],
+        'task_priority_score': ['priority', 'important', 'urgent', 'eisenhower'],
+        'generate_qr_ascii': ['qr code', 'qr', 'encode', 'barcode'],
+        'fun_fact': ['fact', 'interesting', 'did you know', 'fun'],
+        'get_joke': ['joke', 'funny', 'laugh', 'humor'],
+        'get_quote': ['quote', 'inspirational', 'motivation', 'saying'],
+        'code_analysis': ['code', 'error', 'bug', 'fix', 'syntax'],
+        'ip_info': ['ip', 'address', 'domain', 'network'],
+        'analyze_code': ['code', 'analyze', 'review', 'check']
+    }
+    
+    suggestions = []
+    
+    # Score each tool based on keyword matches
+    for tool_name, keywords in tool_keywords.items():
+        if tool_name not in TOOLS_REGISTRY:
+            continue
+            
+        score = 0
+        matched_keywords = []
+        
+        for keyword in keywords:
+            if keyword in message_lower:
+                score += 1
+                matched_keywords.append(keyword)
+        
+        if score > 0:
+            tool = TOOLS_REGISTRY[tool_name]
+            suggestions.append({
+                'name': tool['name'],
+                'description': tool['description'],
+                'score': score,
+                'matched_keywords': matched_keywords,
+                'parameters': tool['parameters']
+            })
+    
+    # Sort by score and return top N
+    suggestions.sort(key=lambda x: x['score'], reverse=True)
+    return suggestions[:max_suggestions]
 
 def detect_and_use_tools(user_message, conv_id=None):
     """Detect if a message requests tool usage and execute if needed, then learn results"""
@@ -185,3 +251,22 @@ def update_conversation_title(user, conv_id):
     
     updated_conv = Conversation.get_by_id(conv_id)
     return jsonify(updated_conv), 200
+
+@chat_bp.route('/suggest-tools', methods=['POST'])
+@token_required
+def suggest_tools_endpoint(user):
+    """Suggest tools based on user message"""
+    data = request.get_json() or {}
+    message = data.get('message', '').strip()
+    max_suggestions = data.get('max_suggestions', 3)
+    
+    if not message:
+        return jsonify({'message': 'Message is required'}), 400
+    
+    suggestions = suggest_tools(message, max_suggestions=max_suggestions)
+    
+    return jsonify({
+        'message': message,
+        'suggestions': suggestions,
+        'count': len(suggestions)
+    }), 200

@@ -805,6 +805,110 @@ body {
     border-radius: 6px;
     cursor: pointer;
     font-weight: 600;
+    transition: all 0.3s;
+}
+
+.tool-input-content button:hover {
+    background: #5568d3;
+    transform: translateY(-2px);
+}
+
+/* Tool Suggestions Styles */
+.tool-suggestions {
+    background: linear-gradient(135deg, #f5f7fa 0%, #eeeff9 100%);
+    border-left: 4px solid #667eea;
+    padding: 15px;
+    margin: 15px 0;
+    border-radius: 8px;
+    animation: slideIn 0.3s ease-in-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.suggestions-header {
+    color: #667eea;
+    font-weight: 600;
+    margin-bottom: 12px;
+    font-size: 14px;
+}
+
+.suggestion-card {
+    display: inline-block;
+    width: calc(33.333% - 10px);
+    margin-right: 15px;
+    margin-bottom: 10px;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 12px;
+    transition: all 0.3s;
+    vertical-align: top;
+}
+
+.suggestion-card:hover {
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+    border-color: #667eea;
+    transform: translateY(-2px);
+}
+
+.suggestion-tool {
+    padding: 5px 0;
+}
+
+.suggestion-tool strong {
+    color: #333;
+    display: block;
+    font-size: 13px;
+    margin-bottom: 6px;
+}
+
+.suggestion-desc {
+    color: #666;
+    font-size: 12px;
+    line-height: 1.4;
+    margin-bottom: 8px;
+}
+
+.suggestion-keywords {
+    color: #999;
+    display: block;
+    font-size: 11px;
+    margin-bottom: 8px;
+    font-style: italic;
+}
+
+.btn-suggestion {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    width: 100%;
+}
+
+.btn-suggestion:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-suggestion:active {
+    transform: scale(0.98);
+}
+    cursor: pointer;
+    font-weight: 600;
     transition: all 0.2s;
 }
 
