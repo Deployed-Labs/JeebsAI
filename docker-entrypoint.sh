@@ -16,3 +16,17 @@ if [ ! -f /app/VERSION ]; then
 fi
 
 exec "$@"
+
+# If DATABASE_URL is set, optionally wait for DB (DB_HOST/DB_PORT can be provided)
+if [ -n "$DATABASE_URL" ]; then
+  DB_HOST=${DB_HOST:-db}
+  DB_PORT=${DB_PORT:-5432}
+  echo "Waiting for database $DB_HOST:$DB_PORT..."
+  while ! nc -z "$DB_HOST" "$DB_PORT"; do
+    echo "Waiting for $DB_HOST:$DB_PORT..."
+    sleep 1
+  done
+  echo "Database is available."
+fi
+
+exec "$@"

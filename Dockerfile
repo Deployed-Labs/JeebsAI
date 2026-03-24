@@ -16,12 +16,13 @@ COPY . .
 RUN cargo build --release
 
 FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y ca-certificates curl --no-install-recommends && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y ca-certificates curl netcat-openbsd --no-install-recommends && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 # Copy binary and runtime assets
 COPY --from=builder /usr/src/jeebs/target/release/jeebs /usr/local/bin/jeebs
 COPY --from=builder /usr/src/jeebs/VERSION /app/VERSION
+COPY --from=builder /usr/src/jeebs/migrations /app/migrations
 
 ENV RUST_LOG=info
 EXPOSE 8080
