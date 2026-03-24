@@ -602,11 +602,13 @@
 
     <script>
         // Initialize
-        const token = localStorage.getItem('jeebs_token');
-        const username = localStorage.getItem('jeebs_username');
+        const token = localStorage.getItem('token');
+        const userStr = localStorage.getItem('user');
+        const currentUser = userStr ? JSON.parse(userStr) : null;
+        const username = currentUser ? currentUser.username : null;
         let currentConvId = null;
 
-        if (!token) {
+        if (!token || !currentUser || !currentUser.is_admin) {
             window.location.href = '/index.html';
         }
 
@@ -941,8 +943,8 @@
         }
 
         function logout() {
-            localStorage.removeItem('jeebs_token');
-            localStorage.removeItem('jeebs_username');
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
             window.location.href = '/index.html';
         }
 
