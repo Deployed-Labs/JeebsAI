@@ -2,6 +2,10 @@ from flask import Blueprint, jsonify, request
 from .auth import token_required, admin_required
 from .models import User, Conversation, Message, get_db
 from werkzeug.security import generate_password_hash
+from .holographic_brain import brain
+import os
+import psutil
+from datetime import datetime
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/api/admin')
 
@@ -310,4 +314,216 @@ def export_data(user):
     }
     
     return jsonify(export_data), 200
+
+
+@admin_bp.route('/brain/stats', methods=['GET'])
+@token_required
+@admin_required
+def brain_stats(user):
+    """Get holographic brain statistics and memory count"""
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(f"SELECT COUNT(*) as count FROM {brain.table_name}")
+        memory_count = cur.fetchone()['count']
+        
+        cur.execute(f"SELECT COUNT(DISTINCT conversation_id) as count FROM {brain.table_name}")
+        unique_convs = cur.fetchone()['count']
+        
+        conn.close()
+        
+        return jsonify({
+            'total_memories': memory_count,
+            'unique_conversations': unique_convs,
+            'brain_dimension': brain.dim,
+            'memory_table': brain.table_name
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@admin_bp.route('/brain/memories', methods=['GET'])
+@token_required
+@admin_required
+def list_brain_memories(user):
+    """List recent brain memories with optional search"""
+    search = request.args.get('search', '')
+    limit = request.args.get('limit', 50, type=int)
+    
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        
+        if search:
+            query = f"""
+            SELECT id, conversation_id, key_text, response_text, created_at
+            FROM {brain.table_name}
+            WHERE key_text LIKE ? OR response_text LIKE ?
+            ORDER BY created_at DESC
+            LIMIT ?
+            """
+            pattern = f"%{search}%"
+            cur.execute(query, (pattern, pattern, limit))
+        else:
+            query = f"""
+            SELECT id, conversation_id, key_text, response_text, created_at
+            FROM {brain.table_name}
+            ORDER BY created_at DESC
+            LIMIT ?
+            """
+            cur.execute(query, (limit,))
+        
+        memories = [dict(row) for row in cur.fetchall()]
+        conn.close()
+        
+        return jsonify({'memories': memories, 'count': len(memories)}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@admin_bp.route('/brain/query', methods=['POST'])
+@token_required
+@admin_required
+def brain_query(user):
+    """Query the holographic brain for similar memories"""
+    data = request.get_json()
+    text = data.get('text', '')
+    top_k = data.get('top_k', 3)
+    
+    if not text:
+        return jsonify({'error': 'Text parameter required'}), 400
+    
+    try:
+        results = brain.query(text, top_k=top_k)
+        return jsonify({
+            'query': text,
+            'results': [{'similarity': sim, 'response': resp} for sim, resp in results]
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@admin_bp.route('/brain/memories/<int:mem_id>', methods=['DELETE'])
+@token_required
+@admin_required
+def delete_brain_memory(user, mem_id):
+    """Delete a specific memory from the brain"""
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(f"DELETE FROM {brain.table_name} WHERE id = ?", (mem_id,))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'message': f'Memory {mem_id} deleted'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@admin_bp.route('/system/health', methods=['GET'])
+@token_required
+@admin_required
+def system_health(user):
+    """Get system health and resource information"""
+    try:
+        process = psutil.Process(os.getpid())
+        
+        # CPU and memory
+        cpu_percent = process.cpu_percent(interval=0.1)
+        memory_info = process.memory_info()
+        
+        # Check if DB file exists
+        db_path = '/data/jeebs.db'
+        db_exists = os.path.exists(db_path)
+        db_size = os.path.getsize(db_path) if db_exists else 0
+        
+        return jsonify({
+            'status': 'healthy',
+            'timestamp': datetime.utcnow().isoformat(),
+            'process': {
+                'cpu_percent': cpu_percent,
+                'memory_mb': round(memory_info.rss / 1024 / 1024, 2),
+                'vms_mb': round(memory_info.vms / 1024 / 1024, 2)
+            },
+            'database': {
+                'exists': db_exists,
+                'path': db_path,
+                'size_bytes': db_size,
+                'size_mb': round(db_size / 1024 / 1024, 2)
+            }
+        }), 200
+    except Exception as e:
+        return jsonify({'status': 'error', 'error': str(e)}), 500
+
+
+@admin_bp.route('/system/logs', methods=['GET'])
+@token_required
+@admin_required
+def system_logs(user):
+    """Get recent system logs (last few operations)"""
+    limit = request.args.get('limit', 100, type=int)
+    
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        
+        cur.execute("""
+        SELECT 'message_created' as event, m.created_at as timestamp, 
+               m.id as entity_id, m.role, m.content, c.user_id
+        FROM messages m
+        JOIN conversations c ON m.conversation_id = c.id
+        ORDER BY m.created_at DESC
+        LIMIT ?
+        """, (limit,))
+        
+        logs = [dict(row) for row in cur.fetchall()]
+        conn.close()
+        
+        return jsonify({'logs': logs, 'count': len(logs)}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@admin_bp.route('/users/<int:user_id>/conversations', methods=['GET'])
+@token_required
+@admin_required
+def user_conversations(user, user_id):
+    """Get all conversations for a specific user"""
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+    SELECT c.id, c.title, c.created_at, c.updated_at, 
+           COUNT(m.id) as message_count
+    FROM conversations c
+    LEFT JOIN messages m ON c.id = m.conversation_id
+    WHERE c.user_id = ?
+    GROUP BY c.id
+    ORDER BY c.updated_at DESC
+    """, (user_id,))
+    
+    conversations = [dict(row) for row in cur.fetchall()]
+    conn.close()
+    
+    return jsonify(conversations), 200
+
+
+@admin_bp.route('/system/wipe-brain', methods=['POST'])
+@token_required
+@admin_required
+def wipe_brain(user):
+    """Clear all holographic brain memories (admin only)"""
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(f"DELETE FROM {brain.table_name}")
+        deleted = cur.rowcount
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'message': 'Holographic brain wiped',
+            'memories_deleted': deleted
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
