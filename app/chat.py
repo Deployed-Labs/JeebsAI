@@ -1,28 +1,38 @@
 from flask import Blueprint, request, jsonify
 from .models import Conversation, Message
+from .holographic_brain import brain
 from .auth import token_required
 
 chat_bp = Blueprint('chat', __name__, url_prefix='/api/chat')
 
 def generate_response(user_message):
-    """Generate a simple response from JeebsAI"""
-    # Simple demo responses - can be replaced with actual ML model
+    """Generate a response using the holographic brain, fallback to rule-based replies."""
+    # First try retrieval from holographic brain
+    try:
+        results = brain.query(user_message, top_k=1)
+        if results:
+            sim, resp = results[0]
+            if sim >= 0.65:
+                return resp
+    except Exception:
+        # if brain fails, continue to fallback
+        pass
+
+    # Simple demo rule-based fallback
     responses = {
-        'hello': 'Hello! I\'m JeebsAI. How can I help you today?',
+        'hello': "Hello! I'm JeebsAI. How can I help you today?",
         'hi': 'Hey there! What can I do for you?',
-        'how are you': 'I\'m doing great! Thanks for asking. How about you?',
-        'what is your name': 'I\'m JeebsAI, your AI assistant.',
+        'how are you': "I'm doing great! Thanks for asking. How about you?",
+        'what is your name': "I'm JeebsAI, your AI assistant.",
         'help': 'I can help you with questions, provide information, and have conversations. Just ask me anything!',
     }
-    
+
     message_lower = user_message.lower().strip()
-    
-    # Check for exact or partial matches
+
     for key, response in responses.items():
         if key in message_lower:
             return response
-    
-    # Default response
+
     return f"That's interesting! You said: \"{user_message}\". I'm here to help with any questions you might have."
 
 @chat_bp.route('/conversations', methods=['GET'])
@@ -83,6 +93,12 @@ def send_message(user, conv_id):
     # Generate and store AI response
     ai_response = generate_response(user_message)
     Message.create(conv_id, 'assistant', ai_response)
+
+    # Save the user->assistant pair to the holographic brain for learning
+    try:
+        brain.save_memory(conv_id, user_message, ai_response)
+    except Exception:
+        pass
     
     # Return the messages
     messages = Message.get_conversation_messages(conv_id)
