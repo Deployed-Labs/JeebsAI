@@ -2,7 +2,7 @@ from flask import Flask, jsonify, send_from_directory, render_template_string
 from flask_cors import CORS
 import os
 from .models import init_db
-from .auth import auth_bp
+from .auth import auth_bp, token_required, admin_required
 from .chat import chat_bp
 from .admin import admin_bp
 
@@ -16,6 +16,18 @@ init_db()
 app.register_blueprint(auth_bp)
 app.register_blueprint(chat_bp)
 app.register_blueprint(admin_bp)
+
+# Admin panel route (protected)
+@app.route('/admin', methods=['GET'])
+@token_required
+@admin_required
+def admin_panel(user):
+    """Serve admin panel (admin only)"""
+    try:
+        with open(os.path.join(app.static_folder, 'admin.html'), 'r') as f:
+            return f.read()
+    except:
+        return jsonify({"message": "Admin panel not found"}), 404
 
 # Health check
 @app.route('/health', methods=['GET'])
