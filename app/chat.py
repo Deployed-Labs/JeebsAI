@@ -1,8 +1,9 @@
 from flask import Blueprint, request, jsonify
-from .models import Conversation, Message
+from .models import Conversation, Message, get_db
 from .holographic_brain import brain
 from .auth import token_required
 from .tools import execute_tool, TOOLS_REGISTRY
+from datetime import datetime
 
 chat_bp = Blueprint('chat', __name__, url_prefix='/api/chat')
 
@@ -255,6 +256,83 @@ def update_conversation_title(user, conv_id):
 @chat_bp.route('/suggest-tools', methods=['POST'])
 @token_required
 def suggest_tools_endpoint(user):
+    """Suggest tools based on user message"""
+    data = request.get_json()
+    if not data or not data.get('message'):
+        return jsonify({'message': 'Message is required'}), 400
+    
+    user_message = data.get('message')
+    suggestions = suggest_tools(user_message, max_suggestions=5)
+    
+    return jsonify({'suggestions': suggestions}), 200
+
+
+@chat_bp.route('/conversations/<int:conv_id>/search', methods=['GET'])
+@token_required
+def search_conversation(user, conv_id):
+    """Search messages in a conversation"""
+    conversation = Conversation.get_by_id(conv_id)
+    
+    # Verify user owns this conversation
+    if not conversation or conversation['user_id'] != user['id']:
+        return jsonify({'message': 'Conversation not found'}), 404
+    
+    search_term = request.args.get('q', '').strip()
+    if not search_term or len(search_term) < 2:
+        return jsonify({'message': 'Search term too short'}), 400
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    search_pattern = f"%{search_term}%"
+    
+    cursor.execute('''
+        SELECT id, role, content, created_at
+        FROM messages
+        WHERE conversation_id = ? AND (content LIKE ?)
+        ORDER BY created_at DESC
+        LIMIT 50
+    ''', (conv_id, search_pattern))
+    
+    results = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    
+    return jsonify({
+        'query': search_term,
+        'count': len(results),
+        'results': results
+    }), 200
+
+
+@chat_bp.route('/conversations/<int:conv_id>/export', methods=['GET'])
+@token_required
+def export_conversation(user, conv_id):
+    """Export conversation as JSON"""
+    conversation = Conversation.get_by_id(conv_id)
+    
+    # Verify user owns this conversation
+    if not conversation or conversation['user_id'] != user['id']:
+        return jsonify({'message': 'Conversation not found'}), 404
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT id, role, content, created_at
+        FROM messages
+        WHERE conversation_id = ?
+        ORDER BY created_at ASC
+    ''', (conv_id,))
+    
+    messages = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    
+    export_data = {
+        'conversation': conversation,
+        'messages': messages,
+        'exported_at': datetime.utcnow().isoformat()
+    }
+    
+    return jsonify(export_data), 200
     """Suggest tools based on user message"""
     data = request.get_json() or {}
     message = data.get('message', '').strip()
