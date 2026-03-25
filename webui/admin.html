@@ -388,6 +388,7 @@
         <header>
             <h1>⚡ JeebsAI Admin Panel</h1>
             <div class="header-actions">
+                <a href="/brain-viz" target="_blank" class="btn-primary" style="text-decoration: none; display: inline-block;">🧠 Brain Viz</a>
                 <button class="btn-secondary" onclick="refreshAllData()">🔄 Refresh</button>
                 <button class="btn-danger" onclick="logout()">🚪 Logout</button>
             </div>
@@ -406,6 +407,9 @@
 
         <!-- Dashboard Tab -->
         <div id="dashboard" class="tab-content active">
+            <div style="margin-bottom: 30px;">
+                <a href="/brain-viz" target="_blank" style="display: inline-block; padding: 15px 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 1.1em; box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5); transition: all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px); box-shadow: 0 8px 30px rgba(102, 126, 234, 0.7)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 6px 20px rgba(102, 126, 234, 0.5)'">🎆 Open Brain Visualization</a>
+            </div>
             <div class="grid">
                 <div class="card">
                     <div class="stat-label">Total Users</div>
