@@ -428,7 +428,7 @@
 
         // Get auth token from localStorage
         function getAuthToken() {
-            const token = localStorage.getItem('auth_token');
+            const token = localStorage.getItem('token');
             if (!token) {
                 alert('Not authenticated. Please log in first.');
                 window.location.href = '/';
