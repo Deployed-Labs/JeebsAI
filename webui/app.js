@@ -120,6 +120,7 @@ async function verifyTokenAndShowChat() {
         // Check if user is admin
         if (currentUser.is_admin) {
             document.getElementById('admin-section').style.display = 'block';
+            document.getElementById('admin-link').style.display = 'block';
         }
     } catch (error) {
         logout();
