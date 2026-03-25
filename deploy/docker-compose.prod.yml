@@ -8,6 +8,7 @@ services:
     environment:
       - PORT=8000
       - FLASK_ENV=production
+      - SECRET_KEY=XoweBbSiMcRrse8pz1/QZI86rASDTsnh8ucziuydwAM=
     expose:
       - "8000"
     ports:
