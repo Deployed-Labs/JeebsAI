@@ -428,23 +428,89 @@
 
         // Get auth token from localStorage
         function getAuthToken() {
-            const token = localStorage.getItem('token');
+            return localStorage.getItem('token');
+        }
+
+        // Check authentication status
+        async function checkAuth() {
+            const token = getAuthToken();
+            
             if (!token) {
-                alert('Not authenticated. Please log in first.');
-                window.location.href = '/';
+                showAuthError('Not logged in. Please log in first.', true);
+                return false;
             }
-            return token;
+
+            // Verify token with backend
+            try {
+                const response = await fetch('/api/admin/stats', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.status === 401 || response.status === 403) {
+                    localStorage.removeItem('token');
+                    showAuthError('Your session has expired. Please log in again.', true);
+                    return false;
+                }
+
+                if (!response.ok) {
+                    showAuthError('Authentication verification failed.', true);
+                    return false;
+                }
+
+                return true;
+            } catch (error) {
+                console.error('Auth check error:', error);
+                showAuthError('Could not verify authentication: ' + error.message, true);
+                return false;
+            }
+        }
+
+        // Show authentication error with help
+        function showAuthError(message, showLoginButton = false) {
+            const loadingDiv = document.getElementById('loading');
+            let html = `<div style="text-align: center; color: #ddd;">
+                <div style="font-size: 48px; margin-bottom: 20px;">🔐</div>
+                <div style="font-size: 18px; margin-bottom: 10px;">${message}</div>`;
+            
+            if (showLoginButton) {
+                html += `<div style="margin-top: 20px;">
+                    <a href="/" style="color: #667eea; text-decoration: none; font-size: 16px; border: 2px solid #667eea; padding: 10px 20px; border-radius: 5px; display: inline-block;">← Go to Login</a>
+                </div>`;
+            }
+            
+            html += `<div style="margin-top: 30px; font-size: 12px; color: #666;">
+                <p>If you are logged in but see this message, try:</p>
+                <ul style="text-align: left; display: inline-block;">
+                    <li>Refreshing the page</li>
+                    <li>Clearing your browser cache</li>
+                    <li>Logging out and logging back in</li>
+                </ul>
+            </div></div>`;
+            
+            loadingDiv.innerHTML = html;
         }
 
         // Fetch brain visualization data
         async function fetchBrainData() {
             try {
+                const isAuthenticated = await checkAuth();
+                if (!isAuthenticated) return;
+
                 const token = getAuthToken();
                 const response = await fetch('/api/admin/brain/viz-data', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                if (response.status === 401 || response.status === 403) {
+                    localStorage.removeItem('token');
+                    showAuthError('Your session has expired. Please log in again.', true);
+                    return;
+                }
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP ${response.status}`);
+                }
 
                 const data = await response.json();
                 nodes = data.nodes || [];
@@ -457,8 +523,16 @@
                 createBrainNetwork();
             } catch (error) {
                 console.error('Error fetching brain data:', error);
-                document.getElementById('loading').innerHTML = 
-                    `<span>❌ Error loading visualization: ${error.message}</span>`;
+                const loading = document.getElementById('loading');
+                loading.innerHTML = `<div style="text-align: center; color: #ff6b6b;">
+                    <div style="font-size: 48px; margin-bottom: 20px;">❌</div>
+                    <div style="font-size: 16px;">Error loading visualization</div>
+                    <div style="font-size: 12px; color: #aaa; margin-top: 10px;">${error.message}</div>
+                    <div style="margin-top: 20px;">
+                        <button onclick="location.reload()" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;">Retry</button>
+                        <a href="/" style="margin-left: 10px; color: #667eea; text-decoration: none;">Back to Login</a>
+                    </div>
+                </div>`;
             }
         }
 
