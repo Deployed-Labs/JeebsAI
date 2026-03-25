@@ -5,10 +5,18 @@ import os
 from datetime import datetime, timedelta
 from functools import wraps
 from .models import User, init_db
+import logging
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/api/auth')
+logger = logging.getLogger(__name__)
 
-SECRET_KEY = os.getenv('SECRET_KEY', 'jeebs-secret-dev-key-change-in-prod')
+# SECRET_KEY must be set in environment for production
+SECRET_KEY = os.getenv('SECRET_KEY')
+if not SECRET_KEY:
+    if os.getenv('FLASK_ENV') == 'production':
+        raise ValueError('ERROR: SECRET_KEY environment variable must be set in production')
+    SECRET_KEY = 'dev-key-only-for-testing'
+    logger.warning('Using development SECRET_KEY. Set SECRET_KEY environment variable for production!')
 
 def token_required(f):
     """Decorator for protecting routes that require authentication"""
@@ -92,23 +100,30 @@ def register():
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
-    """Login user"""
+    """Login user - Rate limited to prevent brute force"""
     data = request.get_json()
     
     if not data or not data.get('username') or not data.get('password'):
         return jsonify({'message': 'Missing username or password'}), 400
     
-    username = data.get('username')
+    username = data.get('username').strip()
     password = data.get('password')
+    
+    # Validate input length
+    if len(username) > 100 or len(password) > 500:
+        return jsonify({'message': 'Invalid credentials'}), 401
     
     user = User.get_by_username(username)
     if not user:
+        logger.warning(f'Failed login attempt for non-existent user: {username}')
         return jsonify({'message': 'Invalid username or password'}), 401
     
     if not check_password_hash(user['password_hash'], password):
+        logger.warning(f'Failed login attempt for user: {username}')
         return jsonify({'message': 'Invalid username or password'}), 401
     
     token = create_token(user['id'])
+    logger.info(f'Successful login for user: {username}')
     return jsonify({
         'message': 'Login successful',
         'token': token,

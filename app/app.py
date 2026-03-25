@@ -1,17 +1,40 @@
 from flask import Flask, jsonify, send_from_directory, render_template_string
 from flask_cors import CORS
 import os
+import logging
 from .models import init_db
 from .auth import auth_bp, token_required, admin_required
 from .chat import chat_bp
 from .admin import admin_bp
 from .tools_api import tools_bp
 
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 # Get the webui folder path (where HTML files are stored)
 WEBUI_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'webui')
 
 app = Flask(__name__, static_folder=WEBUI_FOLDER, static_url_path='/static')
-CORS(app)
+
+# Setup CORS with proper configuration
+CORS(app, resources={
+    r"/api/*": {
+        "origins": [
+            "https://jeebs.club",
+            "http://localhost:3000", 
+            "http://localhost:8000",
+            "http://localhost"
+        ],
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"],
+        "max_age": 3600,
+        "supports_credentials": True
+    }
+})
 
 # Initialize database
 init_db()

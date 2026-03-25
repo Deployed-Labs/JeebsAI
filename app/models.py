@@ -54,6 +54,14 @@ def init_db():
     )
     ''')
     
+    # Create indexes for improved query performance
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_conversations_created_at ON conversations(created_at)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at)')
+    
     conn.commit()
     conn.close()
 
@@ -124,16 +132,34 @@ class Conversation:
         return dict_from_row(row)
     
     @staticmethod
-    def get_user_conversations(user_id):
+    def get_user_conversations(user_id, page=1, per_page=20):
+        """Get paginated conversations for a user"""
         conn = get_db()
         cursor = conn.cursor()
+        
+        # Get total count
         cursor.execute(
-            'SELECT * FROM conversations WHERE user_id = ? ORDER BY updated_at DESC',
+            'SELECT COUNT(*) as count FROM conversations WHERE user_id = ?',
             (user_id,)
+        )
+        total = cursor.fetchone()['count']
+        
+        # Get paginated results
+        offset = (page - 1) * per_page
+        cursor.execute(
+            'SELECT * FROM conversations WHERE user_id = ? ORDER BY updated_at DESC LIMIT ? OFFSET ?',
+            (user_id, per_page, offset)
         )
         rows = cursor.fetchall()
         conn.close()
-        return [dict(row) for row in rows]
+        
+        return {
+            'items': [dict(row) for row in rows],
+            'total': total,
+            'page': page,
+            'per_page': per_page,
+            'pages': (total + per_page - 1) // per_page
+        }
     
     @staticmethod
     def update_title(conv_id, title):
@@ -164,13 +190,31 @@ class Message:
             conn.close()
     
     @staticmethod
-    def get_conversation_messages(conv_id):
+    def get_conversation_messages(conv_id, page=1, per_page=50):
+        """Get paginated messages for a conversation"""
         conn = get_db()
         cursor = conn.cursor()
+        
+        # Get total count
         cursor.execute(
-            'SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC',
+            'SELECT COUNT(*) as count FROM messages WHERE conversation_id = ?',
             (conv_id,)
+        )
+        total = cursor.fetchone()['count']
+        
+        # Get paginated results
+        offset = (page - 1) * per_page
+        cursor.execute(
+            'SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC LIMIT ? OFFSET ?',
+            (conv_id, per_page, offset)
         )
         rows = cursor.fetchall()
         conn.close()
-        return [dict(row) for row in rows]
+        
+        return {
+            'items': [dict(row) for row in rows],
+            'total': total,
+            'page': page,
+            'per_page': per_page,
+            'pages': (total + per_page - 1) // per_page
+        }
