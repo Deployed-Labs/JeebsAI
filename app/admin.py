@@ -841,8 +841,16 @@ def brain_viz_data(user):
     - stats: Overall brain statistics
     """
     import numpy as np
-    from sklearn.metrics.pairwise import cosine_similarity
     import json
+    
+    def cosine_similarity_manual(v1, v2):
+        """Compute cosine similarity between two vectors without sklearn"""
+        dot_product = np.dot(v1, v2)
+        norm_v1 = np.linalg.norm(v1)
+        norm_v2 = np.linalg.norm(v2)
+        if norm_v1 == 0 or norm_v2 == 0:
+            return 0.0
+        return dot_product / (norm_v1 * norm_v2)
     
     try:
         conn = get_db()
@@ -895,7 +903,6 @@ def brain_viz_data(user):
         
         # Compute similarity matrix
         vectors_array = np.array(vectors)
-        similarity_matrix = cosine_similarity(vectors_array)
         
         # Build nodes (memories)
         nodes = []
@@ -921,7 +928,7 @@ def brain_viz_data(user):
         
         for i in range(len(vectors)):
             for j in range(i + 1, len(vectors)):
-                similarity = float(similarity_matrix[i][j])
+                similarity = float(cosine_similarity_manual(vectors_array[i], vectors_array[j]))
                 
                 if similarity > threshold:
                     edges.append({
