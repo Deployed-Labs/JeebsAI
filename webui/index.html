@@ -101,6 +101,7 @@
                                 <button type="submit" class="btn-send">Send</button>
                                 <button type="button" class="btn-tools" onclick="toggleToolsPanel()">🔧 Tools</button>
                                 <button type="button" class="btn-teach" onclick="toggleTeachingPanel()">📚 Teach</button>
+                                <button type="button" class="btn-brain" onclick="toggleBrainInsights()">🧠 Brain</button>
                             </div>
                         </form>
                         
@@ -179,6 +180,21 @@
                                 <button class="btn-close" onclick="closeTool()">×</button>
                             </div>
                             <div id="tool-input-content" class="tool-input-content"></div>
+                        </div>
+                        
+                        <!-- Brain Insights Panel -->
+                        <div id="brain-insights-panel" class="brain-insights-panel hidden">
+                            <div class="brain-insights-header">
+                                <h4>🧠 Brain Insights</h4>
+                                <button class="btn-close" onclick="toggleBrainInsights()">×</button>
+                            </div>
+                            <div class="brain-insights-content">
+                                <div id="brain-insights-loading" style="text-align: center; padding: 20px;">
+                                    <div class="tool-spinner"></div>
+                                    <p>Analyzing conversation...</p>
+                                </div>
+                                <div id="brain-insights-data" style="display: none;"></div>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -76,17 +76,37 @@ class HolographicBrain:
         return self.save_memory(conversation_id or 0, key_text, response_text, 
                               priority=3, is_taught=True, category=category)
 
-    def query(self, text: str, top_k: int = 1, use_priority: bool = True):
-        """Query memories with similarity scoring and optional priority weighting"""
+    def query(self, text: str, top_k: int = 1, use_priority: bool = True, use_context: bool = False, 
+              conv_context: list = None):
+        """Query memories with similarity scoring, optional priority weighting, and context awareness.
+        
+        Args:
+            text: Query text
+            top_k: Number of results to return
+            use_priority: Apply priority and access count weighting
+            use_context: Weight results higher if from same conversation
+            conv_context: Optional list of dicts with 'key_text' and 'response_text' for context
+        """
         self._ensure_table()
-        probe = self.encode(text)
+        
+        # For context-aware queries, blend the query with context
+        query_text = text
+        if use_context and conv_context:
+            # Add recent conversation context to the query for better understanding
+            context_phrases = [msg.get('content', '')[:50] for msg in conv_context[-3:] if msg.get('content')]
+            if context_phrases:
+                query_text = text + " " + " ".join(context_phrases)
+        
+        probe = self.encode(query_text)
         conn = get_db()
         cur = conn.cursor()
-        cur.execute(f"SELECT id, conversation_id, key_text, response_text, vector_json, priority, access_count FROM {self.table_name}")
+        cur.execute(f"SELECT id, conversation_id, key_text, response_text, vector_json, priority, access_count, created_at FROM {self.table_name}")
         rows = cur.fetchall()
         conn.close()
 
         results = []
+        current_conv_id = conv_context[0].get('conversation_id') if conv_context and isinstance(conv_context, list) and len(conv_context) > 0 else None
+        
         for r in rows:
             try:
                 vec = np.array(json.loads(r['vector_json']), dtype=float)
@@ -98,18 +118,22 @@ class HolographicBrain:
                     # Boost score if this is taught knowledge or frequently accessed
                     sim = sim * (1 + (priority - 1) * 0.2 + min(r['access_count'] * 0.05, 0.3))
                 
+                # Context weighting: boost memories from same conversation
+                if use_context and current_conv_id and r['conversation_id'] == current_conv_id:
+                    sim = sim * 1.3  # 30% boost for same-conversation memories
+                
                 if sim >= self.similarity_threshold:
-                    results.append((sim, r['response_text'], r['id']))
+                    results.append((sim, r['response_text'], r['id'], r['conversation_id']))
             except Exception:
                 continue
 
         results.sort(key=lambda x: x[0], reverse=True)
         
-        # Update access count for retrieved memories
+        # Update access count for top retrieved memory
         if results and len(results) > 0:
             self._update_access_count(results[0][2])
         
-        return [(sim, resp) for sim, resp, _ in results[:top_k]]
+        return [(sim, resp) for sim, resp, _, _ in results[:top_k]]
 
     def _update_access_count(self, memory_id: int):
         """Update access count when a memory is retrieved"""
@@ -156,6 +180,89 @@ class HolographicBrain:
             return True
         except:
             return False
+
+    def extract_concepts(self, text: str) -> list:
+        """Extract important concepts and entities from text for better understanding.
+        
+        Returns list of significant words/concepts for semantic analysis.
+        """
+        # Remove common stop words
+        stop_words = {
+            'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+            'of', 'with', 'by', 'from', 'is', 'are', 'was', 'were', 'be', 'been',
+            'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would',
+            'could', 'should', 'may', 'might', 'can', 'that', 'this', 'these',
+            'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'as', 'if',
+            'how', 'what', 'when', 'where', 'why', 'which', 'who', 'whom'
+        }
+        
+        words = text.lower().split()
+        # Keep words longer than 3 chars and not in stop words
+        concepts = [w.strip('.,!?;:') for w in words 
+                   if len(w.strip('.,!?;:')) > 3 and w.lower().strip('.,!?;:') not in stop_words]
+        
+        # Return unique concepts maintaining order
+        seen = set()
+        unique_concepts = []
+        for c in concepts:
+            if c not in seen:
+                unique_concepts.append(c)
+                seen.add(c)
+        
+        return unique_concepts
+
+    def get_conversation_context(self, conv_id: int) -> dict:
+        """Get learning context about a conversation (topics, themes, style)"""
+        self._ensure_table()
+        conn = get_db()
+        cur = conn.cursor()
+        
+        # Get all memories from this conversation
+        cur.execute(f"""
+            SELECT key_text, response_text, priority, access_count, category
+            FROM {self.table_name}
+            WHERE conversation_id = ?
+            ORDER BY lastused_at DESC
+            LIMIT 20
+        """, (conv_id,))
+        
+        memories = [dict(row) for row in cur.fetchall()]
+        conn.close()
+        
+        if not memories:
+            return {'conv_id': conv_id, 'topics': [], 'style': 'neutral', 'summary': None}
+        
+        # Extract all concepts to identify topics
+        all_concepts = []
+        for mem in memories:
+            all_concepts.extend(self.extract_concepts(mem.get('key_text', '') + ' ' + mem.get('response_text', '')))
+        
+        # Count concept frequency to identify main topics
+        from collections import Counter
+        concept_freq = Counter(all_concepts)
+        top_topics = [word for word, _ in concept_freq.most_common(5)]
+        
+        # Determine conversation style based on priority/access patterns
+        avg_priority = sum(m.get('priority', 1) for m in memories) / len(memories) if memories else 1
+        avg_access = sum(m.get('access_count', 0) for m in memories) / len(memories) if memories else 0
+        
+        # Classify style
+        if avg_priority >= 2.5:
+            style = 'formal_detailed'
+        elif avg_access >= 10:
+            style = 'frequently_referenced'
+        else:
+            style = 'conversational'
+        
+        return {
+            'conv_id': conv_id,
+            'topics': top_topics,
+            'style': style,
+            'memory_count': len(memories),
+            'avg_priority': round(avg_priority, 2),
+            'avg_access': round(avg_access, 2),
+            'categories': list(set(m.get('category', 'general') for m in memories if m.get('category')))
+        }
 
 
 # Singleton instance used by the Flask app

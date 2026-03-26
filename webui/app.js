@@ -1408,3 +1408,128 @@ async function forgetMemory(memoryId) {
         console.error('Error deleting memory:', error);
     }
 }
+
+// ============================================================================
+// BRAIN INSIGHTS FUNCTIONS - Show what JeebsAI has learned about conversations
+// ============================================================================
+
+function toggleBrainInsights() {
+    const panel = document.getElementById('brain-insights-panel');
+    const toolsPanel = document.getElementById('tools-panel');
+    const teachingPanel = document.getElementById('teaching-panel');
+    
+    // Hide other panels if showing
+    if (!toolsPanel.classList.contains('hidden')) {
+        toolsPanel.classList.add('hidden');
+    }
+    if (!teachingPanel.classList.contains('hidden')) {
+        teachingPanel.classList.add('hidden');
+    }
+    
+    if (panel.classList.contains('hidden')) {
+        panel.classList.remove('hidden');
+        loadBrainInsights();
+    } else {
+        panel.classList.add('hidden');
+    }
+}
+
+async function loadBrainInsights() {
+    if (!currentConversationId) {
+        document.getElementById('brain-insights-data').innerHTML = 
+            '<p style="color: #999; text-align: center;">No conversation selected.</p>';
+        return;
+    }
+    
+    const loadingDiv = document.getElementById('brain-insights-loading');
+    const dataDiv = document.getElementById('brain-insights-data');
+    
+    try {
+        loadingDiv.style.display = 'block';
+        dataDiv.style.display = 'none';
+        
+        const response = await fetch(`${API_BASE}/chat/brain/conversation-context/${currentConversationId}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.learning_context) {
+            const context = data.learning_context;
+            let html = '';
+            
+            // Display style
+            html += `
+                <div class="brain-insight-stat">
+                    <strong>Conversation Style</strong>
+                    <div class="brain-insight-value">
+                        ${formatConversationStyle(context.style)}
+                    </div>
+                </div>
+            `;
+            
+            // Display topics
+            if (context.topics && context.topics.length > 0) {
+                html += `
+                    <div class="brain-insight-stat">
+                        <strong>Main Topics Discussed</strong>
+                        <div class="brain-topics-list">
+                            ${context.topics.map(topic => `<span class="brain-topic-tag">${escapeHtml(topic)}</span>`).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Display categories
+            if (context.categories && context.categories.length > 0) {
+                html += `
+                    <div class="brain-insight-stat">
+                        <strong>Memory Categories</strong>
+                        <div class="brain-categories-list">
+                            ${context.categories.map(cat => `<span class="brain-category-badge">${escapeHtml(cat)}</span>`).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Display stats
+            html += `<div class="brain-insights-divider"></div>`;
+            html += `
+                <div class="brain-insight-stat">
+                    <strong>Learning Statistics</strong>
+                    <div class="brain-insight-value">
+                        📚 Memories: <strong>${context.memory_count}</strong><br>
+                        ⭐ Avg Priority: <strong>${context.avg_priority}</strong><br>
+                        🔄 Avg Access: <strong>${context.avg_access}</strong> times
+                    </div>
+                </div>
+            `;
+            
+            dataDiv.innerHTML = html;
+            loadingDiv.style.display = 'none';
+            dataDiv.style.display = 'block';
+        } else {
+            dataDiv.innerHTML = '<p style="color: #999;">No learning data available yet. Start chatting to build context!</p>';
+            loadingDiv.style.display = 'none';
+            dataDiv.style.display = 'block';
+        }
+    } catch (error) {
+        console.error('Error loading brain insights:', error);
+        dataDiv.innerHTML = `<p style="color: #e74c3c;">Error: ${error.message}</p>`;
+        loadingDiv.style.display = 'none';
+        dataDiv.style.display = 'block';
+    }
+}
+
+function formatConversationStyle(style) {
+    const styles = {
+        'formal_detailed': '📋 Formal & Detailed - Technical discussions with depth',
+        'frequently_referenced': '🔄 Frequently Referenced - Important topics discussed multiple times',
+        'conversational': '💬 Conversational - Casual, flowing discussion',
+        'neutral': '➖ Neutral - Just getting started'
+    };
+    return styles[style] || style;
+}

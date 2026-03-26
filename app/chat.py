@@ -123,25 +123,55 @@ def detect_and_use_tools(user_message, conv_id=None):
     
     return None
 
-def generate_response(user_message, conv_id=None):
-    """Generate a response using the holographic brain, tool use, and rule-based fallback."""
+def generate_response(user_message, conv_id=None, conversation_messages=None):
+    """Generate a response using the holographic brain, tool use, and rule-based fallback.
+    
+    Args:
+        user_message: The user's input message
+        conv_id: Conversation ID for context-aware learning
+        conversation_messages: List of recent messages for context (improves understanding)
+    """
     
     # Try to use tools if applicable (pass conv_id so tools can learn)
     tool_response = detect_and_use_tools(user_message, conv_id)
     if tool_response:
         return tool_response
     
-    # Try retrieval from holographic brain
+    # Try retrieval from holographic brain with conversation context
     try:
-        results = brain.query(user_message, top_k=1)
+        # Prepare context from recent messages for better understanding
+        use_context = conversation_messages is not None and len(conversation_messages) > 0
+        conv_context = None
+        
+        if use_context:
+            # Build context from recent messages (last 3-5 exchanges for understanding)
+            conv_context = []
+            for msg in conversation_messages[-6:]:  # Last 6 messages = 3 exchanges
+                conv_context.append({
+                    'role': msg.get('role', 'unknown'),
+                    'content': msg.get('content', ''),
+                    'conversation_id': conv_id
+                })
+        
+        # Query with context awareness for better semantic matching
+        results = brain.query(user_message, top_k=2, use_priority=True, 
+                            use_context=use_context, conv_context=conv_context)
+        
         if results:
             sim, resp = results[0]
-            if sim >= 0.65:
+            # Higher confidence threshold when using context
+            threshold = 0.60 if use_context else 0.65
+            if sim >= threshold:
                 return resp
-    except Exception:
+    except Exception as e:
         # if brain fails, continue to fallback
         pass
 
+    # Check for correction patterns (when user corrects previous response)
+    correction_markers = ['no, ', 'not ', 'i meant ', 'actually ', 'sorry ', 'what i meant', 'correct']
+    msg_lower = user_message.lower()
+    is_correction = any(msg_lower.startswith(marker) for marker in correction_markers)
+    
     # Simple demo rule-based fallback with enhanced responses
     responses = {
         'hello': "Hello! I'm JeebsAI 🧠. I have access to tools like web search, calculator, code analysis, and more. How can I help you today?",
@@ -157,6 +187,25 @@ def generate_response(user_message, conv_id=None):
     for key, response in responses.items():
         if key in message_lower:
             return response
+
+    # If this is a correction, acknowledge it and learn the correction
+    if is_correction:
+        corrected_msg = user_message
+        for marker in correction_markers:
+            if corrected_msg.lower().startswith(marker):
+                corrected_msg = corrected_msg[len(marker):].strip()
+                break
+        
+        response = f"Got it! Thank you for the correction. I understand now: {corrected_msg}. I'll remember this for future reference!"
+        
+        # Learn the correction with high priority
+        if conv_id and corrected_msg:
+            try:
+                brain.save_memory(conv_id, user_message, response, priority=2, category='correction')
+            except:
+                pass
+        
+        return response
 
     return f"That's interesting! You said: \"{user_message}\". I'm here to help with any questions you might have. You can also ask me to search the web, calculate math, analyze code, or manage your conversations!"
 
@@ -215,13 +264,23 @@ def send_message(user, conv_id):
     # Store user message
     Message.create(conv_id, 'user', user_message)
     
-    # Generate and store AI response
-    ai_response = generate_response(user_message, conv_id)
+    # Get recent conversation history for context-aware response generation
+    recent_messages = Message.get_conversation_messages(conv_id)
+    
+    # Generate and store AI response with conversation context
+    ai_response = generate_response(user_message, conv_id, conversation_messages=recent_messages)
     Message.create(conv_id, 'assistant', ai_response)
 
     # Save the user->assistant pair to the holographic brain for learning
     try:
-        brain.save_memory(conv_id, user_message, ai_response)
+        # Determine priority based on message characteristics
+        priority = 1  # Default priority
+        if len(user_message) > 100:  # Longer messages might be important
+            priority = 2
+        if any(marker in user_message.lower() for marker in ['important', 'remember', 'key point']):
+            priority = 2
+        
+        brain.save_memory(conv_id, user_message, ai_response, priority=priority)
     except Exception:
         pass
     
@@ -418,4 +477,48 @@ def recall_memories(user):
         }), 200
     except Exception as e:
         return jsonify({'message': f'Error recalling memories: {str(e)}'}), 500
+
+
+@chat_bp.route('/brain/conversation-context/<int:conv_id>', methods=['GET'])
+@token_required
+def get_conversation_context(user, conv_id):
+    """Get what JeebsAI has learned about a specific conversation (topics, themes, style)"""
+    conversation = Conversation.get_by_id(conv_id)
+    
+    # Verify user owns this conversation
+    if not conversation or conversation['user_id'] != user['id']:
+        return jsonify({'message': 'Conversation not found'}), 404
+    
+    try:
+        context = brain.get_conversation_context(conv_id)
+        return jsonify({
+            'conversation_id': conv_id,
+            'title': conversation.get('title', 'Untitled'),
+            'learning_context': context,
+            'success': True
+        }), 200
+    except Exception as e:
+        return jsonify({'message': f'Error analyzing conversation: {str(e)}'}), 500
+
+
+@chat_bp.route('/brain/extract-concepts', methods=['POST'])
+@token_required
+def extract_text_concepts(user):
+    """Extract important concepts and entities from text for semantic understanding"""
+    data = request.get_json()
+    if not data or not data.get('text'):
+        return jsonify({'message': 'text parameter required'}), 400
+    
+    text = data.get('text')
+    
+    try:
+        concepts = brain.extract_concepts(text)
+        return jsonify({
+            'text': text[:100] + ('...' if len(text) > 100 else ''),
+            'concepts': concepts,
+            'count': len(concepts),
+            'success': True
+        }), 200
+    except Exception as e:
+        return jsonify({'message': f'Error extracting concepts: {str(e)}'}), 500
 

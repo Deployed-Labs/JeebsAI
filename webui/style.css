@@ -1042,6 +1042,23 @@ body {
     background: #673a91;
 }
 
+.btn-brain {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 12px;
+    transition: all 0.3s;
+}
+
+.btn-brain:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
 .admin-tab-btn {
     flex: 1;
     padding: 12px 16px;
@@ -1106,6 +1123,100 @@ body {
 .admin-controls {
     max-height: 60vh;
     overflow-y: auto;
+}
+
+.brain-insights-panel {
+    background: linear-gradient(135deg, #f0e6ff 0%, #e8dff7 100%);
+    border: 2px solid #667eea;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 10px;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+}
+
+.brain-insights-panel.hidden {
+    display: none;
+}
+
+.brain-insights-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #667eea;
+}
+
+.brain-insights-header h4 {
+    color: #667eea;
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.brain-insights-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.brain-insight-stat {
+    background: white;
+    padding: 12px;
+    border-radius: 6px;
+    border-left: 4px solid #667eea;
+    margin: 8px 0;
+}
+
+.brain-insight-stat strong {
+    color: #667eea;
+    display: block;
+    margin-bottom: 4px;
+    font-size: 13px;
+}
+
+.brain-insight-value {
+    color: #333;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.brain-topics-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 8px 0;
+}
+
+.brain-topic-tag {
+    background: #667eea;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 16px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.brain-categories-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 8px 0;
+}
+
+.brain-category-badge {
+    background: #764ba2;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.brain-insights-divider {
+    height: 1px;
+    background: rgba(102, 126, 234, 0.2);
+    margin: 12px 0;
 }
 
 /* Responsive */
