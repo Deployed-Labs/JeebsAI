@@ -15,6 +15,8 @@ services:
       - "8000:8000"
     volumes:
       - /opt/jeebsai/data:/data
+      - /opt/jeebsai/app:/app/app
+      - /opt/jeebsai/webui:/app/webui
     networks:
       - webnet
     healthcheck:

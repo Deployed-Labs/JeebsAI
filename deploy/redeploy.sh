@@ -21,14 +21,19 @@ sleep 8
 curl -sf http://localhost:8000/health && echo "" && echo "✅ Backend is up!"
 
 echo ""
+echo "==> Testing login directly..."
+curl -s -X POST http://localhost:8000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"admin"}' | python3 -m json.tool
+
+echo ""
 echo "==> Container status:"
 docker compose -f deploy/docker-compose.prod.yml ps
 
 echo ""
 echo "==> Recent logs:"
-docker compose -f deploy/docker-compose.prod.yml logs web --tail=15
+docker compose -f deploy/docker-compose.prod.yml logs web --tail=20
 
 echo ""
-echo "✅ Redeploy complete. Login at https://jeebs.club"
-echo "   Username: admin"
-echo "   Password: admin"
+echo "✅ Done! Login at https://jeebs.club  |  admin / admin"
+
