@@ -1,7 +1,6 @@
 ## Caddyfile for jeebs.club
-## Handles both apex and www, forces HTTPS via automatic TLS
 
-jeebs.club, www.jeebs.club {
+jeebs.club {
     reverse_proxy web:8000
     tls admin@jeebs.club
 }
