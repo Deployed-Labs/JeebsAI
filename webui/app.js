@@ -89,6 +89,12 @@ async function handleLogin(e) {
         // Show chat section
         showChatSection();
         
+        // Show admin elements if applicable
+        if (currentUser.is_admin) {
+            document.getElementById('admin-section').style.display = 'block';
+            document.getElementById('admin-link').style.display = 'block';
+        }
+        
         // Load conversations after a short delay to ensure UI is updated
         setTimeout(() => {
             loadConversations();
@@ -174,13 +180,17 @@ async function handleRegister(e) {
 
 // Verify token and show chat
 async function verifyTokenAndShowChat() {
+    const tokenSnapshot = token; // capture to detect if user logs in mid-flight
     try {
         const response = await fetch(`${API_BASE}/auth/verify-token`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { 'Authorization': `Bearer ${tokenSnapshot}` }
         });
         
+        // If the user logged in while we were waiting, don't interfere
+        if (token !== tokenSnapshot) return;
+        
         if (!response.ok) {
-            logout();
+            if (token === tokenSnapshot) logout();
             return;
         }
         
@@ -193,12 +203,12 @@ async function verifyTokenAndShowChat() {
         loadConversations();
         
         // Check if user is admin
-        if (currentUser.is_admin) {
+        if (currentUser && currentUser.is_admin) {
             document.getElementById('admin-section').style.display = 'block';
             document.getElementById('admin-link').style.display = 'block';
         }
     } catch (error) {
-        logout();
+        if (token === tokenSnapshot) logout();
     }
 }
 
@@ -225,8 +235,9 @@ async function loadConversations() {
         
         if (!response.ok) {
             console.error('Failed to load conversations:', response.status);
-            if (response.status === 401) {
-                console.warn('Unauthorized - logging out');
+            if (response.status === 401 && !currentUser) {
+                // Only logout if we don't have a currentUser set (i.e. not mid-login)
+                console.warn('Unauthorized and no current user - logging out');
                 logout();
             }
             return;
