@@ -33,30 +33,70 @@ async function handleLogin(e) {
     const password = document.getElementById('login-password').value;
     const errorDiv = document.getElementById('login-error');
     
+    if (!username || !password) {
+        errorDiv.textContent = '❌ Please enter username and password';
+        errorDiv.classList.add('show');
+        return;
+    }
+    
+    // Show loading state
+    errorDiv.textContent = '⏳ Logging in...';
+    errorDiv.classList.add('show');
+    errorDiv.style.color = '#666';
+    
     try {
+        console.log('Attempting login for user:', username);
         const response = await fetch(`${API_BASE}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password })
         });
         
+        console.log('Login response status:', response.status);
+        
         const data = await response.json();
+        console.log('Login response data:', data);
         
         if (!response.ok) {
             errorDiv.textContent = data.message || 'Login failed';
+            errorDiv.style.color = '#e74c3c';
+            errorDiv.classList.add('show');
+            console.error('Login failed:', data.message);
+            return;
+        }
+        
+        if (!data.token || !data.user_id) {
+            console.error('Invalid response data:', data);
+            errorDiv.textContent = '❌ Invalid server response. Please try again.';
+            errorDiv.style.color = '#e74c3c';
             errorDiv.classList.add('show');
             return;
         }
         
         token = data.token;
-        currentUser = { id: data.user_id, username: data.username, is_admin: data.is_admin };
+        currentUser = { 
+            id: data.user_id, 
+            username: data.username, 
+            is_admin: data.is_admin || false 
+        };
         localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify(currentUser));
         
+        console.log('Login successful for user:', username);
+        errorDiv.textContent = '✅ Login successful! Loading...';
+        errorDiv.style.color = '#27ae60';
+        
+        // Show chat section
         showChatSection();
-        loadConversations();
+        
+        // Load conversations after a short delay to ensure UI is updated
+        setTimeout(() => {
+            loadConversations();
+        }, 100);
     } catch (error) {
-        errorDiv.textContent = 'Connection error. Please try again.';
+        console.error('Login error:', error);
+        errorDiv.textContent = `❌ Connection error: ${error.message}`;
+        errorDiv.style.color = '#e74c3c';
         errorDiv.classList.add('show');
     }
 }
@@ -69,17 +109,42 @@ async function handleRegister(e) {
     const password = document.getElementById('register-password').value;
     const errorDiv = document.getElementById('register-error');
     
+    if (!username || !email || !password) {
+        errorDiv.textContent = '❌ Please fill in all fields';
+        errorDiv.classList.add('show');
+        return;
+    }
+    
+    // Show loading state
+    errorDiv.textContent = '⏳ Creating account...';
+    errorDiv.classList.add('show');
+    errorDiv.style.color = '#666';
+    
     try {
+        console.log('Attempting registration for user:', username);
         const response = await fetch(`${API_BASE}/auth/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, email, password })
         });
         
+        console.log('Register response status:', response.status);
+        
         const data = await response.json();
+        console.log('Register response data:', data);
         
         if (!response.ok) {
             errorDiv.textContent = data.message || 'Registration failed';
+            errorDiv.style.color = '#e74c3c';
+            errorDiv.classList.add('show');
+            console.error('Registration failed:', data.message);
+            return;
+        }
+        
+        if (!data.token || !data.user_id) {
+            console.error('Invalid response data:', data);
+            errorDiv.textContent = '❌ Invalid server response. Please try again.';
+            errorDiv.style.color = '#e74c3c';
             errorDiv.classList.add('show');
             return;
         }
@@ -89,10 +154,20 @@ async function handleRegister(e) {
         localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify(currentUser));
         
+        console.log('Registration successful for user:', username);
+        errorDiv.textContent = '✅ Account created! Loading...';
+        errorDiv.style.color = '#27ae60';
+        
         showChatSection();
-        createNewConversation();
+        
+        // Create first conversation after a short delay
+        setTimeout(() => {
+            createNewConversation();
+        }, 100);
     } catch (error) {
-        errorDiv.textContent = 'Connection error. Please try again.';
+        console.error('Registration error:', error);
+        errorDiv.textContent = `❌ Connection error: ${error.message}`;
+        errorDiv.style.color = '#e74c3c';
         errorDiv.classList.add('show');
     }
 }
@@ -141,27 +216,49 @@ function showChatSection() {
 // Load conversations
 async function loadConversations() {
     try {
+        console.log('Loading conversations with token:', token ? 'valid' : 'missing');
         const response = await fetch(`${API_BASE}/chat/conversations`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
+        console.log('Conversations response status:', response.status);
+        
         if (!response.ok) {
-            if (response.status === 401) logout();
+            console.error('Failed to load conversations:', response.status);
+            if (response.status === 401) {
+                console.warn('Unauthorized - logging out');
+                logout();
+            }
             return;
         }
         
         const conversations = await response.json();
+        console.log('Loaded conversations:', conversations.length || 0);
+        
         const list = document.getElementById('conversations-list');
+        if (!list) {
+            console.error('conversations-list element not found');
+            return;
+        }
+        
         list.innerHTML = '';
+        
+        if (!conversations || !Array.isArray(conversations)) {
+            console.warn('Invalid conversations response:', conversations);
+            list.innerHTML = '<div style="padding: 20px; color: #999; text-align: center;">No conversations</div>';
+            return;
+        }
         
         conversations.forEach(conv => {
             const item = document.createElement('div');
             item.className = 'conversation-item';
             if (conv.id === currentConversationId) item.classList.add('active');
-            item.textContent = conv.title;
+            item.textContent = conv.title || 'Untitled';
             item.onclick = () => selectConversation(conv.id);
             list.appendChild(item);
         });
+        
+        console.log('Conversations list rendered successfully');
     } catch (error) {
         console.error('Error loading conversations:', error);
     }
@@ -194,20 +291,39 @@ async function selectConversation(convId) {
     currentConversationId = convId;
     
     try {
+        console.log('Loading conversation:', convId);
         const response = await fetch(`${API_BASE}/chat/conversations/${convId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
-        if (!response.ok) return;
+        console.log('Conversation response status:', response.status);
+        
+        if (!response.ok) {
+            console.error('Failed to load conversation:', response.status);
+            return;
+        }
         
         const data = await response.json();
-        document.getElementById('conv-title').textContent = data.conversation.title;
+        console.log('Loaded conversation data:', data);
+        
+        const convTitle = document.getElementById('conv-title');
+        if (!convTitle) {
+            console.error('conv-title element not found');
+            return;
+        }
+        
+        convTitle.textContent = data.conversation ? data.conversation.title : 'Conversation';
         
         // Load messages
         const container = document.getElementById('messages-container');
+        if (!container) {
+            console.error('messages-container element not found');
+            return;
+        }
+        
         container.innerHTML = '';
         
-        if (data.messages.length === 0) {
+        if (!data.messages || data.messages.length === 0) {
             container.innerHTML = '<div class="welcome-message"><p>Start a conversation</p></div>';
         } else {
             data.messages.forEach(msg => {
@@ -218,7 +334,10 @@ async function selectConversation(convId) {
         
         // Update UI
         loadConversations();
-        document.getElementById('message-input').focus();
+        const msgInput = document.getElementById('message-input');
+        if (msgInput) msgInput.focus();
+        
+        console.log('Conversation loaded successfully');
     } catch (error) {
         console.error('Error loading conversation:', error);
     }
@@ -228,7 +347,13 @@ async function selectConversation(convId) {
 async function handleSendMessage(e) {
     e.preventDefault();
     
+    if (!token) {
+        console.error('No token present - user not authenticated');
+        return;
+    }
+    
     if (!currentConversationId) {
+        console.log('No conversation selected, creating new one');
         await createNewConversation();
         return;
     }
@@ -268,6 +393,7 @@ async function handleSendMessage(e) {
     }
     
     try {
+        console.log('Sending message to conversation:', currentConversationId);
         const response = await fetch(`${API_BASE}/chat/conversations/${currentConversationId}/messages`, {
             method: 'POST',
             headers: {
@@ -277,17 +403,34 @@ async function handleSendMessage(e) {
             body: JSON.stringify({ content })
         });
         
+        console.log('Message response status:', response.status);
+        
         if (!response.ok) {
-            if (response.status === 401) logout();
+            console.error('Failed to send message:', response.status);
+            if (response.status === 401) {
+                console.warn('Unauthorized - logging out');
+                logout();
+            }
             return;
         }
         
         const data = await response.json();
-        addMessageToUI('assistant', data.response);
+        console.log('Message sent successfully, response:', data.response ? 'received' : 'none');
+        
+        if (data.response) {
+            addMessageToUI('assistant', data.response);
+        }
         
         // Scroll to bottom
         const container = document.getElementById('messages-container');
-        container.scrollTop = container.scrollHeight;
+        if (container) {
+            container.scrollTop = container.scrollHeight;
+        }
+    } catch (error) {
+        console.error('Error sending message:', error);
+        addMessageToUI('assistant', `⚠️ Error sending message: ${error.message}`);
+    }
+}
         
         // Refresh conversation title if it changed
         loadConversations();
