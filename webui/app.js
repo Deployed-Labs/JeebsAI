@@ -426,17 +426,12 @@ async function handleSendMessage(e) {
         if (container) {
             container.scrollTop = container.scrollHeight;
         }
-    } catch (error) {
-        console.error('Error sending message:', error);
-        addMessageToUI('assistant', `⚠️ Error sending message: ${error.message}`);
-    }
-}
-        
-        // Refresh conversation title if it changed
+
+        // Refresh conversation list (title may have changed)
         loadConversations();
     } catch (error) {
         console.error('Error sending message:', error);
-        addMessageToUI('assistant', 'Error: Could not send message. Please try again.');
+        addMessageToUI('assistant', `⚠️ Error sending message: ${error.message}`);
     }
 }
 
@@ -920,7 +915,7 @@ function closeTool() {
 // ============================================================================
 
 function detectAndSuggestTools(message) {
-    """Detect if message suggests tool usage and show a suggestion"""
+    // Detect if message suggests tool usage and show a suggestion
     const msg = message.toLowerCase();
     let suggestedTool = null;
     

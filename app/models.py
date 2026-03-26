@@ -65,6 +65,36 @@ def init_db():
     conn.commit()
     conn.close()
 
+
+def ensure_admin():
+    """Ensure the hardcoded admin account always exists with the correct password.
+    Called on every app startup so the admin is always available."""
+    from werkzeug.security import generate_password_hash
+    import logging
+    logger = logging.getLogger(__name__)
+
+    password_hash = generate_password_hash('admin')
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('SELECT id FROM users WHERE username = ?', ('admin',))
+    existing = cursor.fetchone()
+    if existing:
+        # Always reset password and ensure admin flag is set
+        cursor.execute(
+            'UPDATE users SET password_hash = ?, is_admin = 1 WHERE username = ?',
+            (password_hash, 'admin')
+        )
+        logger.info('Admin account refreshed on startup')
+    else:
+        cursor.execute(
+            'INSERT INTO users (username, email, password_hash, is_admin) VALUES (?, ?, ?, 1)',
+            ('admin', 'admin@jeebs.club', password_hash)
+        )
+        logger.info('Admin account created on startup')
+    conn.commit()
+    conn.close()
+
+
 class User:
     @staticmethod
     def create(username, email, password_hash):

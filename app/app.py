@@ -2,7 +2,7 @@ from flask import Flask, jsonify, send_from_directory, render_template_string
 from flask_cors import CORS
 import os
 import logging
-from .models import init_db
+from .models import init_db, ensure_admin
 from .auth import auth_bp, token_required, admin_required
 from .chat import chat_bp
 from .admin import admin_bp
@@ -36,8 +36,9 @@ CORS(app, resources={
     }
 })
 
-# Initialize database
+# Initialize database and ensure admin account exists
 init_db()
+ensure_admin()
 
 # Register blueprints
 app.register_blueprint(auth_bp)

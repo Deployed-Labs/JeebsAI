@@ -213,8 +213,8 @@ def generate_response(user_message, conv_id=None, conversation_messages=None):
 @token_required
 def get_conversations(user):
     """Get all conversations for the user"""
-    conversations = Conversation.get_user_conversations(user['id'])
-    return jsonify(conversations), 200
+    result = Conversation.get_user_conversations(user['id'])
+    return jsonify(result.get('items', [])), 200
 
 @chat_bp.route('/conversations', methods=['POST'])
 @token_required
@@ -238,11 +238,11 @@ def get_conversation(user, conv_id):
     if not conversation or conversation['user_id'] != user['id']:
         return jsonify({'message': 'Conversation not found'}), 404
     
-    messages = Message.get_conversation_messages(conv_id)
+    messages_result = Message.get_conversation_messages(conv_id)
     
     return jsonify({
         'conversation': conversation,
-        'messages': messages
+        'messages': messages_result.get('items', [])
     }), 200
 
 @chat_bp.route('/conversations/<int:conv_id>/messages', methods=['POST'])
@@ -285,10 +285,10 @@ def send_message(user, conv_id):
         pass
     
     # Return the messages
-    messages = Message.get_conversation_messages(conv_id)
+    messages_result = Message.get_conversation_messages(conv_id)
     
     return jsonify({
-        'messages': messages,
+        'messages': messages_result.get('items', []),
         'response': ai_response
     }), 200
 
