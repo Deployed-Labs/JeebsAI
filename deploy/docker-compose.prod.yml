@@ -14,7 +14,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - jeebs_data:/data
+      - /opt/jeebsai/data:/data
     networks:
       - webnet
     healthcheck:
@@ -40,7 +40,6 @@ services:
       - webnet
 
 volumes:
-  jeebs_data:
   caddy_data:
   caddy_config:
 
