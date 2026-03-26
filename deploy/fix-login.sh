@@ -46,7 +46,9 @@ echo ""
 
 # 5. Create admin user
 echo -e "${YELLOW}5. Creating/verifying admin user...${NC}"
-docker compose -f deploy/docker-compose.prod.yml exec web python << 'PYTHONSCRIPT'
+
+# Create a temporary Python script
+cat > /tmp/create_admin.py << 'PYTHONSCRIPT'
 from app.models import User, init_db
 from werkzeug.security import generate_password_hash
 import sqlite3
@@ -86,6 +88,10 @@ cursor.execute("SELECT id, username, email, is_admin FROM users")
 for row in cursor.fetchall():
     print(f"  - ID: {row[0]}, Username: {row[1]}, Email: {row[2]}, Admin: {bool(row[3])}")
 PYTHONSCRIPT
+
+# Run the script in the container
+docker compose -f deploy/docker-compose.prod.yml exec -T web python /tmp/create_admin.py
+rm /tmp/create_admin.py
 
 echo ""
 
