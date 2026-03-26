@@ -56,17 +56,27 @@ import sqlite3
 # Initialize database
 init_db()
 
+# Create password hash for admin
+password_hash = generate_password_hash('admin')
+
 # Check if admin exists
 admin = User.get_by_username('admin')
 
 if admin:
-    print(f"✅ Admin user already exists (ID: {admin['id']})")
-    print(f"   Username: {admin['username']}")
+    # Reset password for existing admin user
+    conn = sqlite3.connect('/data/jeebs.db')
+    cursor = conn.cursor()
+    cursor.execute('UPDATE users SET password_hash = ?, is_admin = 1 WHERE id = ?', (password_hash, admin['id']))
+    conn.commit()
+    conn.close()
+    
+    print(f"✅ Admin user password reset (ID: {admin['id']})")
+    print(f"   Username: admin")
+    print(f"   Password: admin")
     print(f"   Email: {admin['email']}")
-    print(f"   Is Admin: {bool(admin['is_admin'])}")
+    print(f"   Is Admin: True")
 else:
     # Create admin user
-    password_hash = generate_password_hash('admin')
     user_id = User.create('admin', 'admin@jeebs.club', password_hash)
     
     # Make user admin
