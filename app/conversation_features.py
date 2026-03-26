@@ -223,7 +223,8 @@ class ConversationAnalytics:
         """Get analytics for a user's conversations"""
         try:
             db = get_db()
-            conversations = Conversation.get_user_conversations(user_id)
+            conversations_data = Conversation.get_user_conversations(user_id)
+            conversations = conversations_data.get('items', []) if isinstance(conversations_data, dict) else conversations_data
             
             if not conversations:
                 return {
@@ -231,7 +232,8 @@ class ConversationAnalytics:
                     'total_conversations': 0,
                     'total_messages': 0,
                     'total_characters': 0,
-                    'avg_conversation_length': 0
+                    'avg_conversation_length': 0,
+                    'avg_message_length': 0
                 }
             
             total_msgs = 0
@@ -264,7 +266,8 @@ class ConversationAnalytics:
         """Search across user's conversations"""
         try:
             db = get_db()
-            conversations = Conversation.get_user_conversations(user_id)
+            conversations_data = Conversation.get_user_conversations(user_id)
+            conversations = conversations_data.get('items', []) if isinstance(conversations_data, dict) else conversations_data
             
             results = []
             for conv in conversations:
@@ -295,7 +298,8 @@ class ConversationAnalytics:
         """Find most talked about topics in user's conversations"""
         try:
             db = get_db()
-            conversations = Conversation.get_user_conversations(user_id)
+            conversations_data = Conversation.get_user_conversations(user_id)
+            conversations = conversations_data.get('items', []) if isinstance(conversations_data, dict) else conversations_data
             
             # Simple word frequency analysis
             word_freq = {}
