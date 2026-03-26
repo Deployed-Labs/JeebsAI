@@ -1485,7 +1485,7 @@ async function submitTeaching() {
     }
 }
 
-async function loadJeebasMem ories() {
+async function loadJeebasMemories() {
     // Load and display all memories JeebsAI has learned
     try {
         const response = await fetch(`${API_BASE}/chat/brain/memories?limit=20`, {
