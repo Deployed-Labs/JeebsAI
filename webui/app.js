@@ -944,3 +944,144 @@ document.addEventListener('keydown', (e) => {
         createNewConversation();
     }
 });
+
+// ============================================================================
+// TEACHING FUNCTIONS - Allow users to teach JeebsAI new knowledge
+// ============================================================================
+
+function toggleTeachingPanel() {
+    const panel = document.getElementById('teaching-panel');
+    const toolsPanel = document.getElementById('tools-panel');
+    
+    // Hide tools panel if showing
+    if (!toolsPanel.classList.contains('hidden')) {
+        toolsPanel.classList.add('hidden');
+    }
+    
+    panel.classList.toggle('hidden');
+}
+
+async function submitTeaching() {
+    const keyText = document.getElementById('teach-key').value.trim();
+    const responseText = document.getElementById('teach-response').value.trim();
+    const category = document.getElementById('teach-category').value;
+    const statusDiv = document.getElementById('teach-status');
+    
+    if (!keyText || !responseText) {
+        statusDiv.innerHTML = '<p style="color: red;">❌ Both fields are required!</p>';
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/chat/teach`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                key: keyText,
+                response: responseText,
+                category: category,
+                conversation_id: currentConversationId || 0
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            statusDiv.innerHTML = `<p style="color: green;">✅ Knowledge saved! JeebsAI will remember this.</p>`;
+            
+            // Add teaching confirmation to chat
+            addMessageToUI('assistant', `📚 Got it! I've learned: "${keyText}" → "${responseText}"`);
+            
+            // Clear form
+            document.getElementById('teach-key').value = '';
+            document.getElementById('teach-response').value = '';
+            document.getElementById('teach-category').value = 'general';
+            
+            // Close panel after 2 seconds
+            setTimeout(() => {
+                toggleTeachingPanel();
+                statusDiv.innerHTML = '';
+            }, 2000);
+        } else {
+            statusDiv.innerHTML = `<p style="color: red;">❌ Error: ${data.message}</p>`;
+        }
+    } catch (error) {
+        statusDiv.innerHTML = `<p style="color: red;">❌ Failed to submit: ${error.message}</p>`;
+    }
+}
+
+async function loadJeebasMem ories() {
+    // Load and display all memories JeebsAI has learned
+    try {
+        const response = await fetch(`${API_BASE}/chat/brain/memories?limit=20`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        const data = await response.json();
+        if (response.ok && data.memories) {
+            let html = '<h4 style="margin-bottom: 15px;">📚 JeebsAI\'s Memory Bank</h4>';
+            
+            if (data.memories.length === 0) {
+                html += '<p style="color: #999;">No memories yet. Start teaching JeebsAI!</p>';
+            } else {
+                html += '<div style="max-height: 400px; overflow-y: auto;">';
+                data.memories.forEach((mem, idx) => {
+                    const category = mem.category || 'general';
+                    html += `
+                        <div style="background: #f5f5f5; padding: 10px; margin: 8px 0; border-radius: 4px; border-left: 3px solid #667eea;">
+                            <div style="display: flex; justify-content: space-between; align-items: start;">
+                                <div style="flex: 1;">
+                                    <strong style="color: #667eea;">Q: ${escapeHtml(mem.key_text)}</strong><br>
+                                    <p style="margin: 5px 0; color: #333; font-size: 13px;">A: ${escapeHtml(mem.response_text.substring(0, 80))}${mem.response_text.length > 80 ? '...' : ''}</p>
+                                    <small style="color: #999;">Category: ${category} | Used ${mem.access_count} times</small>
+                                </div>
+                                <button 
+                                    onclick="forgetMemory(${mem.id})"
+                                    style="background: #ff6b6b; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px;"
+                                >
+                                    🗑️ Delete
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+            }
+            
+            const container = document.getElementById('messages-container');
+            const memoryDiv = document.createElement('div');
+            memoryDiv.className = 'memory-display';
+            memoryDiv.innerHTML = html;
+            container.appendChild(memoryDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+    } catch (error) {
+        console.error('Error loading memories:', error);
+    }
+}
+
+async function forgetMemory(memoryId) {
+    if (!confirm('Are you sure you want to delete this memory?')) return;
+    
+    try {
+        const response = await fetch(`${API_BASE}/chat/brain/forget/${memoryId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (response.ok) {
+            document.querySelector(`[data-memory-id="${memoryId}"]`)?.remove();
+            addMessageToUI('assistant', '🗑️ Memory deleted. I\'ve forgotten that.');
+        }
+    } catch (error) {
+        console.error('Error deleting memory:', error);
+    }
+}

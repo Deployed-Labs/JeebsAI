@@ -100,8 +100,61 @@
                                 >
                                 <button type="submit" class="btn-send">Send</button>
                                 <button type="button" class="btn-tools" onclick="toggleToolsPanel()">🔧 Tools</button>
+                                <button type="button" class="btn-teach" onclick="toggleTeachingPanel()">📚 Teach</button>
                             </div>
                         </form>
+                        
+                        <!-- Teaching Panel -->
+                        <div id="teaching-panel" class="teaching-panel hidden">
+                            <div class="teaching-header">
+                                <h4>📚 Teach JeebsAI</h4>
+                                <button class="btn-close" onclick="toggleTeachingPanel()">×</button>
+                            </div>
+                            <div class="teaching-content">
+                                <p style="font-size: 12px; color: #888; margin-bottom: 15px;">
+                                    Teach JeebsAI new facts, knowledge, or behaviors. This will be remembered and used in responses.
+                                </p>
+                                <div class="form-group">
+                                    <label>When I ask:</label>
+                                    <input 
+                                        type="text" 
+                                        id="teach-key" 
+                                        placeholder="e.g., 'What is Python?'"
+                                        style="width: 100%; padding: 8px; margin: 8px 0; border: 1px solid #ddd; border-radius: 4px; font-size: 12px;"
+                                    >
+                                </div>
+                                <div class="form-group">
+                                    <label>You should respond:</label>
+                                    <textarea 
+                                        id="teach-response" 
+                                        placeholder="e.g., 'Python is a programming language...'"
+                                        rows="4"
+                                        style="width: 100%; padding: 8px; margin: 8px 0; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; font-family: inherit;"
+                                    ></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label>Category (optional):</label>
+                                    <select 
+                                        id="teach-category"
+                                        style="width: 100%; padding: 8px; margin: 8px 0; border: 1px solid #ddd; border-radius: 4px; font-size: 12px;"
+                                    >
+                                        <option value="general">General Knowledge</option>
+                                        <option value="technical">Technical</option>
+                                        <option value="personal">Personal</option>
+                                        <option value="rules">Rules & Behavior</option>
+                                        <option value="jokes">Jokes & Fun</option>
+                                    </select>
+                                </div>
+                                <button 
+                                    class="btn-teach-submit" 
+                                    onclick="submitTeaching()"
+                                    style="width: 100%; padding: 10px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 10px;"
+                                >
+                                    💾 Save to Memory
+                                </button>
+                                <div id="teach-status" style="margin-top: 10px; font-size: 12px;"></div>
+                            </div>
+                        </div>
                         
                         <!-- Tools Panel -->
                         <div id="tools-panel" class="tools-panel hidden">

@@ -333,18 +333,89 @@ def export_conversation(user, conv_id):
     }
     
     return jsonify(export_data), 200
-    """Suggest tools based on user message"""
-    data = request.get_json() or {}
-    message = data.get('message', '').strip()
-    max_suggestions = data.get('max_suggestions', 3)
+
+
+@chat_bp.route('/teach', methods=['POST'])
+@token_required
+def teach_jeebs(user):
+    """Explicitly teach JeebsAI new knowledge/facts with high priority"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'message': 'Request body required'}), 400
     
-    if not message:
-        return jsonify({'message': 'Message is required'}), 400
+    key_text = data.get('key', '').strip()
+    response_text = data.get('response', '').strip()
+    category = data.get('category', 'general').strip()
+    conv_id = data.get('conversation_id', 0)
     
-    suggestions = suggest_tools(message, max_suggestions=max_suggestions)
+    if not key_text or not response_text:
+        return jsonify({'message': 'Both "key" and "response" are required'}), 400
     
-    return jsonify({
-        'message': message,
-        'suggestions': suggestions,
-        'count': len(suggestions)
-    }), 200
+    try:
+        brain.teach(key_text, response_text, conversation_id=conv_id, category=category)
+        return jsonify({
+            'message': 'Knowledge successfully taught to JeebsAI!',
+            'key': key_text,
+            'category': category,
+            'success': True
+        }), 201
+    except Exception as e:
+        return jsonify({'message': f'Error saving knowledge: {str(e)}'} ), 500
+
+
+@chat_bp.route('/brain/memories', methods=['GET'])
+@token_required
+def list_memories(user):
+    """List memories learned by JeebsAI (optionally filtered by conversation)"""
+    conv_id = request.args.get('conversation_id', type=int)
+    limit = request.args.get('limit', 50, type=int)
+    
+    try:
+        memories = brain.list_memories(conversation_id=conv_id, limit=limit)
+        return jsonify({
+            'memories': memories,
+            'count': len(memories),
+            'conversation_id': conv_id
+        }), 200
+    except Exception as e:
+        return jsonify({'message': f'Error retrieving memories: {str(e)}'}), 500
+
+
+@chat_bp.route('/brain/forget/<int:memory_id>', methods=['DELETE'])
+@token_required
+def forget_memory(user, memory_id):
+    """Tell JeebsAI to forget a specific memory"""
+    try:
+        success = brain.delete_memory(memory_id)
+        if success:
+            return jsonify({
+                'message': 'Memory successfully forgotten',
+                'memory_id': memory_id
+            }), 200
+        else:
+            return jsonify({'message': 'Memory not found'}), 404
+    except Exception as e:
+        return jsonify({'message': f'Error deleting memory: {str(e)}'}), 500
+
+
+@chat_bp.route('/brain/recall', methods=['POST'])
+@token_required
+def recall_memories(user):
+    """Query/recall all related memories for a given text"""
+    data = request.get_json()
+    if not data or not data.get('query'):
+        return jsonify({'message': 'query parameter required'}), 400
+    
+    query = data.get('query')
+    top_k = data.get('top_k', 3)
+    
+    try:
+        results = brain.query(query, top_k=top_k, use_priority=True)
+        return jsonify({
+            'query': query,
+            'memories': [{'similarity': round(sim, 3), 'response': resp} for sim, resp in results],
+            'count': len(results)
+        }), 200
+    except Exception as e:
+        return jsonify({'message': f'Error recalling memories: {str(e)}'}), 500
+
