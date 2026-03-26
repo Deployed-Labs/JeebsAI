@@ -19,8 +19,8 @@ mkdir -p /opt/jeebsai/data
 chmod 755 /opt/jeebsai/data
 
 # Verify we're in the right directory
-if [ ! -f "docker-compose.prod.yml" ]; then
-    echo -e "${RED}❌ Error: docker-compose.prod.yml not found!${NC}"
+if [ ! -f "deploy/docker-compose.prod.yml" ]; then
+    echo -e "${RED}❌ Error: deploy/docker-compose.prod.yml not found!${NC}"
     echo "Please run this script from /opt/jeebsai directory:"
     echo "cd /opt/jeebsai && bash deploy/setup-persistent-db.sh"
     exit 1
