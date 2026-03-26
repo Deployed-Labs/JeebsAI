@@ -241,6 +241,9 @@ async function handleSendMessage(e) {
     input.value = '';
     addMessageToUI('user', content);
     
+    // Check if message suggests tool usage
+    detectAndSuggestTools(content);
+    
     // Fetch tool suggestions if user is admin
     if (currentUser && currentUser.is_admin) {
         try {
@@ -671,65 +674,90 @@ function openTool(toolName) {
     title.textContent = '🔧 ' + toolName.replace('_', ' ').toUpperCase();
     
     let html = '';
+    let helpText = '';
     
     if (toolName === 'search') {
+        helpText = 'Enter a question or topic to search the web.';
         html = `
-            <input type="text" id="search-query" placeholder="Search query..." required>
-            <button onclick="executeTool_search()">🔍 Search</button>
+            <p style="font-size: 12px; color: #666; margin-bottom: 12px;">${helpText}</p>
+            <input type="text" id="search-query" placeholder="e.g., 'How to learn Python?'" required autofocus>
+            <button onclick="executeTool_search()">🔍 Search the Web</button>
             <div id="search-results" class="tool-results"></div>
         `;
     } else if (toolName === 'calculator') {
+        helpText = 'Enter a math expression (e.g., 2+3*4) or use the quick operations below.';
         html = `
-            <input type="text" id="calc-expression" placeholder="e.g., 2 + 3 * 4">
-            <select id="calc-operation">
-                <option value="">Expression</option>
-                <option value="add">Add</option>
-                <option value="subtract">Subtract</option>
-                <option value="multiply">Multiply</option>
-                <option value="divide">Divide</option>
-                <option value="power">Power</option>
-                <option value="sqrt">Square Root</option>
+            <p style="font-size: 12px; color: #666; margin-bottom: 12px;">${helpText}</p>
+            <input type="text" id="calc-expression" placeholder="e.g., 2 + 3 * 4 or sqrt(16)" autofocus>
+            <p style="font-size: 11px; color: #999; margin: 10px 0;">Quick Operations:</p>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+                <div>
+                    <label style="font-size: 11px;">Number 1:</label>
+                    <input type="number" id="calc-a" placeholder="Num 1">
+                </div>
+                <div>
+                    <label style="font-size: 11px;">Number 2:</label>
+                    <input type="number" id="calc-b" placeholder="Num 2">
+                </div>
+            </div>
+            <select id="calc-operation" style="margin-bottom: 10px;">
+                <option value="">Select Operation</option>
+                <option value="add">➕ Add</option>
+                <option value="subtract">➖ Subtract</option>
+                <option value="multiply">✕ Multiply</option>
+                <option value="divide">÷ Divide</option>
+                <option value="power">^ Power</option>
+                <option value="sqrt">√ Square Root</option>
             </select>
-            <input type="number" id="calc-a" placeholder="First number">
-            <input type="number" id="calc-b" placeholder="Second number">
             <button onclick="executeTool_calculator()">🧮 Calculate</button>
             <div id="calc-result" class="tool-results"></div>
         `;
     } else if (toolName === 'code_analyzer') {
+        helpText = 'Paste Python code and get analysis for syntax, performance, security, and code style.';
         html = `
-            <textarea id="code-input" placeholder="Paste Python code here..."></textarea>
+            <p style="font-size: 12px; color: #666; margin-bottom: 12px;">${helpText}</p>
+            <textarea id="code-input" placeholder="Paste Python code here..." autofocus></textarea>
+            <label style="font-size: 12px; color: #666; margin-top: 8px;">Analysis Type:</label>
             <select id="code-check">
-                <option value="syntax">Syntax Check</option>
-                <option value="security">Security Check</option>
-                <option value="performance">Performance Check</option>
-                <option value="style">Style Check</option>
+                <option value="syntax">✓ Syntax Check</option>
+                <option value="security">🔒 Security Check</option>
+                <option value="performance">⚡ Performance</option>
+                <option value="style">🎨 Code Style</option>
             </select>
-            <button onclick="executeTool_codeAnalyzer()">👨‍💻 Analyze</button>
+            <button onclick="executeTool_codeAnalyzer()">👨‍💻 Analyze Code</button>
             <div id="code-result" class="tool-results"></div>
         `;
     } else if (toolName === 'text_stats') {
+        helpText = 'Analyze text for word count, sentence count, readability metrics, and more.';
         html = `
-            <textarea id="text-input" placeholder="Paste text here..."></textarea>
-            <label><input type="checkbox" id="stats-words" checked> Word Count</label>
-            <label><input type="checkbox" id="stats-sentences" checked> Sentences</label>
-            <label><input type="checkbox" id="stats-readability" checked> Readability</label>
-            <button onclick="executeTool_textStats()">📊 Analyze</button>
+            <p style="font-size: 12px; color: #666; margin-bottom: 12px;">${helpText}</p>
+            <textarea id="text-input" placeholder="Paste text here..." autofocus></textarea>
+            <div style="margin: 10px 0;">
+                <label style="font-size: 12px; display: block; margin-bottom: 6px;"><input type="checkbox" id="stats-words" checked> 📝 Word Count</label>
+                <label style="font-size: 12px; display: block; margin-bottom: 6px;"><input type="checkbox" id="stats-sentences" checked> 📄 Sentences</label>
+                <label style="font-size: 12px;"><input type="checkbox" id="stats-readability" checked> 👁️ Readability</label>
+            </div>
+            <button onclick="executeTool_textStats()">📊 Analyze Text</button>
             <div id="text-result" class="tool-results"></div>
         `;
     } else if (toolName === 'branch_conv') {
+        helpText = 'Create an alternate conversation path. Useful for exploring "what if" scenarios.';
         html = `
-            <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Create an alternate conversation path from current point.</p>
-            <input type="text" id="branch-title" placeholder="New branch title...">
+            <p style="font-size: 12px; color: #666; margin-bottom: 12px;">${helpText}</p>
+            <input type="text" id="branch-title" placeholder="Give your branch a name..." autofocus>
+            <p style="font-size: 11px; color: #999; margin-top: 10px;">The current conversation will be preserved, and a new branch will be created.</p>
             <button onclick="executeTool_branchConv()">🌳 Create Branch</button>
             <div id="branch-result" class="tool-results"></div>
         `;
     } else if (toolName === 'analytics') {
+        helpText = 'View detailed analytics about your conversations, user behavior, and trending topics.';
         html = `
-            <p style="font-size: 12px; color: #666; margin-bottom: 10px;">View conversation analytics and trends.</p>
+            <p style="font-size: 12px; color: #666; margin-bottom: 12px;">${helpText}</p>
+            <label style="font-size: 12px; color: #666; display: block; margin-bottom: 6px;">Choose Analytics Type:</label>
             <select id="analytics-type">
-                <option value="current">Current Conversation</option>
-                <option value="user">User Statistics</option>
-                <option value="trending">Trending Topics</option>
+                <option value="current">📊 Current Conversation</option>
+                <option value="user">👤 Your Statistics</option>
+                <option value="trending">🔥 Trending Topics</option>
             </select>
             <button onclick="executeTool_analytics()">📈 View Analytics</button>
             <div id="analytics-result" class="tool-results"></div>
@@ -744,9 +772,110 @@ function closeTool() {
     document.getElementById('tool-input-panel').classList.add('hidden');
 }
 
+// ============================================================================
+// TOOL HELPER FUNCTIONS - Improve UX and error handling
+// ============================================================================
+
+function detectAndSuggestTools(message) {
+    """Detect if message suggests tool usage and show a suggestion"""
+    const msg = message.toLowerCase();
+    let suggestedTool = null;
+    
+    // Map keywords to tools
+    const keywords = {
+        'search': ['search', 'find', 'look up', 'what is', 'who is', 'news', 'information about'],
+        'calculator': ['calculate', 'math', 'compute', 'how much', 'equals', '+', '-', '*', '/', 'times'],
+        'code_analyzer': ['code', 'python', 'analyze', 'error', 'bug', 'check'],
+        'text_stats': ['analyze text', 'word count', 'sentences', 'readability', 'text analysis'],
+        'branch_conv': ['branch', 'alternate', 'what if', 'different path'],
+        'analytics': ['analytics', 'statistics', 'trending', 'analysis', 'data']
+    };
+    
+    for (const [tool, words] of Object.entries(keywords)) {
+        if (words.some(word => msg.includes(word))) {
+            suggestedTool = tool;
+            break;
+        }
+    }
+    
+    // Show tool suggestion if detected
+    if (suggestedTool) {
+        const toolDisplay = suggestedTool.replace('_', ' ').toUpperCase();
+        const container = document.getElementById('messages-container');
+        const sugDiv = document.createElement('div');
+        sugDiv.className = 'tool-quick-suggestion';
+        sugDiv.innerHTML = `
+            <div style="padding: 12px; background: #f0f0ff; border-left: 4px solid #667eea; border-radius: 4px; font-size: 12px;">
+                <span style="color: #667eea;"><strong>💡 Tip:</strong> Use the <strong>${toolDisplay}</strong> tool for this!</span>
+                <button onclick="openTool('${suggestedTool}'); toggleToolsPanel();" style="margin-left: 10px; padding: 4px 10px; background: #667eea; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 11px; font-weight: bold;">Open Tool</button>
+            </div>
+        `;
+        container.appendChild(sugDiv);
+        container.scrollTop = container.scrollHeight;
+        
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            if (sugDiv.parentElement) {
+                sugDiv.style.opacity = '0';
+                sugDiv.style.transition = 'opacity 0.3s';
+                setTimeout(() => sugDiv.remove(), 300);
+            }
+        }, 5000);
+    }
+}
+
+function showToolLoading(resultElementId) {
+    document.getElementById(resultElementId).innerHTML = `
+        <div style="text-align: center; padding: 20px;">
+            <div class="tool-spinner"></div>
+            <p style="color: #999; margin-top: 10px; font-size: 13px;">Processing...</p>
+        </div>
+    `;
+}
+
+function displayToolResult(resultElementId, html) {
+    document.getElementById(resultElementId).innerHTML = html;
+}
+
+function displayToolError(resultElementId, errorMessage) {
+    const html = `
+        <div style="background: #fee; border-left: 4px solid #f44; padding: 12px; border-radius: 4px;">
+            <p style="color: #c33; font-weight: bold;">❌ Error</p>
+            <p style="color: #666; font-size: 13px; margin-top: 5px;">${escapeHtml(errorMessage)}</p>
+        </div>
+    `;
+    document.getElementById(resultElementId).innerHTML = html;
+}
+
+function createToolResultCard(content, title = '', actions = []) {
+    let html = `<div style="background: white; border-radius: 6px; padding: 12px; border-left: 4px solid #667eea;">`;
+    
+    if (title) {
+        html += `<h6 style="color: #333; margin-bottom: 10px; margin-top: 0;">${title}</h6>`;
+    }
+    
+    html += `<div style="color: #333; font-size: 13px; line-height: 1.6;">${content}</div>`;
+    
+    if (actions.length > 0) {
+        html += `<div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">`;
+        actions.forEach(action => {
+            html += `<button onclick="${action.onclick}" style="padding: 6px 12px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600;">${action.label}</button>`;
+        });
+        html += `</div>`;
+    }
+    
+    html += `</div>`;
+    return html;
+}
+
 async function executeTool_search() {
-    const query = document.getElementById('search-query').value;
-    if (!query) { alert('Enter a search query'); return; }
+    const query = document.getElementById('search-query').value.trim();
+    if (!query) { 
+        displayToolError('search-results', 'Please enter a search query');
+        return; 
+    }
+    
+    showToolLoading('search-results');
     
     try {
         const res = await fetch(`${API_BASE}/tools/search`, {
@@ -756,55 +885,106 @@ async function executeTool_search() {
         });
         const data = await res.json();
         
-        let html = '<h5 style="margin-bottom: 10px; color: #333;">Search Results:</h5>';
-        if (data.results && data.results.length) {
-            data.results.forEach((r, i) => {
-                html += `
-                    <div style="margin-bottom: 12px; padding: 10px; background: white; border-radius: 4px; border-left: 3px solid #667eea;">
-                        <strong>${i+1}. ${r.title}</strong><br>
-                        <small>${r.snippet}</small><br>
-                        <a href="${r.url}" target="_blank" style="font-size: 11px; color: #667eea;">View →</a>
-                    </div>
-                `;
-            });
-        } else {
-            html += '<p style="color: #999;">No results found.</p>';
+        if (!res.ok || !data.results) {
+            displayToolError('search-results', data.error || 'Search failed');
+            return;
         }
-        document.getElementById('search-results').innerHTML = html;
+        
+        if (data.results.length === 0) {
+            displayToolResult('search-results', 
+                createToolResultCard('No results found. Try different keywords.', '🔍 Search Results'));
+            return;
+        }
+        
+        let resultsHtml = '';
+        data.results.forEach((r, i) => {
+            resultsHtml += `
+                <div style="margin-bottom: 12px; padding: 10px; background: #f9f9f9; border-radius: 4px; border-left: 3px solid #667eea;">
+                    <strong style="color: #333;">${i+1}. ${escapeHtml(r.title)}</strong><br>
+                    <small style="color: #666;">${escapeHtml(r.snippet)}</small><br>
+                    <a href="${r.url}" target="_blank" style="font-size: 11px; color: #667eea; text-decoration: none;">🔗 View →</a>
+                </div>
+            `;
+        });
+        
+        const actions = [
+            {
+                label: '💬 Send to Chat',
+                onclick: `sendSearchResultsToChat('${escapeHtml(query)}')`
+            },
+            {
+                label: '🔄 New Search',
+                onclick: `document.getElementById('search-query').value = ''; document.getElementById('search-query').focus();`
+            }
+        ];
+        
+        displayToolResult('search-results', 
+            createToolResultCard(resultsHtml, `🔍 Search Results for "${escapeHtml(query)}"`, actions));
     } catch (e) {
-        alert('Search failed: ' + e.message);
+        displayToolError('search-results', e.message);
     }
 }
 
 async function executeTool_calculator() {
-    const expr = document.getElementById('calc-expression').value;
+    const expr = document.getElementById('calc-expression').value.trim();
     const op = document.getElementById('calc-operation').value;
     const a = document.getElementById('calc-a').value;
     const b = document.getElementById('calc-b').value;
+    
+    if (!expr && !op) {
+        displayToolError('calc-result', 'Enter an expression (e.g., "2+3*4") or select an operation');
+        return;
+    }
+    
+    showToolLoading('calc-result');
     
     try {
         const res = await fetch(`${API_BASE}/tools/calculator`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ expression: expr, operation: op, a: Number(a) || 0, b: Number(b) || 0 })
+            body: JSON.stringify({ 
+                expression: expr, 
+                operation: op, 
+                a: Number(a) || 0, 
+                b: Number(b) || 0 
+            })
         });
         const data = await res.json();
         
-        const html = data.error ? 
-            `<p style="color: red;"><strong>Error:</strong> ${data.error}</p>` :
-            `<p style="font-size: 16px; color: #667eea;"><strong>Result:</strong> ${data.result}</p>`;
+        if (data.error) {
+            displayToolError('calc-result', data.error);
+            return;
+        }
         
-        document.getElementById('calc-result').innerHTML = html;
+        const resultText = data.result ? data.result.toString() : 'No result';
+        const actions = [
+            {
+                label: '📋 Copy',
+                onclick: `copyToClipboard('${resultText}')`
+            },
+            {
+                label: '💬 Send to Chat',
+                onclick: `sendToChat('Calculation Result: ${resultText}')`
+            }
+        ];
+        
+        const content = `<div style="font-size: 24px; color: #667eea; text-align: center; font-weight: bold;">${resultText}</div>`;
+        displayToolResult('calc-result', createToolResultCard(content, '🧮 Calculation Result', actions));
     } catch (e) {
-        alert('Calculation failed: ' + e.message);
+        displayToolError('calc-result', e.message);
     }
 }
 
 async function executeTool_codeAnalyzer() {
-    const code = document.getElementById('code-input').value;
+    const code = document.getElementById('code-input').value.trim();
     const checkType = document.getElementById('code-check').value;
     
-    if (!code) { alert('Enter code to analyze'); return; }
+    if (!code) { 
+        displayToolError('code-result', 'Please paste some Python code to analyze');
+        return; 
+    }
+    
+    showToolLoading('code-result');
     
     try {
         const res = await fetch(`${API_BASE}/tools/analyze-code`, {
@@ -814,35 +994,74 @@ async function executeTool_codeAnalyzer() {
         });
         const data = await res.json();
         
-        let html = `<h5 style="margin-bottom: 10px; color: #333;">Analysis Results:</h5>`;
-        html += `<p><strong>Syntax Valid:</strong> ${data.syntax_valid ? '✓ Yes' : '✗ No'}</p>`;
-        
-        if (data.issues && data.issues.length) {
-            html += `<p style="color: red;"><strong>Issues (${data.issues.length}):</strong></p><ul style="margin-left: 20px;">`;
-            data.issues.forEach(issue => html += `<li>${issue}</li>`);
-            html += `</ul>`;
+        if (!res.ok) {
+            displayToolError('code-result', data.error || 'Analysis failed');
+            return;
         }
         
-        if (data.suggestions && data.suggestions.length) {
-            html += `<p style="color: #f39c12;"><strong>Suggestions (${data.suggestions.length}):</strong></p><ul style="margin-left: 20px;">`;
-            data.suggestions.forEach(sug => html += `<li>${sug}</li>`);
-            html += `</ul>`;
+        let html = '';
+        
+        // Syntax status
+        const syntaxIcon = data.syntax_valid ? '✅' : '❌';
+        html += `<p><strong>${syntaxIcon} Syntax:</strong> ${data.syntax_valid ? 'Valid' : 'Invalid'}</p>`;
+        
+        // Issues
+        if (data.issues && data.issues.length > 0) {
+            html += `<p style="color: #d32f2f; font-weight: bold; margin-top: 10px;">🚨 Issues Found (${data.issues.length}):</p>`;
+            html += '<ul style="margin-left: 20px; color: #333;">';
+            data.issues.forEach(issue => {
+                const issueText = typeof issue === 'string' ? issue : `Line ${issue.line}: ${issue.message}`;
+                html += `<li style="margin-bottom: 5px;">${escapeHtml(issueText)}</li>`;
+            });
+            html += '</ul>';
         }
         
-        document.getElementById('code-result').innerHTML = html;
+        // Suggestions
+        if (data.suggestions && data.suggestions.length > 0) {
+            html += `<p style="color: #f57c00; font-weight: bold; margin-top: 10px;">💡 Suggestions (${data.suggestions.length}):</p>`;
+            html += '<ul style="margin-left: 20px; color: #333;">';
+            data.suggestions.forEach(sug => {
+                const sugText = typeof sug === 'string' ? sug : `Line ${sug.line}: ${sug.message}`;
+                html += `<li style="margin-bottom: 5px;">${escapeHtml(sugText)}</li>`;
+            });
+            html += '</ul>';
+        }
+        
+        if ((data.issues && data.issues.length === 0) && (!data.suggestions || data.suggestions.length === 0)) {
+            html += '<p style="color: #4caf50; margin-top: 10px;">✨ Code looks good!</p>';
+        }
+        
+        const actions = [
+            {
+                label: '📋 Copy Code',
+                onclick: `copyToClipboard(\`${escapeHtml(code).replace(/`/g, '\\`')}\`)`
+            }
+        ];
+        
+        displayToolResult('code-result', createToolResultCard(html, '👨‍💻 Code Analysis', actions));
     } catch (e) {
-        alert('Analysis failed: ' + e.message);
+        displayToolError('code-result', e.message);
     }
 }
 
 async function executeTool_textStats() {
-    const text = document.getElementById('text-input').value;
-    if (!text) { alert('Enter text'); return; }
+    const text = document.getElementById('text-input').value.trim();
+    if (!text) { 
+        displayToolError('text-result', 'Please paste some text to analyze');
+        return; 
+    }
     
     let include = [];
     if (document.getElementById('stats-words').checked) include.push('words');
     if (document.getElementById('stats-sentences').checked) include.push('sentences');
     if (document.getElementById('stats-readability').checked) include.push('readability');
+    
+    if (include.length === 0) {
+        displayToolError('text-result', 'Select at least one analysis option');
+        return;
+    }
+    
+    showToolLoading('text-result');
     
     try {
         const res = await fetch(`${API_BASE}/tools/text-stats`, {
@@ -852,24 +1071,53 @@ async function executeTool_textStats() {
         });
         const data = await res.json();
         
-        let html = '<h5 style="margin-bottom: 10px; color: #333;">Text Statistics:</h5>';
+        if (!res.ok) {
+            displayToolError('text-result', data.error || 'Analysis failed');
+            return;
+        }
+        
+        let html = '';
+        // Create a nice grid of stats
         for (const [key, value] of Object.entries(data)) {
-            if (key !== 'character_count') {
-                html += `<p><strong>${key.replace(/_/g, ' ')}:</strong> ${value}</p>`;
+            if (key !== 'character_count' && value !== undefined) {
+                const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                const icon = key.includes('word') ? '📝' : key.includes('sentence') ? '📄' : '👁️';
+                html += `
+                    <div style="background: #f9f9f9; padding: 12px; border-radius: 4px; margin-bottom: 8px;">
+                        <span style="font-weight: bold; color: #667eea;">${icon} ${label}:</span>
+                        <span style="color: #333; font-size: 16px; margin-left: 8px;">${escapeHtml(String(value))}</span>
+                    </div>
+                `;
             }
         }
-        document.getElementById('text-result').innerHTML = html;
+        
+        const actions = [
+            {
+                label: '📋 Copy Text',
+                onclick: `copyToClipboard(\`${text.replace(/`/g, '\\`')}\`)`
+            },
+            {
+                label: '💬 Send Stats to Chat',
+                onclick: `sendTextStatsToChat('${text.substring(0, 100)}...')`
+            }
+        ];
+        
+        displayToolResult('text-result', createToolResultCard(html, '📊 Text Statistics', actions));
     } catch (e) {
-        alert('Analysis failed: ' + e.message);
+        displayToolError('text-result', e.message);
     }
 }
 
 async function executeTool_branchConv() {
     if (!currentConversationId) {
-        alert('No conversation selected'); return;
+        displayToolError('branch-result', 'No conversation selected. Please select a conversation first.');
+        return;
     }
     
-    const title = document.getElementById('branch-title').value || `${document.getElementById('conv-title').textContent} (Branch)`;
+    const title = document.getElementById('branch-title').value.trim() || 
+                  `${document.getElementById('conv-title').textContent} (Branch)`;
+    
+    showToolLoading('branch-result');
     
     try {
         const res = await fetch(`${API_BASE}/tools/conversations/${currentConversationId}/branch`, {
@@ -879,20 +1127,33 @@ async function executeTool_branchConv() {
         });
         const data = await res.json();
         
-        const html = data.success ?
-            `<p style="color: green;"><strong>✓ Branch Created!</strong><br>New conversation: ${data.branch_title}<br>${data.messages_copied} messages copied.</p>` :
-            `<p style="color: red;"><strong>Error:</strong> ${data.error}</p>`;
-        
-        document.getElementById('branch-result').innerHTML = html;
-        if (data.success) {
-            setTimeout(() => {
-                closeTool();
-                toggleToolsPanel();
-                loadConversations();
-            }, 1500);
+        if (!data.success) {
+            displayToolError('branch-result', data.error || 'Failed to create branch');
+            return;
         }
+        
+        const content = `
+            <p style="color: #4caf50; margin-bottom: 10px;"><strong>✅ Branch Created!</strong></p>
+            <p><strong>Branch Title:</strong> ${escapeHtml(data.branch_title)}</p>
+            <p><strong>Messages Copied:</strong> ${data.messages_copied}</p>
+            <p style="color: #666; font-size: 12px; margin-top: 10px;">Your original conversation remains unchanged. The branch is a new conversation.</p>
+        `;
+        
+        const actions = [
+            {
+                label: '🔄 Reload Conversations',
+                onclick: `loadConversations(); closeTool();`
+            }
+        ];
+        
+        displayToolResult('branch-result', createToolResultCard(content, '🌳 Branch Created', actions));
+        
+        // Reload conversations in the background
+        setTimeout(() => {
+            loadConversations();
+        }, 1000);
     } catch (e) {
-        alert('Branch failed: ' + e.message);
+        displayToolError('branch-result', e.message);
     }
 }
 
@@ -902,7 +1163,8 @@ async function executeTool_analytics() {
     
     if (type === 'current') {
         if (!currentConversationId) {
-            alert('No conversation selected'); return;
+            displayToolError('analytics-result', 'No conversation selected');
+            return;
         }
         endpoint = `/analytics/conversation/${currentConversationId}`;
     } else if (type === 'user') {
@@ -911,29 +1173,54 @@ async function executeTool_analytics() {
         endpoint = '/analytics/trending?limit=10';
     }
     
+    showToolLoading('analytics-result');
+    
     try {
         const res = await fetch(`${API_BASE}/tools${endpoint}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
         
-        let html = '<h5 style="margin-bottom: 10px; color: #333;">Analytics:</h5>';
+        if (!res.ok) {
+            displayToolError('analytics-result', data.error || 'Failed to load analytics');
+            return;
+        }
+        
+        let html = '';
         
         if (type === 'trending' && data.topics) {
-            html += '<p><strong>Trending Topics:</strong></p><ul style="margin-left: 20px;">';
-            data.topics.forEach(t => html += `<li>${t.topic} (${t.frequency} mentions)</li>`);
-            html += '</ul>';
+            html = '<div style="display: flex; flex-wrap: wrap; gap: 8px;">';
+            data.topics.forEach(t => {
+                html += `<span style="background: #667eea; color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px;">
+                    <strong>${escapeHtml(t.topic)}</strong> <em style="opacity: 0.8;">×${t.frequency}</em>
+                </span>`;
+            });
+            html += '</div>';
         } else {
             for (const [key, value] of Object.entries(data)) {
                 if (!key.startsWith('_') && typeof value !== 'object') {
-                    html += `<p><strong>${key.replace(/_/g, ' ')}:</strong> ${value}</p>`;
+                    const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    html += `
+                        <div style="background: #f9f9f9; padding: 10px; margin: 8px 0; border-radius: 4px;">
+                            <span style="font-weight: bold; color: #667eea;">${label}:</span>
+                            <span style="color: #333; margin-left: 8px;">${escapeHtml(String(value))}</span>
+                        </div>
+                    `;
                 }
             }
         }
         
-        document.getElementById('analytics-result').innerHTML = html;
+        const actions = [
+            {
+                label: '💬 Send to Chat',
+                onclick: `sendAnalyticsToChat('${type}')`
+            }
+        ];
+        
+        const typeLabel = type === 'current' ? 'Conversation' : type === 'user' ? 'User' : 'Trending Topics';
+        displayToolResult('analytics-result', createToolResultCard(html, `📈 ${typeLabel} Analytics`, actions));
     } catch (e) {
-        alert('Analytics failed: ' + e.message);
+        displayToolError('analytics-result', e.message);
     }
 }
 
@@ -944,6 +1231,42 @@ document.addEventListener('keydown', (e) => {
         createNewConversation();
     }
 });
+
+// ============================================================================
+// TOOL RESULT ACTIONS - Send results to chat, copy, etc.
+// ============================================================================
+
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        alert('✅ Copied to clipboard!');
+    }).catch(() => {
+        alert('Failed to copy');
+    });
+}
+
+function sendToChat(message) {
+    const input = document.getElementById('message-input');
+    input.value = message;
+    input.focus();
+    closeTool();
+    toggleToolsPanel();
+}
+
+function sendSearchResultsToChat(query) {
+    const message = `🔍 I searched for: "${query}" and found relevant information.`;
+    sendToChat(message);
+}
+
+function sendTextStatsToChat(textPreview) {
+    const message = `📊 I analyzed the text "${textPreview}" and got detailed statistics.`;
+    sendToChat(message);
+}
+
+function sendAnalyticsToChat(type) {
+    const typeLabel = type === 'current' ? 'conversation' : type === 'user' ? 'user' : 'trending topics';
+    const message = `📈 Here are the ${typeLabel} analytics.`;
+    sendToChat(message);
+}
 
 // ============================================================================
 // TEACHING FUNCTIONS - Allow users to teach JeebsAI new knowledge

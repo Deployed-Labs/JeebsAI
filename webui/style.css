@@ -754,21 +754,26 @@ body {
 }
 
 .tool-btn {
-    padding: 10px;
-    background: #667eea;
+    padding: 14px 10px;
+    background: linear-gradient(135deg, #667eea 0%, #5568d3 100%);
     color: white;
     border: none;
-    border-radius: 6px;
+    border-radius: 8px;
     cursor: pointer;
     font-weight: 600;
     font-size: 13px;
-    transition: all 0.2s;
+    transition: all 0.3s;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
 }
 
 .tool-btn:hover {
-    background: #5568d3;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    background: linear-gradient(135deg, #5568d3 0%, #4556b8 100%);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
 }
 
 /* Teaching Panel */
@@ -911,6 +916,27 @@ body {
     transform: translateY(-2px);
 }
 
+/* Tool Loading Spinner */
+.tool-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Tool Results Styling */
+.tool-results {
+    margin-top: 15px;
+}
+
 /* Tool Suggestions Styles */
 .tool-suggestions {
     background: linear-gradient(135deg, #f5f7fa 0%, #eeeff9 100%);
@@ -1004,14 +1030,6 @@ body {
 
 .btn-suggestion:active {
     transform: scale(0.98);
-}
-    cursor: pointer;
-    font-weight: 600;
-    transition: all 0.2s;
-}
-
-.tool-input-content button:hover {
-    background: #5568d3;
 }
 
 .btn-tools {
