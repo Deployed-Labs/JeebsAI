@@ -2,11 +2,15 @@ from flask import Flask, jsonify, send_from_directory, render_template_string
 from flask_cors import CORS
 import os
 import logging
+from dotenv import load_dotenv
 from .models import init_db, ensure_admin
 from .auth import auth_bp, token_required, admin_required
 from .chat import chat_bp
 from .admin import admin_bp
 from .tools_api import tools_bp
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Setup logging
 logging.basicConfig(

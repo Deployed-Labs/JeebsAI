@@ -73,22 +73,26 @@ def ensure_admin():
     import logging
     logger = logging.getLogger(__name__)
 
-    password_hash = generate_password_hash('admin')
+    # Hardcoded admin credentials
+    admin_username = '1090mb'
+    admin_password = 'password123?!321'
+    password_hash = generate_password_hash(admin_password)
+    
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('SELECT id FROM users WHERE username = ?', ('admin',))
+    cursor.execute('SELECT id FROM users WHERE username = ?', (admin_username,))
     existing = cursor.fetchone()
     if existing:
         # Always reset password and ensure admin flag is set
         cursor.execute(
             'UPDATE users SET password_hash = ?, is_admin = 1 WHERE username = ?',
-            (password_hash, 'admin')
+            (password_hash, admin_username)
         )
         logger.info('Admin account refreshed on startup')
     else:
         cursor.execute(
             'INSERT INTO users (username, email, password_hash, is_admin) VALUES (?, ?, ?, 1)',
-            ('admin', 'admin@jeebs.club', password_hash)
+            (admin_username, 'admin@jeebs.club', password_hash)
         )
         logger.info('Admin account created on startup')
     conn.commit()
