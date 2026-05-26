@@ -20,10 +20,4 @@ sleep 3
 curl -sf http://localhost:8000/health && echo "" && echo "✅ Backend is up!"
 
 echo ""
-echo "==> Testing login directly..."
-curl -s -X POST http://localhost:8000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"1090mb","password":"password123?!321"}' | python3 -m json.tool
-
-echo ""
-echo "✅ Done! Admin login: 1090mb / password123?!321"
+echo "✅ Done!"

@@ -35,17 +35,21 @@ PYTHONSCRIPT
 echo ""
 
 echo -e "${YELLOW}3. Testing login...${NC}"
-LOGIN_RESPONSE=$(curl -s -X POST http://localhost:8000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"1090mb","password":"password123?!321"}')
-
-echo "Login response:"
-echo "$LOGIN_RESPONSE" | python3 -m json.tool 2>/dev/null || echo "$LOGIN_RESPONSE"
-
-if echo "$LOGIN_RESPONSE" | grep -q "Login successful"; then
-    echo -e "${GREEN}✅ Login successful!${NC}"
+if [ -n "$JEEBSAI_ADMIN_USERNAME" ] && [ -n "$JEEBSAI_ADMIN_PASSWORD" ]; then
+    LOGIN_RESPONSE=$(curl -s -X POST http://localhost:8000/api/auth/login \
+      -H "Content-Type: application/json" \
+      -d "{\"username\":\"$JEEBSAI_ADMIN_USERNAME\",\"password\":\"$JEEBSAI_ADMIN_PASSWORD\"}")
+    
+    echo "Login response:"
+    echo "$LOGIN_RESPONSE" | python3 -m json.tool 2>/dev/null || echo "$LOGIN_RESPONSE"
+    
+    if echo "$LOGIN_RESPONSE" | grep -q "Login successful"; then
+        echo -e "${GREEN}✅ Login successful!${NC}"
+    else
+        echo -e "${RED}❌ Login failed${NC}"
+    fi
 else
-    echo -e "${RED}❌ Login failed${NC}"
+    echo -e "${YELLOW}Skipping login test. Set JEEBSAI_ADMIN_USERNAME and JEEBSAI_ADMIN_PASSWORD to test automatically.${NC}"
 fi
 
 echo ""

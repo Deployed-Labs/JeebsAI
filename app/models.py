@@ -4,7 +4,10 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-DB_PATH = Path(os.getenv('DATABASE_PATH', './jeebs.db'))
+BASE_DIR = Path(__file__).resolve().parent.parent
+DB_PATH = Path(os.getenv('DATABASE_PATH', str(BASE_DIR / 'jeebs.db'))).expanduser()
+if not DB_PATH.is_absolute():
+    DB_PATH = (BASE_DIR / DB_PATH).resolve()
 
 def get_db():
     """Get database connection"""
