@@ -26,6 +26,8 @@ cd /opt/jeebsai
 
 `install.sh` creates `venv`, installs dependencies, creates `.env`, and initializes the database.
 
+Optional: set `DATABASE_PATH` in `/opt/jeebsai/.env` if you want the SQLite file somewhere else.
+
 ## 4) Start JeebsAI immediately
 
 ```bash

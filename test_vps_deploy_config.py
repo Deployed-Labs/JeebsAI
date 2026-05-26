@@ -9,6 +9,7 @@ import app.models as models
 
 class TestVpsDeployConfig(unittest.TestCase):
     def tearDown(self):
+        os.environ.pop('DATABASE_PATH', None)
         importlib.reload(models)
 
     def test_database_path_defaults_to_local_file(self):
