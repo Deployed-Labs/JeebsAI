@@ -1,8 +1,6 @@
 #!/bin/bash
 
 # JeebsAI Login Fix Script - Run this on your VPS
-# This script will diagnose and fix any login issues
-
 set -e
 
 GREEN='\033[0;32m'
@@ -15,13 +13,7 @@ echo ""
 
 cd /opt/jeebsai
 
-# 1. Check Docker status
-echo -e "${YELLOW}1. Checking Docker containers...${NC}"
-docker compose -f deploy/docker-compose.prod.yml ps
-echo ""
-
-# 2. Check health endpoint
-echo -e "${YELLOW}2. Checking health endpoint...${NC}"
+echo -e "${YELLOW}1. Checking health endpoint...${NC}"
 if curl -s http://localhost:8000/health; then
     echo -e "${GREEN}✅ Backend is responding${NC}"
 else
@@ -29,98 +21,36 @@ else
 fi
 echo ""
 
-# 3. Check database
-echo -e "${YELLOW}3. Checking database file...${NC}"
-if [ -f "/opt/jeebsai/data/jeebs.db" ]; then
-    ls -lh /opt/jeebsai/data/jeebs.db
-    echo -e "${GREEN}✅ Database exists${NC}"
-else
-    echo -e "${RED}❌ Database does not exist - will be created on first run${NC}"
-fi
-echo ""
+echo -e "${YELLOW}2. Ensuring admin account exists...${NC}"
+source venv/bin/activate
+python3 - << 'PYTHONSCRIPT'
+from app.models import init_db, ensure_admin, DB_PATH
 
-# 4. Check recent logs
-echo -e "${YELLOW}4. Recent logs (last 20 lines)...${NC}"
-docker compose -f deploy/docker-compose.prod.yml logs web --tail=20
-echo ""
-
-# 5. Create admin user
-echo -e "${YELLOW}5. Creating/verifying admin user...${NC}"
-
-# Run the admin creation script directly in the container
-docker compose -f deploy/docker-compose.prod.yml exec -T web python << 'PYTHONSCRIPT'
-from app.models import User, init_db
-from werkzeug.security import generate_password_hash
-import sqlite3
-
-# Initialize database
 init_db()
-
-# Create password hash for admin
-password_hash = generate_password_hash('admin')
-
-# Check if admin exists
-admin = User.get_by_username('admin')
-
-if admin:
-    # Reset password for existing admin user
-    conn = sqlite3.connect('/data/jeebs.db')
-    cursor = conn.cursor()
-    cursor.execute('UPDATE users SET password_hash = ?, is_admin = 1 WHERE id = ?', (password_hash, admin['id']))
-    conn.commit()
-    conn.close()
-    
-    print(f"✅ Admin user password reset (ID: {admin['id']})")
-    print(f"   Username: admin")
-    print(f"   Password: admin")
-    print(f"   Email: {admin['email']}")
-    print(f"   Is Admin: True")
-else:
-    # Create admin user
-    user_id = User.create('admin', 'admin@jeebs.club', password_hash)
-    
-    # Make user admin
-    conn = sqlite3.connect('/data/jeebs.db')
-    cursor = conn.cursor()
-    cursor.execute('UPDATE users SET is_admin = 1 WHERE id = ?', (user_id,))
-    conn.commit()
-    conn.close()
-    
-    print(f"✅ Created admin user (ID: {user_id})")
-    print(f"   Username: admin")
-    print(f"   Password: admin")
-    print(f"   Email: admin@jeebs.club")
-
-# List all users
-print("\nAll users in database:")
-cursor = sqlite3.connect('/data/jeebs.db').cursor()
-cursor.execute("SELECT id, username, email, is_admin FROM users")
-for row in cursor.fetchall():
-    print(f"  - ID: {row[0]}, Username: {row[1]}, Email: {row[2]}, Admin: {bool(row[3])}")
+ensure_admin()
+print(f"✅ Admin ensured in database: {DB_PATH}")
+print("   Username: 1090mb")
+print("   Password: password123?!321")
 PYTHONSCRIPT
-
 echo ""
 
-# 6. Test login
-echo -e "${YELLOW}6. Testing login...${NC}"
-LOGIN_RESPONSE=$(curl -s -X POST http://localhost:8000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin"}')
-
-echo "Login response:"
-echo "$LOGIN_RESPONSE" | python -m json.tool 2>/dev/null || echo "$LOGIN_RESPONSE"
-
-if echo "$LOGIN_RESPONSE" | grep -q "Login successful"; then
-    echo -e "${GREEN}✅ Login successful!${NC}"
+echo -e "${YELLOW}3. Testing login...${NC}"
+if [ -n "$JEEBSAI_ADMIN_USERNAME" ] && [ -n "$JEEBSAI_ADMIN_PASSWORD" ]; then
+    LOGIN_RESPONSE=$(curl -s -X POST http://localhost:8000/api/auth/login \
+      -H "Content-Type: application/json" \
+      -d "{\"username\":\"$JEEBSAI_ADMIN_USERNAME\",\"password\":\"$JEEBSAI_ADMIN_PASSWORD\"}")
+    
+    echo "Login response:"
+    echo "$LOGIN_RESPONSE" | python3 -m json.tool 2>/dev/null || echo "$LOGIN_RESPONSE"
+    
+    if echo "$LOGIN_RESPONSE" | grep -q "Login successful"; then
+        echo -e "${GREEN}✅ Login successful!${NC}"
+    else
+        echo -e "${RED}❌ Login failed${NC}"
+    fi
 else
-    echo -e "${RED}❌ Login failed${NC}"
+    echo -e "${YELLOW}Skipping login test. Set JEEBSAI_ADMIN_USERNAME and JEEBSAI_ADMIN_PASSWORD to test automatically.${NC}"
 fi
 
 echo ""
 echo -e "${GREEN}=== Diagnostic Complete ===${NC}"
-echo ""
-echo "If login still fails:"
-echo "1. Check the logs above for errors"
-echo "2. Try accessing the web UI at: http://your-domain.com"
-echo "3. Try username 'admin' and password 'admin'"
-echo ""

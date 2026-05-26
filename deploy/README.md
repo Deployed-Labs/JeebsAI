@@ -1,68 +1,53 @@
 # VPS deployment instructions
 
-These commands assume an Ubuntu-like VPS and that you control DNS for `jeebs.club` (point an A record to the VPS IP).
+These commands assume an Ubuntu-like VPS.
 
-1) Connect to the VPS (replace `vps-user` and `vps-host`):
+1) Connect to the VPS:
 
 ```bash
 ssh vps-user@vps-host
 ```
 
-2) Install Docker and the Compose plugin (Ubuntu 22.04+):
+2) Install system dependencies:
 
 ```bash
 sudo apt update
-sudo apt install -y ca-certificates curl gnupg lsb-release
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-sudo apt update
-sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-sudo usermod -aG docker $USER
+sudo apt install -y git python3 python3-venv python3-pip curl
 ```
 
-Log out and back in if you want to run docker without `sudo`.
-
-3) Configure firewall (optional):
-
-```bash
-sudo ufw allow 22/tcp
-sudo ufw allow 80,443/tcp
-sudo ufw enable
-```
-
-4) Clone the repo and switch to `main`:
+3) Clone the repo:
 
 ```bash
 sudo mkdir -p /opt/jeebsai && sudo chown $USER:$USER /opt/jeebsai
 git clone https://github.com/Deployed-Labs/JeebsAI.git /opt/jeebsai
 cd /opt/jeebsai
-git fetch --all && git checkout main
+git checkout main
 ```
 
-5) Review `deploy/Caddyfile` and update the `tls` email address if needed.
-
-6) Start the stack with Docker Compose:
+4) Install app dependencies and initialize config/database:
 
 ```bash
-sudo docker compose -f deploy/docker-compose.prod.yml up -d --build
+chmod +x install.sh status.sh uninstall.sh
+./install.sh
 ```
 
-7) Verify services and logs:
+5) Start JeebsAI:
 
 ```bash
-sudo docker compose -f deploy/docker-compose.prod.yml ps
-sudo docker compose -f deploy/docker-compose.prod.yml logs -f caddy
-sudo docker compose -f deploy/docker-compose.prod.yml logs -f web
+source venv/bin/activate
+gunicorn -w 4 -b 0.0.0.0:8000 app.app:app
 ```
 
-8) To update after pushing new commits:
+6) Check status:
+
+```bash
+./status.sh
+curl -fsS http://localhost:8000/health
+```
+
+7) To redeploy new code:
 
 ```bash
 cd /opt/jeebsai
-git pull origin main
-sudo docker compose -f deploy/docker-compose.prod.yml up -d --build
+bash deploy/redeploy.sh
 ```
-
-Notes:
-- Make sure DNS A record for `jeebs.club` points to the VPS public IP. Caddy will automatically obtain TLS certs for the domain.
-- If you are behind a firewall or cloud provider, open ports 80 and 443.
