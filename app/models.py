@@ -1,9 +1,10 @@
 import sqlite3
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 
-DB_PATH = Path('/data/jeebs.db')
+DB_PATH = Path(os.getenv('DATABASE_PATH', './jeebs.db'))
 
 def get_db():
     """Get database connection"""

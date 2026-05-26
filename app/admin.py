@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 from .auth import token_required, admin_required
-from .models import User, Conversation, Message, get_db
+from .models import User, Conversation, Message, get_db, DB_PATH
 from werkzeug.security import generate_password_hash
 from .holographic_brain import brain
 import os
@@ -433,7 +433,7 @@ def system_health(user):
         memory_info = process.memory_info()
         
         # Check if DB file exists
-        db_path = '/data/jeebs.db'
+        db_path = str(DB_PATH)
         db_exists = os.path.exists(db_path)
         db_size = os.path.getsize(db_path) if db_exists else 0
         
@@ -960,4 +960,3 @@ def brain_viz_data(user):
             'error': str(e),
             'traceback': traceback.format_exc()
         }), 500
-
