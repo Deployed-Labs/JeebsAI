@@ -40,6 +40,8 @@ gunicorn -w 4 -b 0.0.0.0:8000 app.app:app
 
 Create `/etc/systemd/system/jeebsai.service`:
 
+Use `whoami` to get your VPS username and replace the `User=` placeholder below.
+
 ```ini
 [Unit]
 Description=JeebsAI Gunicorn Service
