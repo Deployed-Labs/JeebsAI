@@ -265,7 +265,7 @@ def send_message(user, conv_id):
     Message.create(conv_id, 'user', user_message)
     
     # Get recent conversation history for context-aware response generation
-    recent_messages = Message.get_conversation_messages(conv_id)
+    recent_messages = Message.get_all_messages(conv_id)
     
     # Generate and store AI response with conversation context
     ai_response = generate_response(user_message, conv_id, conversation_messages=recent_messages)

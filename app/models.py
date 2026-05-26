@@ -231,7 +231,7 @@ class Message:
     
     @staticmethod
     def get_conversation_messages(conv_id, page=1, per_page=50):
-        """Get paginated messages for a conversation"""
+        """Get paginated messages for a conversation (returns dict with pagination info)"""
         conn = get_db()
         cursor = conn.cursor()
         
@@ -258,3 +258,16 @@ class Message:
             'per_page': per_page,
             'pages': (total + per_page - 1) // per_page
         }
+
+    @staticmethod
+    def get_all_messages(conv_id):
+        """Get all messages for a conversation as a flat list (no pagination)"""
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            'SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC',
+            (conv_id,)
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(row) for row in rows]

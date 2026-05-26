@@ -20,3 +20,12 @@ node_modules/
 # Misc
 .DS_Store
 *.log
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Database
+jeebs.db
+*.db.backup

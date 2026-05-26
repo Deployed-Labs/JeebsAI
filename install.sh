@@ -64,6 +64,7 @@ if [ ! -f ".env" ]; then
 
 # Flask Configuration
 FLASK_ENV=production
+APP_ENV=production
 SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
 
 # Server Configuration
@@ -73,9 +74,8 @@ PORT=8000
 # Database Configuration
 DATABASE_PATH=./jeebs.db
 
-# Admin Credentials (hardcoded in code)
-# Username: 1090mb
-# Password: password123?!321
+# CORS Origins (comma-separated, optional)
+# CORS_ORIGINS=https://jeebs.club,http://localhost:8000
 EOF
     echo "✓ .env file created with a secure SECRET_KEY"
     echo ""
@@ -113,10 +113,7 @@ echo "    source venv/bin/activate"
 echo "    gunicorn -w 4 -b 0.0.0.0:8000 app.app:app"
 echo ""
 echo "Or create a systemd service for automatic startup."
-echo ""
-echo "Admin credentials:"
-echo "  Username: 1090mb"
-echo "  Password: password123?!321"
+echo "See deploy/README.md for full deployment instructions."
 echo ""
 echo "Access the application at: http://localhost:8000"
 echo ""

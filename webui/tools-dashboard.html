@@ -583,10 +583,13 @@
 
         async function loadTools() {
             try {
-                const response = await fetch(`${API_BASE}/tools/available`);
-                const tools = await response.json();
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/tools/available`, {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const data = await response.json();
                 
-                allTools = Object.values(tools).map((tool, idx) => ({
+                allTools = (data.tools || []).map((tool, idx) => ({
                     ...tool,
                     id: tool.name,
                     icon: TOOL_ICONS[tool.name] || '🔧'
@@ -852,11 +855,15 @@ ${JSON.stringify(result, null, 2)}
                 const formData = new FormData(document.getElementById('toolForm'));
                 const params = Object.fromEntries(formData);
 
+                const execToken = localStorage.getItem('token');
                 const response = await fetch(`${API_BASE}/tools/execute`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + execToken
+                    },
                     body: JSON.stringify({
-                        tool: currentTool.id,
+                        tool_name: currentTool.id,
                         params: params
                     })
                 });

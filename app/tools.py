@@ -692,38 +692,41 @@ def brain_stats(user_id=None, include='total_memories,top_topics', **kwargs):
     """Get brain learning statistics"""
     try:
         from .models import get_db
+        from .holographic_brain import brain
+        brain._ensure_table()
         db = get_db()
         
         stats = {}
         
         # Total memories
         if 'total_memories' in include:
-            cursor = db.execute('SELECT COUNT(*) as count FROM holographic_memories')
+            cursor = db.execute(f'SELECT COUNT(*) as count FROM {brain.table_name}')
             result = cursor.fetchone()
             stats['total_memories'] = result['count'] if result else 0
         
         # Top topics
         if 'top_topics' in include:
-            cursor = db.execute('''
-                SELECT query, COUNT(*) as frequency FROM holographic_memories
-                GROUP BY query ORDER BY frequency DESC LIMIT 10
+            cursor = db.execute(f'''
+                SELECT key_text, COUNT(*) as frequency FROM {brain.table_name}
+                GROUP BY key_text ORDER BY frequency DESC LIMIT 10
             ''')
             results = cursor.fetchall()
             stats['top_topics'] = [
-                {'topic': r['query'], 'frequency': r['frequency']} for r in results
+                {'topic': r['key_text'], 'frequency': r['frequency']} for r in results
             ] if results else []
         
         # Recent learning
         if 'recent_learning' in include:
-            cursor = db.execute('''
-                SELECT query, created_at FROM holographic_memories
+            cursor = db.execute(f'''
+                SELECT key_text, created_at FROM {brain.table_name}
                 ORDER BY created_at DESC LIMIT 5
             ''')
             results = cursor.fetchall()
             stats['recent_learning'] = [
-                {'query': r['query'], 'time': r['created_at']} for r in results
+                {'query': r['key_text'], 'time': r['created_at']} for r in results
             ] if results else []
         
+        db.close()
         stats['success'] = True
         return stats
     

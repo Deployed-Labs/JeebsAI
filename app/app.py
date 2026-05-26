@@ -10,6 +10,7 @@ ENV_FILE = Path(__file__).resolve().parent.parent / '.env'
 load_dotenv(dotenv_path=ENV_FILE)
 
 from .models import init_db, ensure_admin
+from .holographic_brain import brain as holographic_brain
 from .auth import auth_bp, token_required, admin_required
 from .chat import chat_bp
 from .admin import admin_bp
@@ -28,14 +29,20 @@ WEBUI_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'webui')
 app = Flask(__name__, static_folder=WEBUI_FOLDER, static_url_path='/static')
 
 # Setup CORS with proper configuration
+cors_origins_env = os.getenv('CORS_ORIGINS', '')
+if cors_origins_env:
+    cors_origins = [o.strip() for o in cors_origins_env.split(',') if o.strip()]
+else:
+    cors_origins = [
+        "https://jeebs.club",
+        "http://localhost:3000",
+        "http://localhost:8000",
+        "http://localhost"
+    ]
+
 CORS(app, resources={
     r"/api/*": {
-        "origins": [
-            "https://jeebs.club",
-            "http://localhost:3000", 
-            "http://localhost:8000",
-            "http://localhost"
-        ],
+        "origins": cors_origins,
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"],
         "max_age": 3600,
@@ -43,9 +50,10 @@ CORS(app, resources={
     }
 })
 
-# Initialize database and ensure admin account exists
+# Initialize database, ensure admin account and brain table exist
 init_db()
 ensure_admin()
+holographic_brain._ensure_table()
 
 # Register blueprints
 app.register_blueprint(auth_bp)

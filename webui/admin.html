@@ -719,12 +719,17 @@
         // Initialize
         const token = localStorage.getItem('token');
         const userStr = localStorage.getItem('user');
-        const currentUser = userStr ? JSON.parse(userStr) : null;
+        let currentUser = null;
+        try {
+            currentUser = userStr ? JSON.parse(userStr) : null;
+        } catch (e) {
+            currentUser = null;
+        }
         const username = currentUser ? currentUser.username : null;
         let currentConvId = null;
 
         if (!token || !currentUser || !currentUser.is_admin) {
-            window.location.href = '/index.html';
+            window.location.href = '/';
         }
 
         // Auto-load dashboard on page load
@@ -1077,7 +1082,7 @@
         function logout() {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
-            window.location.href = '/index.html';
+            window.location.href = '/';
         }
 
         function refreshAllData() {
