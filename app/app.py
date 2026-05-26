@@ -1,16 +1,19 @@
-from flask import Flask, jsonify, send_from_directory, render_template_string
-from flask_cors import CORS
 import os
 import logging
+from pathlib import Path
+from flask import Flask, jsonify, send_from_directory, render_template_string
+from flask_cors import CORS
 from dotenv import load_dotenv
+
+# Load environment variables from .env file
+ENV_FILE = Path(__file__).resolve().parent.parent / '.env'
+load_dotenv(dotenv_path=ENV_FILE)
+
 from .models import init_db, ensure_admin
 from .auth import auth_bp, token_required, admin_required
 from .chat import chat_bp
 from .admin import admin_bp
 from .tools_api import tools_bp
-
-# Load environment variables from .env file
-load_dotenv()
 
 # Setup logging
 logging.basicConfig(
@@ -121,4 +124,9 @@ def server_error(error):
     return jsonify({"message": "Internal server error"}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8000, debug=False)
+    host = os.getenv('HOST', '0.0.0.0')
+    port = int(os.getenv('PORT', '8000'))
+    debug_requested = os.getenv('FLASK_DEBUG', 'false').lower() == 'true'
+    app_env = os.getenv('APP_ENV', os.getenv('FLASK_ENV', '')).lower()
+    debug = debug_requested and app_env not in {'production', 'prod', 'staging'}
+    app.run(host=host, port=port, debug=debug)
