@@ -13,7 +13,6 @@ class TestVpsDeployConfig(unittest.TestCase):
         importlib.reload(models)
 
     def test_database_path_defaults_to_local_file(self):
-        os.environ.pop('DATABASE_PATH', None)
         importlib.reload(models)
         self.assertEqual(models.DB_PATH, Path('./jeebs.db'))
 
