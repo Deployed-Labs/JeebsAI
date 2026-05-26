@@ -69,7 +69,28 @@ sudo systemctl start jeebsai
 sudo systemctl status jeebsai
 ```
 
-## 6) Update after new commits
+## 6) Set up Caddy as reverse proxy (HTTPS)
+
+Install Caddy ([official docs](https://caddyserver.com/docs/install)):
+
+```bash
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update
+sudo apt install caddy
+```
+
+Copy the Caddyfile:
+
+```bash
+sudo cp /opt/jeebsai/deploy/Caddyfile /etc/caddy/Caddyfile
+sudo systemctl restart caddy
+```
+
+Edit `/etc/caddy/Caddyfile` to change the domain if not using `jeebs.club`.
+
+## 7) Update after new commits
 
 ```bash
 cd /opt/jeebsai
@@ -77,4 +98,11 @@ git pull origin main
 source venv/bin/activate
 pip install -r requirements.txt
 sudo systemctl restart jeebsai
+```
+
+Or use the helper script:
+
+```bash
+cd /opt/jeebsai
+bash deploy/redeploy.sh
 ```

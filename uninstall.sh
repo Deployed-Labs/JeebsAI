@@ -61,12 +61,17 @@ echo ""
 read -p "Do you want to remove the database? (y/N): " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    if [ -f "jeebs.db" ]; then
-        echo "Backing up database to jeebs.db.backup..."
-        cp jeebs.db jeebs.db.backup
+    # Respect DATABASE_PATH from .env
+    if [ -f ".env" ]; then
+        DB_PATH=$(grep "^DATABASE_PATH" .env 2>/dev/null | cut -d'=' -f2 | xargs)
+    fi
+    DB_FILE="${DB_PATH:-jeebs.db}"
+    if [ -f "$DB_FILE" ]; then
+        echo "Backing up database to ${DB_FILE}.backup..."
+        cp "$DB_FILE" "${DB_FILE}.backup"
         echo "Removing database..."
-        rm jeebs.db
-        echo "✓ Database removed (backup saved as jeebs.db.backup)"
+        rm "$DB_FILE"
+        echo "✓ Database removed (backup saved as ${DB_FILE}.backup)"
     else
         echo "✓ Database file not found"
     fi

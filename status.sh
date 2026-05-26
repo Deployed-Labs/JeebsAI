@@ -63,19 +63,24 @@ echo ""
 
 # Check for database
 echo "🗄️  Database:"
-if [ -f "jeebs.db" ]; then
-    DB_SIZE=$(du -h jeebs.db | cut -f1)
-    echo "  ✓ Database exists ($DB_SIZE)"
+# Respect DATABASE_PATH from .env
+if [ -f ".env" ]; then
+    DB_PATH=$(grep "^DATABASE_PATH" .env 2>/dev/null | cut -d'=' -f2 | xargs)
+fi
+DB_FILE="${DB_PATH:-jeebs.db}"
+if [ -f "$DB_FILE" ]; then
+    DB_SIZE=$(du -h "$DB_FILE" | cut -f1)
+    echo "  ✓ Database exists ($DB_SIZE) at $DB_FILE"
     
     # Count records if sqlite3 is available
     if command -v sqlite3 &> /dev/null; then
-        USER_COUNT=$(sqlite3 jeebs.db "SELECT COUNT(*) FROM users;" 2>/dev/null || echo "?")
-        CONV_COUNT=$(sqlite3 jeebs.db "SELECT COUNT(*) FROM conversations;" 2>/dev/null || echo "?")
-        MSG_COUNT=$(sqlite3 jeebs.db "SELECT COUNT(*) FROM messages;" 2>/dev/null || echo "?")
+        USER_COUNT=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM users;" 2>/dev/null || echo "?")
+        CONV_COUNT=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM conversations;" 2>/dev/null || echo "?")
+        MSG_COUNT=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM messages;" 2>/dev/null || echo "?")
         echo "  ✓ Users: $USER_COUNT | Conversations: $CONV_COUNT | Messages: $MSG_COUNT"
     fi
 else
-    echo "  ⚠️  Database not found"
+    echo "  ⚠️  Database not found at $DB_FILE"
     echo "     Will be created on first run"
 fi
 
@@ -151,10 +156,10 @@ fi
 
 echo ""
 
-# Admin credentials reminder
-echo "🔐 Admin Credentials:"
-echo "  Username: 1090mb"
-echo "  Password: password123?!321"
+# Login info reminder
+echo "🔐 Admin Login:"
+echo "  Credentials are set in the application code."
+echo "  See the admin who deployed this instance."
 
 echo ""
 echo "=================================================="
