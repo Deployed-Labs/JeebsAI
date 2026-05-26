@@ -8,7 +8,8 @@ from dotenv import load_dotenv
 ENV_FILE = Path(__file__).resolve().parent.parent / '.env'
 load_dotenv(dotenv_path=ENV_FILE)
 
-DB_PATH = Path(os.getenv('DATABASE_PATH', './jeebs.db')).expanduser()
+BASE_DIR = Path(__file__).resolve().parent.parent
+DB_PATH = Path(os.getenv('DATABASE_PATH', str(BASE_DIR / 'jeebs.db'))).expanduser()
 
 def get_db():
     """Get database connection"""

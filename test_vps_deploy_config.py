@@ -8,13 +8,21 @@ import app.models as models
 
 
 class TestVpsDeployConfig(unittest.TestCase):
+    def setUp(self):
+        self.original_database_path = os.environ.get('DATABASE_PATH')
+
     def tearDown(self):
-        os.environ.pop('DATABASE_PATH', None)
+        if self.original_database_path is None:
+            os.environ.pop('DATABASE_PATH', None)
+        else:
+            os.environ['DATABASE_PATH'] = self.original_database_path
         importlib.reload(models)
 
     def test_database_path_defaults_to_local_file(self):
+        os.environ.pop('DATABASE_PATH', None)
         importlib.reload(models)
-        self.assertEqual(models.DB_PATH, Path('./jeebs.db'))
+        expected = models.BASE_DIR / 'jeebs.db'
+        self.assertEqual(models.DB_PATH, expected)
 
     def test_database_path_reads_env_var(self):
         os.environ['DATABASE_PATH'] = '/tmp/jeebs-test.db'

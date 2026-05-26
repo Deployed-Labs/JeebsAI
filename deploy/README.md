@@ -47,7 +47,7 @@ After=network.target
 
 [Service]
 Type=simple
-User=<replace-with-your-vps-username>
+User=<replace-with-your-vps-username-e.g.-ubuntu>
 WorkingDirectory=/opt/jeebsai
 EnvironmentFile=/opt/jeebsai/.env
 ExecStart=/opt/jeebsai/venv/bin/gunicorn -w 4 -b 0.0.0.0:8000 app.app:app
@@ -75,6 +75,4 @@ git pull origin main
 source venv/bin/activate
 pip install -r requirements.txt
 sudo systemctl restart jeebsai
-# Optional quick check script in this repo root:
-./status.sh
 ```
