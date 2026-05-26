@@ -583,8 +583,9 @@
 
         async function loadTools() {
             try {
+                const token = localStorage.getItem('token');
                 const response = await fetch(`${API_BASE}/tools/available`, {
-                    headers: { 'Authorization': `******'token')}` }
+                    headers: { 'Authorization': 'Bearer ' + token }
                 });
                 const data = await response.json();
                 
@@ -854,11 +855,12 @@ ${JSON.stringify(result, null, 2)}
                 const formData = new FormData(document.getElementById('toolForm'));
                 const params = Object.fromEntries(formData);
 
+                const execToken = localStorage.getItem('token');
                 const response = await fetch(`${API_BASE}/tools/execute`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `******'token')}`
+                        'Authorization': 'Bearer ' + execToken
                     },
                     body: JSON.stringify({
                         tool_name: currentTool.id,
