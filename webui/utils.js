@@ -209,7 +209,7 @@ const ConversationSearch = {
     searchMessages: async function(conversationId, searchTerm) {
         try {
             const response = await fetch(
-                `/api/chat/${conversationId}/search?q=${encodeURIComponent(searchTerm)}`,
+                `/api/chat/conversations/${conversationId}/search?q=${encodeURIComponent(searchTerm)}`,
                 {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
                 }

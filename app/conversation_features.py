@@ -19,7 +19,7 @@ class ConversationManager:
             if not conversation:
                 return None
             
-            messages = Message.get_conversation_messages(conv_id)
+            messages = Message.get_all_messages(conv_id)
             
             # Build tree structure
             tree = {
@@ -32,7 +32,7 @@ class ConversationManager:
                         'role': m['role'],
                         'content': m['content'],
                         'created_at': m['created_at'],
-                        'metadata': json.loads(m.get('metadata', '{}'))
+                        'metadata': json.loads(m.get('metadata', '{}') or '{}')
                     }
                     for m in messages
                 ]
@@ -51,7 +51,7 @@ class ConversationManager:
                 return {'error': 'Conversation not found'}
             
             # Get messages up to the branch point
-            messages = Message.get_conversation_messages(conv_id)
+            messages = Message.get_all_messages(conv_id)
             branch_messages = [m for m in messages if int(m['id']) <= int(from_message_id)]
             
             if not branch_messages:
@@ -90,8 +90,8 @@ class ConversationManager:
             
             # Update message
             db.execute(
-                'UPDATE messages SET content = ?, updated_at = ? WHERE id = ?',
-                (new_content, datetime.now().isoformat(), message_id)
+                'UPDATE messages SET content = ? WHERE id = ?',
+                (new_content, message_id)
             )
             db.commit()
             
@@ -108,7 +108,7 @@ class ConversationManager:
         """Delete a message and all subsequent messages"""
         try:
             db = get_db()
-            messages = Message.get_conversation_messages(conv_id)
+            messages = Message.get_all_messages(conv_id)
             
             # Find message index
             msg_index = None
@@ -156,8 +156,8 @@ class ConversationManager:
             merged_id = Conversation.create(conv1['user_id'], title)
             
             # Copy all messages from both conversations
-            messages1 = Message.get_conversation_messages(conv_id_1)
-            messages2 = Message.get_conversation_messages(conv_id_2)
+            messages1 = Message.get_all_messages(conv_id_1)
+            messages2 = Message.get_all_messages(conv_id_2)
             
             for msg in messages1:
                 Message.create(merged_id, msg['role'], msg['content'])
@@ -187,7 +187,7 @@ class ConversationAnalytics:
             if not conversation:
                 return {'error': 'Conversation not found'}
             
-            messages = Message.get_conversation_messages(conv_id)
+            messages = Message.get_all_messages(conv_id)
             
             user_msgs = [m for m in messages if m['role'] == 'user']
             ai_msgs = [m for m in messages if m['role'] == 'assistant']
@@ -241,7 +241,7 @@ class ConversationAnalytics:
             active_conversations = 0
             
             for conv in conversations:
-                messages = Message.get_conversation_messages(conv['id'])
+                messages = Message.get_all_messages(conv['id'])
                 if messages:
                     total_msgs += len(messages)
                     total_chars += sum(len(m['content']) for m in messages)
@@ -271,7 +271,7 @@ class ConversationAnalytics:
             
             results = []
             for conv in conversations:
-                messages = Message.get_conversation_messages(conv['id'])
+                messages = Message.get_all_messages(conv['id'])
                 matching_msgs = [
                     m for m in messages 
                     if query.lower() in m['content'].lower()
@@ -306,7 +306,7 @@ class ConversationAnalytics:
             stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'i', 'you', 'he', 'she', 'it', 'we', 'they'}
             
             for conv in conversations:
-                messages = Message.get_conversation_messages(conv['id'])
+                messages = Message.get_all_messages(conv['id'])
                 for msg in messages:
                     words = msg['content'].lower().split()
                     for word in words:
@@ -371,6 +371,18 @@ class CustomPrompts:
         """Get all custom prompts for a user"""
         try:
             db = get_db()
+            # Ensure user_prompts table exists
+            db.execute('''
+                CREATE TABLE IF NOT EXISTS user_prompts (
+                    id INTEGER PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    name TEXT,
+                    system_prompt TEXT NOT NULL,
+                    created_at TEXT,
+                    updated_at TEXT,
+                    FOREIGN KEY (user_id) REFERENCES users(id)
+                )
+            ''')
             prompts = db.execute(
                 'SELECT id, name, system_prompt, created_at FROM user_prompts WHERE user_id = ? ORDER BY created_at DESC',
                 (user_id,)

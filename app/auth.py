@@ -13,7 +13,8 @@ logger = logging.getLogger(__name__)
 # SECRET_KEY must be set in environment for production
 SECRET_KEY = os.getenv('SECRET_KEY')
 if not SECRET_KEY:
-    if os.getenv('FLASK_ENV') == 'production':
+    app_env = os.getenv('APP_ENV', os.getenv('FLASK_ENV', '')).lower()
+    if app_env in ('production', 'prod'):
         raise ValueError('ERROR: SECRET_KEY environment variable must be set in production')
     SECRET_KEY = 'dev-key-only-for-testing'
     logger.warning('Using development SECRET_KEY. Set SECRET_KEY environment variable for production!')

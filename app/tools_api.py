@@ -51,7 +51,7 @@ def calculator(user):
     expression = data.get('expression')
     operation = data.get('operation')
     
-    result = execute_tool('calculator', expression=expression, operation=operation, **data)
+    result = execute_tool('calculator', expression=expression, operation=operation)
     return jsonify(result), 200
 
 

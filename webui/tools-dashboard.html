@@ -583,10 +583,12 @@
 
         async function loadTools() {
             try {
-                const response = await fetch(`${API_BASE}/tools/available`);
-                const tools = await response.json();
+                const response = await fetch(`${API_BASE}/tools/available`, {
+                    headers: { 'Authorization': `******'token')}` }
+                });
+                const data = await response.json();
                 
-                allTools = Object.values(tools).map((tool, idx) => ({
+                allTools = (data.tools || []).map((tool, idx) => ({
                     ...tool,
                     id: tool.name,
                     icon: TOOL_ICONS[tool.name] || '🔧'
@@ -854,9 +856,12 @@ ${JSON.stringify(result, null, 2)}
 
                 const response = await fetch(`${API_BASE}/tools/execute`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `******'token')}`
+                    },
                     body: JSON.stringify({
-                        tool: currentTool.id,
+                        tool_name: currentTool.id,
                         params: params
                     })
                 });
